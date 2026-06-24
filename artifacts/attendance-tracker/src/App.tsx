@@ -11,6 +11,7 @@ import StudentDetail from "@/pages/student-detail";
 import Courses from "@/pages/courses";
 import CourseDetail from "@/pages/course-detail";
 import RegisterDetail from "@/pages/register-detail";
+import ExamDetail from "@/pages/exam-detail";
 import Attendance from "@/pages/attendance";
 import Targets from "@/pages/targets";
 import Ilps from "@/pages/ilps";
@@ -27,6 +28,7 @@ function Router() {
         <Route path="/courses" component={Courses} />
         <Route path="/courses/:id" component={CourseDetail} />
         <Route path="/registers/:id" component={RegisterDetail} />
+        <Route path="/exams/:id" component={ExamDetail} />
         <Route path="/attendance" component={Attendance} />
         <Route path="/targets" component={Targets} />
         <Route path="/ilps" component={Ilps} />
