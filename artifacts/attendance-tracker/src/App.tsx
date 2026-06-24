@@ -9,6 +9,7 @@ import Home from "@/pages/home";
 import Students from "@/pages/students";
 import StudentDetail from "@/pages/student-detail";
 import Courses from "@/pages/courses";
+import CourseDetail from "@/pages/course-detail";
 import Attendance from "@/pages/attendance";
 import Targets from "@/pages/targets";
 import Ilps from "@/pages/ilps";
@@ -23,6 +24,7 @@ function Router() {
         <Route path="/students" component={Students} />
         <Route path="/students/:id" component={StudentDetail} />
         <Route path="/courses" component={Courses} />
+        <Route path="/courses/:id" component={CourseDetail} />
         <Route path="/attendance" component={Attendance} />
         <Route path="/targets" component={Targets} />
         <Route path="/ilps" component={Ilps} />
