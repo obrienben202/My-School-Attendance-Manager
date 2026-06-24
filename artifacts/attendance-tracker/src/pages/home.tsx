@@ -1,9 +1,11 @@
-import { useGetDashboardSummary, useGetTodaySchedule, useListTargets, useListCourses } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useGetDashboardSummary, useGetTodaySchedule, useListTargets, useListCourses, useListStudents } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Calendar, Target, BookOpen, AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Calendar, BookOpen, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
@@ -22,10 +24,32 @@ function StatsCard({ title, value, unit = "", colorClass = "bg-white text-slate-
 }
 
 export default function Home() {
-  const { data: summary, isLoading: isSummaryLoading } = useGetDashboardSummary();
+  const { data: summary } = useGetDashboardSummary();
   const { data: schedule, isLoading: isScheduleLoading } = useGetTodaySchedule();
   const { data: targets, isLoading: isTargetsLoading } = useListTargets({ overdue: true });
   const { data: courses, isLoading: isCoursesLoading } = useListCourses();
+
+  const [personCode, setPersonCode] = useState("");
+  const [personCodeOp, setPersonCodeOp] = useState("=");
+  const [forename, setForename] = useState("");
+  const [surname, setSurname] = useState("");
+  const [postCode, setPostCode] = useState("");
+  const [middleNames, setMiddleNames] = useState("");
+  const [title, setTitle] = useState("");
+  const [gender, setGender] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [confirmedLearners, setConfirmedLearners] = useState("");
+  const [orgContacts, setOrgContacts] = useState("");
+  const [searchEnabled, setSearchEnabled] = useState(false);
+
+  const { data: searchResults, isLoading: isSearchLoading } = useListStudents(
+    { personCode, forename, surname, gender },
+    { query: { enabled: searchEnabled } }
+  );
+
+  function handleSearch() {
+    setSearchEnabled(true);
+  }
 
   return (
     <>
@@ -80,25 +104,183 @@ export default function Home() {
           </CardHeader>
           <CardContent className="p-6">
             <TabsContent value="learner" className="mt-0 outline-none">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 uppercase">First Name</label>
-                  <Input placeholder="Enter first name" />
+              <div className="space-y-3">
+                {/* Row 1: Person Code | Forename | Surname */}
+                <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Person Code</label>
+                    <div className="flex gap-1">
+                      <Select value={personCodeOp} onValueChange={setPersonCodeOp}>
+                        <SelectTrigger className="w-16 shrink-0 text-xs px-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="=">=</SelectItem>
+                          <SelectItem value="!=">≠</SelectItem>
+                          <SelectItem value="contains">~</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input value={personCode} onChange={e => { setPersonCode(e.target.value); setSearchEnabled(false); }} className="flex-1" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Forename</label>
+                    <Input value={forename} onChange={e => { setForename(e.target.value); setSearchEnabled(false); }} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Surname</label>
+                    <Input value={surname} onChange={e => { setSurname(e.target.value); setSearchEnabled(false); }} />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 uppercase">Last Name</label>
-                  <Input placeholder="Enter last name" />
+
+                {/* Row 2: Post Code | Middle Names | Title */}
+                <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Post Code</label>
+                    <Input value={postCode} onChange={e => setPostCode(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Middle Names</label>
+                    <Input value={middleNames} onChange={e => setMiddleNames(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Title</label>
+                    <Select value={title} onValueChange={setTitle}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Mr">Mr</SelectItem>
+                        <SelectItem value="Mrs">Mrs</SelectItem>
+                        <SelectItem value="Miss">Miss</SelectItem>
+                        <SelectItem value="Ms">Ms</SelectItem>
+                        <SelectItem value="Dr">Dr</SelectItem>
+                        <SelectItem value="Prof">Prof</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 uppercase">ID / Person Code</label>
-                  <Input placeholder="e.g. 12345" />
+
+                {/* Row 3: Gender | Date of Birth | Confirmed Learners */}
+                <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Gender</label>
+                    <Select value={gender} onValueChange={v => { setGender(v); setSearchEnabled(false); }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                        <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Date of Birth</label>
+                    <div className="flex gap-1">
+                      <Select defaultValue="=">
+                        <SelectTrigger className="w-16 shrink-0 text-xs px-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="=">=</SelectItem>
+                          <SelectItem value="before">{"<"}</SelectItem>
+                          <SelectItem value="after">{">"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="date"
+                        value={dateOfBirth}
+                        onChange={e => setDateOfBirth(e.target.value)}
+                        className="flex-1"
+                        placeholder="dd/mm/yyyy"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Confirmed Learners</label>
+                    <Select value={confirmedLearners} onValueChange={setConfirmedLearners}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Button className="w-full gap-2">
-                  <Search className="w-4 h-4" /> Search Learners
-                </Button>
+
+                {/* Row 4: Organisation Contacts | (empty) | Search button */}
+                <div className="grid grid-cols-3 gap-x-6 gap-y-3 items-end">
+                  <div className="space-y-1">
+                    <label className="text-sm text-slate-700">Organisation Contacts</label>
+                    <Select value={orgContacts} onValueChange={setOrgContacts}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="primary">Primary Contact</SelectItem>
+                        <SelectItem value="emergency">Emergency Contact</SelectItem>
+                        <SelectItem value="guardian">Guardian</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div />
+                  <div className="flex justify-end">
+                    <Button onClick={handleSearch} disabled={isSearchLoading} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-8">
+                      <Search className="w-4 h-4" /> Search
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Search Results */}
+                {searchEnabled && searchResults !== undefined && (
+                  <div className="mt-2 border-t pt-4">
+                    {isSearchLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    ) : searchResults.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No learners found matching your search.</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-xs font-semibold text-slate-500 uppercase">
+                            <th className="pb-2 pr-4">Person Code</th>
+                            <th className="pb-2 pr-4">Name</th>
+                            <th className="pb-2 pr-4">Year Group</th>
+                            <th className="pb-2 pr-4">Attendance</th>
+                            <th className="pb-2">At Risk</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {searchResults.map(s => (
+                            <tr key={s.id} className="hover:bg-slate-50">
+                              <td className="py-2 pr-4 font-mono text-xs text-slate-500">{s.personCode}</td>
+                              <td className="py-2 pr-4 font-medium">{s.forename} {s.surname}</td>
+                              <td className="py-2 pr-4 text-slate-600">{s.yearGroup ?? "—"}</td>
+                              <td className="py-2 pr-4">
+                                <span className={s.attendancePercent < 90 ? "text-red-600 font-semibold" : "text-emerald-600 font-semibold"}>
+                                  {s.attendancePercent}%
+                                </span>
+                              </td>
+                              <td className="py-2">
+                                {s.atRisk ? <Badge variant="destructive" className="text-xs">At Risk</Badge> : <span className="text-slate-400">—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
               </div>
             </TabsContent>
-            {/* Other tab contents would go here, kept simple for brevity */}
             {['course', 'register', 'exam', 'room', 'staff'].map(tab => (
               <TabsContent key={tab} value={tab} className="mt-0 outline-none text-sm text-muted-foreground py-4">
                 Search interface for {tab}s...
