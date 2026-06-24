@@ -1,13 +1,112 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useGetDashboardSummary, useGetTodaySchedule, useListTargets, useListCourses, useListStudents } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Calendar, BookOpen, AlertTriangle } from "lucide-react";
+import { Search, Calendar, BookOpen, AlertTriangle, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+
+type StudentRow = {
+  id: number;
+  forename: string;
+  surname: string;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  postCode?: string | null;
+  atRisk: boolean;
+};
+
+function LearnerSearchResults({ results }: { results: StudentRow[] }) {
+  const [, navigate] = useLocation();
+  const [filter, setFilter] = useState("");
+
+  const filtered = filter
+    ? results.filter(s =>
+        `${s.surname} ${s.forename}`.toLowerCase().includes(filter.toLowerCase())
+      )
+    : results;
+
+  return (
+    <div className="border border-slate-300 rounded overflow-hidden text-sm">
+      {/* Dark header */}
+      <div className="bg-slate-700 text-white px-4 py-2 font-semibold text-sm">
+        Learner Search Results
+      </div>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200">
+        <span className="text-xs text-slate-500">
+          Showing {filtered.length} of {results.length} {results.length === 1 ? "entry" : "entries"} (max 100)
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Filter:</span>
+          <Input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            className="h-6 w-32 text-xs px-2 py-0"
+            placeholder=""
+          />
+        </div>
+      </div>
+      {/* Table */}
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50">
+            {["Learner", "Date of Birth", "Gender", "Address"].map(col => (
+              <th key={col} className="text-left text-xs font-semibold text-slate-600 px-3 py-2">
+                <span className="flex items-center gap-1 cursor-pointer select-none hover:text-slate-900">
+                  {col} <ChevronsUpDown className="w-3 h-3 opacity-50" />
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {filtered.length === 0 ? (
+            <tr>
+              <td colSpan={4} className="px-3 py-6 text-center text-slate-400 text-sm">
+                No learners found.
+              </td>
+            </tr>
+          ) : (
+            filtered.map(s => (
+              <tr
+                key={s.id}
+                className="hover:bg-blue-50 cursor-pointer"
+                onClick={() => navigate(`/students/${s.id}`)}
+              >
+                <td className="px-3 py-2">
+                  <span className="flex items-center gap-1.5">
+                    <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span className="text-sky-700 font-medium hover:underline">
+                      {s.surname}, {s.forename}
+                    </span>
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-slate-700">{s.dateOfBirth ?? ""}</td>
+                <td className="px-3 py-2 text-slate-700">{s.gender ?? ""}</td>
+                <td className="px-3 py-2 text-slate-700">{s.postCode ?? ""}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+      {/* Footer pagination */}
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
+        <span className="text-xs text-slate-500">
+          Showing 1 to {filtered.length} of {filtered.length} entries (max 100)
+        </span>
+        <div className="flex gap-1">
+          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>‹</button>
+          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>›</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatsCard({ title, value, unit = "", colorClass = "bg-white text-slate-800 border-slate-200" }: { title: string, value?: string | number, unit?: string, colorClass?: string }) {
   return (
@@ -247,44 +346,19 @@ export default function Home() {
                 </div>
 
                 {/* Search Results */}
-                {searchEnabled && searchResults !== undefined && (
-                  <div className="mt-3 border-t pt-3">
+                {searchEnabled && (
+                  <div className="mt-4">
                     {isSearchLoading ? (
-                      <div className="space-y-2">
-                        <Skeleton className="h-9 w-full" />
-                        <Skeleton className="h-9 w-full" />
+                      <div className="space-y-2 border rounded">
+                        <div className="h-9 bg-slate-700 rounded-t" />
+                        <div className="p-3 space-y-2">
+                          <Skeleton className="h-8 w-full" />
+                          <Skeleton className="h-8 w-full" />
+                          <Skeleton className="h-8 w-full" />
+                        </div>
                       </div>
-                    ) : searchResults.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">No learners found matching your search.</p>
                     ) : (
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b text-left text-xs font-semibold text-slate-500 uppercase">
-                            <th className="pb-2 pr-4">Person Code</th>
-                            <th className="pb-2 pr-4">Name</th>
-                            <th className="pb-2 pr-4">Year Group</th>
-                            <th className="pb-2 pr-4">Attendance</th>
-                            <th className="pb-2">At Risk</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {searchResults.map(s => (
-                            <tr key={s.id} className="hover:bg-slate-50">
-                              <td className="py-2 pr-4 font-mono text-xs text-slate-500">{s.personCode}</td>
-                              <td className="py-2 pr-4 font-medium">{s.forename} {s.surname}</td>
-                              <td className="py-2 pr-4 text-slate-600">{s.yearGroup ?? "—"}</td>
-                              <td className="py-2 pr-4">
-                                <span className={s.attendancePercent < 90 ? "text-red-600 font-semibold" : "text-emerald-600 font-semibold"}>
-                                  {s.attendancePercent}%
-                                </span>
-                              </td>
-                              <td className="py-2">
-                                {s.atRisk ? <Badge variant="destructive" className="text-xs">At Risk</Badge> : <span className="text-slate-400">—</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <LearnerSearchResults results={searchResults ?? []} />
                     )}
                   </div>
                 )}
