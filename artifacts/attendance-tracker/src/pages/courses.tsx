@@ -1,4 +1,5 @@
 import { useListCourses } from "@workspace/api-client-react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { BookOpen, Users } from "lucide-react";
 
 export default function Courses() {
   const { data: courses, isLoading } = useListCourses();
+  const [, navigate] = useLocation();
 
   return (
     <div className="space-y-6">
@@ -48,8 +50,8 @@ export default function Courses() {
                 ))
               ) : courses?.length ? (
                 courses.map((course) => (
-                  <TableRow key={course.id} className="hover:bg-slate-50 transition-colors">
-                    <TableCell className="font-mono text-xs font-semibold">{course.code}</TableCell>
+                  <TableRow key={course.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => navigate(`/courses/${course.id}`)}>
+                    <TableCell className="font-mono text-xs font-semibold text-sky-700 hover:underline">{course.code}</TableCell>
                     <TableCell className="font-medium">{course.name}</TableCell>
                     <TableCell>{course.staffName || "Unassigned"}</TableCell>
                     <TableCell>{course.room || "TBA"}</TableCell>
