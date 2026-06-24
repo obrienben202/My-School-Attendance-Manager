@@ -3,13 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: High School Attendance Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: students
+    description: Student operations
+  - name: courses
+    description: Course operations
+  - name: attendance
+    description: Attendance register operations
+  - name: targets
+    description: SMART target operations
+  - name: ilps
+    description: Individual Learning Plans
+  - name: schedule
+    description: Schedule operations
+  - name: dashboard
+    description: Dashboard summary operations
+
 paths:
   /healthz:
     get:
@@ -24,6 +39,409 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /students:
+    get:
+      operationId: listStudents
+      tags: [students]
+      summary: List students with optional search filters
+      parameters:
+        - name: personCode
+          in: query
+          schema:
+            type: string
+        - name: forename
+          in: query
+          schema:
+            type: string
+        - name: surname
+          in: query
+          schema:
+            type: string
+        - name: gender
+          in: query
+          schema:
+            type: string
+        - name: yearGroup
+          in: query
+          schema:
+            type: string
+        - name: atRisk
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+    post:
+      operationId: createStudent
+      tags: [students]
+      summary: Create a new student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+
+  /students/{id}:
+    get:
+      operationId: getStudent
+      tags: [students]
+      summary: Get a student by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateStudent
+      tags: [students]
+      summary: Update a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+    delete:
+      operationId: deleteStudent
+      tags: [students]
+      summary: Delete a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /students/at-risk:
+    get:
+      operationId: listAtRiskStudents
+      tags: [students]
+      summary: List students flagged as at risk
+      responses:
+        "200":
+          description: At risk students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+
+  /courses:
+    get:
+      operationId: listCourses
+      tags: [courses]
+      summary: List all courses
+      responses:
+        "200":
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+    post:
+      operationId: createCourse
+      tags: [courses]
+      summary: Create a course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourseInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+
+  /courses/{id}:
+    get:
+      operationId: getCourse
+      tags: [courses]
+      summary: Get a course by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Course
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        "404":
+          description: Not found
+
+  /attendance:
+    get:
+      operationId: listAttendanceRecords
+      tags: [attendance]
+      summary: List attendance records
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+        - name: courseId
+          in: query
+          schema:
+            type: integer
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [present, absent, late, authorised]
+      responses:
+        "200":
+          description: Attendance records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRecord"
+    post:
+      operationId: createAttendanceRecord
+      tags: [attendance]
+      summary: Mark attendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+
+  /attendance/{id}:
+    patch:
+      operationId: updateAttendanceRecord
+      tags: [attendance]
+      summary: Update an attendance record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+
+  /targets:
+    get:
+      operationId: listTargets
+      tags: [targets]
+      summary: List SMART targets
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+        - name: overdue
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Targets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Target"
+    post:
+      operationId: createTarget
+      tags: [targets]
+      summary: Create a SMART target
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TargetInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+
+  /targets/{id}:
+    patch:
+      operationId: updateTarget
+      tags: [targets]
+      summary: Update a SMART target
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TargetUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+    delete:
+      operationId: deleteTarget
+      tags: [targets]
+      summary: Delete a target
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /ilps:
+    get:
+      operationId: listIlps
+      tags: [ilps]
+      summary: List Individual Learning Plans
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: ILPs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ilp"
+    post:
+      operationId: createIlp
+      tags: [ilps]
+      summary: Create an ILP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IlpInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ilp"
+
+  /schedule/today:
+    get:
+      operationId: getTodaySchedule
+      tags: [schedule]
+      summary: Get today's schedule/registers
+      responses:
+        "200":
+          description: Today's schedule
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduleEntry"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +452,362 @@ components:
       required:
         - status
 
+    DashboardSummary:
+      type: object
+      properties:
+        attendancePercent:
+          type: number
+        punctualityPercent:
+          type: number
+        registersCount:
+          type: integer
+        atRiskCount:
+          type: integer
+        smartTargetsCount:
+          type: integer
+        ilpsCount:
+          type: integer
+      required:
+        - attendancePercent
+        - punctualityPercent
+        - registersCount
+        - atRiskCount
+        - smartTargetsCount
+        - ilpsCount
+
+    Student:
+      type: object
+      properties:
+        id:
+          type: integer
+        personCode:
+          type: string
+        forename:
+          type: string
+        surname:
+          type: string
+        middleNames:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+        dateOfBirth:
+          type: ["string", "null"]
+          format: date
+        postCode:
+          type: ["string", "null"]
+        yearGroup:
+          type: ["string", "null"]
+        attendancePercent:
+          type: number
+        punctualityPercent:
+          type: number
+        atRisk:
+          type: boolean
+        confirmedLearner:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - personCode
+        - forename
+        - surname
+        - attendancePercent
+        - punctualityPercent
+        - atRisk
+        - confirmedLearner
+        - createdAt
+
+    StudentInput:
+      type: object
+      properties:
+        personCode:
+          type: string
+        forename:
+          type: string
+        surname:
+          type: string
+        middleNames:
+          type: string
+        title:
+          type: string
+        gender:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        postCode:
+          type: string
+        yearGroup:
+          type: string
+        atRisk:
+          type: boolean
+        confirmedLearner:
+          type: boolean
+      required:
+        - personCode
+        - forename
+        - surname
+
+    StudentUpdate:
+      type: object
+      properties:
+        forename:
+          type: string
+        surname:
+          type: string
+        middleNames:
+          type: string
+        title:
+          type: string
+        gender:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        postCode:
+          type: string
+        yearGroup:
+          type: string
+        atRisk:
+          type: boolean
+        confirmedLearner:
+          type: boolean
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        room:
+          type: ["string", "null"]
+        staffName:
+          type: ["string", "null"]
+        yearGroup:
+          type: ["string", "null"]
+        enrolledCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - code
+        - name
+        - enrolledCount
+        - createdAt
+
+    CourseInput:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        room:
+          type: string
+        staffName:
+          type: string
+        yearGroup:
+          type: string
+      required:
+        - code
+        - name
+
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        courseId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [present, absent, late, authorised]
+        notes:
+          type: ["string", "null"]
+        studentName:
+          type: ["string", "null"]
+        courseName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - studentId
+        - courseId
+        - date
+        - status
+        - createdAt
+
+    AttendanceInput:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        courseId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [present, absent, late, authorised]
+        notes:
+          type: string
+      required:
+        - studentId
+        - courseId
+        - date
+        - status
+
+    AttendanceUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [present, absent, late, authorised]
+        notes:
+          type: string
+
+    Target:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+        completed:
+          type: boolean
+        overdue:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - studentId
+        - title
+        - completed
+        - overdue
+        - createdAt
+
+    TargetInput:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+      required:
+        - studentId
+        - title
+
+    TargetUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        completed:
+          type: boolean
+
+    Ilp:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        title:
+          type: string
+        content:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, active, completed]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - studentId
+        - title
+        - status
+        - createdAt
+
+    IlpInput:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed]
+      required:
+        - studentId
+        - title
+
+    ScheduleEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        courseCode:
+          type: string
+        courseName:
+          type: string
+        room:
+          type: ["string", "null"]
+        staffName:
+          type: ["string", "null"]
+        registerMarked:
+          type: boolean
+      required:
+        - id
+        - startTime
+        - endTime
+        - courseCode
+        - courseName
+        - registerMarked
