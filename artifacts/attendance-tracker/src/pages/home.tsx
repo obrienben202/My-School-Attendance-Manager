@@ -104,146 +104,155 @@ export default function Home() {
           </CardHeader>
           <CardContent className="p-6">
             <TabsContent value="learner" className="mt-0 outline-none">
-              <div className="space-y-3">
-                {/* Row 1: Person Code | Forename | Surname */}
-                <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Person Code</label>
-                    <div className="flex gap-1">
-                      <Select value={personCodeOp} onValueChange={setPersonCodeOp}>
-                        <SelectTrigger className="w-16 shrink-0 text-xs px-2">
-                          <SelectValue />
+              <div className="space-y-0">
+                {/* 2-column label+field layout matching reference */}
+                <div className="grid grid-cols-2 gap-x-8">
+                  {/* LEFT COLUMN */}
+                  <div className="space-y-2">
+                    {/* Person Code */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Person Code</span>
+                      <div className="flex flex-1 gap-1">
+                        <Select value={personCodeOp} onValueChange={setPersonCodeOp}>
+                          <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="=">=</SelectItem>
+                            <SelectItem value="!=">≠</SelectItem>
+                            <SelectItem value="contains">~</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={personCode}
+                          onChange={e => { setPersonCode(e.target.value); setSearchEnabled(false); }}
+                          className="flex-1 h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                    {/* Surname */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Surname</span>
+                      <Input value={surname} onChange={e => { setSurname(e.target.value); setSearchEnabled(false); }} className="flex-1 h-8 text-sm" />
+                    </div>
+                    {/* Middle Names */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Middle Names</span>
+                      <Input value={middleNames} onChange={e => setMiddleNames(e.target.value)} className="flex-1 h-8 text-sm" />
+                    </div>
+                    {/* Gender */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Gender</span>
+                      <Select value={gender} onValueChange={v => { setGender(v); setSearchEnabled(false); }}>
+                        <SelectTrigger className="flex-1 h-8 text-sm">
+                          <SelectValue placeholder="" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="=">=</SelectItem>
-                          <SelectItem value="!=">≠</SelectItem>
-                          <SelectItem value="contains">~</SelectItem>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                          <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input value={personCode} onChange={e => { setPersonCode(e.target.value); setSearchEnabled(false); }} className="flex-1" />
                     </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Forename</label>
-                    <Input value={forename} onChange={e => { setForename(e.target.value); setSearchEnabled(false); }} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Surname</label>
-                    <Input value={surname} onChange={e => { setSurname(e.target.value); setSearchEnabled(false); }} />
-                  </div>
-                </div>
-
-                {/* Row 2: Post Code | Middle Names | Title */}
-                <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Post Code</label>
-                    <Input value={postCode} onChange={e => setPostCode(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Middle Names</label>
-                    <Input value={middleNames} onChange={e => setMiddleNames(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Title</label>
-                    <Select value={title} onValueChange={setTitle}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Mr">Mr</SelectItem>
-                        <SelectItem value="Mrs">Mrs</SelectItem>
-                        <SelectItem value="Miss">Miss</SelectItem>
-                        <SelectItem value="Ms">Ms</SelectItem>
-                        <SelectItem value="Dr">Dr</SelectItem>
-                        <SelectItem value="Prof">Prof</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Row 3: Gender | Date of Birth | Confirmed Learners */}
-                <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Gender</label>
-                    <Select value={gender} onValueChange={v => { setGender(v); setSearchEnabled(false); }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Male">Male</SelectItem>
-                        <SelectItem value="Female">Female</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                        <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Date of Birth</label>
-                    <div className="flex gap-1">
-                      <Select defaultValue="=">
-                        <SelectTrigger className="w-16 shrink-0 text-xs px-2">
-                          <SelectValue />
+                    {/* Confirmed Learners */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Confirmed Learners</span>
+                      <Select value={confirmedLearners} onValueChange={setConfirmedLearners}>
+                        <SelectTrigger className="flex-1 h-8 text-sm">
+                          <SelectValue placeholder="" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="=">=</SelectItem>
-                          <SelectItem value="before">{"<"}</SelectItem>
-                          <SelectItem value="after">{">"}</SelectItem>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input
-                        type="date"
-                        value={dateOfBirth}
-                        onChange={e => setDateOfBirth(e.target.value)}
-                        className="flex-1"
-                        placeholder="dd/mm/yyyy"
-                      />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Confirmed Learners</label>
-                    <Select value={confirmedLearners} onValueChange={setConfirmedLearners}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="no">No</SelectItem>
-                      </SelectContent>
-                    </Select>
+
+                  {/* RIGHT COLUMN */}
+                  <div className="space-y-2">
+                    {/* Forename */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Forename</span>
+                      <Input value={forename} onChange={e => { setForename(e.target.value); setSearchEnabled(false); }} className="flex-1 h-8 text-sm" />
+                    </div>
+                    {/* Post Code */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Post Code</span>
+                      <Input value={postCode} onChange={e => setPostCode(e.target.value)} className="flex-1 h-8 text-sm" />
+                    </div>
+                    {/* Title */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Title</span>
+                      <Select value={title} onValueChange={setTitle}>
+                        <SelectTrigger className="flex-1 h-8 text-sm">
+                          <SelectValue placeholder="" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Mr">Mr</SelectItem>
+                          <SelectItem value="Mrs">Mrs</SelectItem>
+                          <SelectItem value="Miss">Miss</SelectItem>
+                          <SelectItem value="Ms">Ms</SelectItem>
+                          <SelectItem value="Dr">Dr</SelectItem>
+                          <SelectItem value="Prof">Prof</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {/* Date of Birth */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Date of Birth</span>
+                      <div className="flex flex-1 gap-1">
+                        <Select defaultValue="=">
+                          <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="=">=</SelectItem>
+                            <SelectItem value="before">{"<"}</SelectItem>
+                            <SelectItem value="after">{">"}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="date"
+                          value={dateOfBirth}
+                          onChange={e => setDateOfBirth(e.target.value)}
+                          className="flex-1 h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                    {/* Organisation Contacts */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-36 shrink-0 text-sm text-slate-700">Organisation Contacts</span>
+                      <Select value={orgContacts} onValueChange={setOrgContacts}>
+                        <SelectTrigger className="flex-1 h-8 text-sm">
+                          <SelectValue placeholder="" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="primary">Primary Contact</SelectItem>
+                          <SelectItem value="emergency">Emergency Contact</SelectItem>
+                          <SelectItem value="guardian">Guardian</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
-                {/* Row 4: Organisation Contacts | (empty) | Search button */}
-                <div className="grid grid-cols-3 gap-x-6 gap-y-3 items-end">
-                  <div className="space-y-1">
-                    <label className="text-sm text-slate-700">Organisation Contacts</label>
-                    <Select value={orgContacts} onValueChange={setOrgContacts}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="primary">Primary Contact</SelectItem>
-                        <SelectItem value="emergency">Emergency Contact</SelectItem>
-                        <SelectItem value="guardian">Guardian</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div />
-                  <div className="flex justify-end">
-                    <Button onClick={handleSearch} disabled={isSearchLoading} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-8">
-                      <Search className="w-4 h-4" /> Search
-                    </Button>
-                  </div>
+                {/* Search button — bottom right */}
+                <div className="flex justify-end pt-3">
+                  <Button onClick={handleSearch} disabled={isSearchLoading} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+                    <Search className="w-3.5 h-3.5" /> Search
+                  </Button>
                 </div>
 
                 {/* Search Results */}
                 {searchEnabled && searchResults !== undefined && (
-                  <div className="mt-2 border-t pt-4">
+                  <div className="mt-3 border-t pt-3">
                     {isSearchLoading ? (
                       <div className="space-y-2">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-9 w-full" />
+                        <Skeleton className="h-9 w-full" />
                       </div>
                     ) : searchResults.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">No learners found matching your search.</p>
