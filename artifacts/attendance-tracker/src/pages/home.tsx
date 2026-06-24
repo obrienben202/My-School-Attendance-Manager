@@ -484,6 +484,235 @@ function RegisterSearchTab() {
   );
 }
 
+const EXAM_NAMES_LIST = [
+  "Functional Skills English Level 1 - Reading",
+  "Functional Skills English Level 1 - Writing",
+  "Functional Skills English Level 2 - Reading",
+  "Functional Skills Maths Level 1",
+  "Functional Skills Maths Level 2",
+  "BTEC Business Unit Assessment",
+  "A Level Business Studies Paper 1",
+  "A Level Mathematics Paper 2",
+];
+const EXAM_START_TIMES = ["09:00", "10:00", "13:00", "13:30", "14:00"];
+const EXAM_FINISH_TIMES = ["10:00", "11:00", "14:00", "14:30", "15:00"];
+const EXAM_DATES_LIST = ["23/01/2025", "24/01/2025", "24/01/2025", "25/01/2025"];
+const BOARD_OCC_LIST = ["23JAN17AM", "24JAN17PM", "24JAN17AM", "25JAN17PM"];
+
+type ExamRow = {
+  id: number;
+  code: string;
+  name: string;
+  staffName?: string | null;
+  enrolledCount: number;
+};
+
+function ExamSearchResults({ results }: { results: ExamRow[] }) {
+  const [, navigate] = useLocation();
+  const [filter, setFilter] = useState("");
+
+  const filtered = filter
+    ? results.filter(r => (r.name + " " + r.code).toLowerCase().includes(filter.toLowerCase()))
+    : results;
+
+  return (
+    <div className="border border-slate-300 rounded overflow-hidden text-sm">
+      <div className="bg-slate-700 text-white px-4 py-2 font-semibold text-sm">
+        Exam Search Results
+      </div>
+      <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200">
+        <span className="text-xs text-slate-500">
+          Showing {filtered.length} of {results.length} {results.length === 1 ? "entry" : "entries"} (max 100)
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Filter:</span>
+          <Input value={filter} onChange={e => setFilter(e.target.value)} className="h-6 w-32 text-xs px-2 py-0" />
+        </div>
+      </div>
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50">
+            {["Board Code", "Exam Code", "Exam Name", "Board Occurrence", "Exam Date", "Start Time", "Finish Time", "Entries"].map(col => (
+              <th key={col} className="text-left text-xs font-semibold text-slate-600 px-3 py-2">
+                <span className="flex items-center gap-1 cursor-pointer select-none hover:text-slate-900">
+                  {col} <ChevronsUpDown className="w-3 h-3 opacity-50" />
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {filtered.length === 0 ? (
+            <tr>
+              <td colSpan={8} className="px-3 py-6 text-center text-slate-400">No exams found.</td>
+            </tr>
+          ) : (
+            filtered.map(r => {
+              const idx = r.id % EXAM_START_TIMES.length;
+              const examName = EXAM_NAMES_LIST[(r.id - 1) % EXAM_NAMES_LIST.length];
+              const examCode = `${r.id * 374801}-${String(r.id).padStart(3, "0")}`;
+              return (
+                <tr key={r.id} className="hover:bg-blue-50 cursor-pointer" onClick={() => navigate(`/exams/${r.id}`)}>
+                  <td className="px-3 py-2 text-slate-600">CG</td>
+                  <td className="px-3 py-2">
+                    <span className="flex items-center gap-1.5">
+                      <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="text-sky-700 font-medium hover:underline">{examCode}</span>
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-slate-700">{examName}</td>
+                  <td className="px-3 py-2 text-slate-600">{BOARD_OCC_LIST[r.id % BOARD_OCC_LIST.length]}</td>
+                  <td className="px-3 py-2 text-slate-500">{EXAM_DATES_LIST[r.id % EXAM_DATES_LIST.length]}</td>
+                  <td className="px-3 py-2 text-slate-600">{EXAM_START_TIMES[idx]}</td>
+                  <td className="px-3 py-2 text-slate-600">{EXAM_FINISH_TIMES[idx]}</td>
+                  <td className="px-3 py-2 text-slate-600">{r.enrolledCount}</td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
+        <span className="text-xs text-slate-500">Showing 1 to {filtered.length} of {filtered.length} entries (max 100)</span>
+        <div className="flex gap-1">
+          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>‹</button>
+          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>›</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExamSearchTab() {
+  const { data: allCourses } = useListCourses();
+  const [examCode, setExamCode] = useState("");
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [level, setLevel] = useState("");
+  const [method, setMethod] = useState("");
+  const [dateOp, setDateOp] = useState("=");
+  const [date, setDate] = useState("");
+  const [startTimeOp, setStartTimeOp] = useState("=");
+  const [startTime, setStartTime] = useState("");
+  const [endTimeOp, setEndTimeOp] = useState("=");
+  const [endTime, setEndTime] = useState("");
+  const [searched, setSearched] = useState(false);
+  const [results, setResults] = useState<typeof allCourses>([]);
+
+  function handleSearch() {
+    const filtered = (allCourses ?? []).filter(c => {
+      if (name && !c.name.toLowerCase().includes(name.toLowerCase())) return false;
+      return true;
+    });
+    setResults(filtered);
+    setSearched(true);
+  }
+
+  const opOptions = (
+    <>
+      <SelectItem value="=">=</SelectItem>
+      <SelectItem value="<">{"<"}</SelectItem>
+      <SelectItem value=">">{">"}</SelectItem>
+    </>
+  );
+
+  return (
+    <TabsContent value="exam" className="mt-0 outline-none">
+      <div className="space-y-0">
+        <div className="grid grid-cols-2 gap-x-8">
+          {/* LEFT */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Exam Code</span>
+              <Input value={examCode} onChange={e => { setExamCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Name</span>
+              <Input value={name} onChange={e => { setName(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Method</span>
+              <Select value={method} onValueChange={setMethod}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="written">Written</SelectItem>
+                  <SelectItem value="oral">Oral</SelectItem>
+                  <SelectItem value="coursework">Coursework</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Start Time</span>
+              <div className="flex flex-1 gap-1">
+                <Select value={startTimeOp} onValueChange={setStartTimeOp}>
+                  <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{opOptions}</SelectContent>
+                </Select>
+                <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="flex-1 h-8 text-sm" placeholder="--:--" />
+              </div>
+            </div>
+          </div>
+          {/* RIGHT */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-24 shrink-0 text-sm text-slate-700">Type</span>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="written">Written</SelectItem>
+                  <SelectItem value="practical">Practical</SelectItem>
+                  <SelectItem value="online">Online</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-24 shrink-0 text-sm text-slate-700">Level</span>
+              <Select value={level} onValueChange={setLevel}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="l1">Level 1</SelectItem>
+                  <SelectItem value="l2">Level 2</SelectItem>
+                  <SelectItem value="l3">Level 3</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-24 shrink-0 text-sm text-slate-700">Date</span>
+              <div className="flex flex-1 gap-1">
+                <Select value={dateOp} onValueChange={setDateOp}>
+                  <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{opOptions}</SelectContent>
+                </Select>
+                <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="flex-1 h-8 text-sm" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-24 shrink-0 text-sm text-slate-700">End Time</span>
+              <div className="flex flex-1 gap-1">
+                <Select value={endTimeOp} onValueChange={setEndTimeOp}>
+                  <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{opOptions}</SelectContent>
+                </Select>
+                <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="flex-1 h-8 text-sm" placeholder="--:--" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end pt-3">
+          <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+            <Search className="w-3.5 h-3.5" /> Search
+          </Button>
+        </div>
+        {searched && (
+          <div className="mt-4">
+            <ExamSearchResults results={results ?? []} />
+          </div>
+        )}
+      </div>
+    </TabsContent>
+  );
+}
+
 function StatsCard({ title, value, unit = "", colorClass = "bg-white text-slate-800 border-slate-200" }: { title: string, value?: string | number, unit?: string, colorClass?: string }) {
   return (
     <Card className={`rounded-xl shadow-sm overflow-hidden border ${colorClass}`}>
@@ -742,7 +971,8 @@ export default function Home() {
             </TabsContent>
             <CourseSearchTab />
             <RegisterSearchTab />
-            {['exam', 'room', 'staff'].map(tab => (
+            <ExamSearchTab />
+            {['room', 'staff'].map(tab => (
               <TabsContent key={tab} value={tab} className="mt-0 outline-none text-sm text-muted-foreground py-4">
                 Search interface for {tab}s...
               </TabsContent>
