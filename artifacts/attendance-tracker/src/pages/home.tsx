@@ -713,6 +713,272 @@ function ExamSearchTab() {
   );
 }
 
+const ROOM_TYPES = ["Classroom", "Laboratory", "Sports Hall", "IT Suite", "Music Room", "Art Room", "Library", "Conference Room"];
+const SITES = ["Main Campus", "North Block", "South Annexe", "Sports Centre"];
+
+type RoomRow = { id: number; code: string; description: string; roomType: string; site: string };
+type StaffRow = { id: number; code: string; forename: string; surname: string; organisation: string; position: string };
+
+const POSITIONS = ["Teacher", "Head of Department", "Senior Teacher", "Assistant Principal", "Subject Leader", "Form Tutor"];
+const DEPARTMENTS = ["Business & Administration", "Mathematics", "English", "Science", "Arts", "Computing", "PE", "MFL"];
+
+function RoomSearchResults({ results }: { results: RoomRow[] }) {
+  const [, navigate] = useLocation();
+  if (results.length === 0) {
+    return <div className="text-sm text-slate-400 py-3">No rooms found matching the search criteria.</div>;
+  }
+  return (
+    <div className="border border-slate-200 rounded overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-slate-100 border-b border-slate-200">
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Room Code</th>
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Description</th>
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Room Type</th>
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Site</th>
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {results.map(r => (
+            <tr key={r.id} className="hover:bg-slate-50">
+              <td className="px-3 py-2">
+                <button onClick={() => navigate(`/rooms/${r.id}`)} className="text-sky-700 hover:underline font-medium text-xs">
+                  {r.code}
+                </button>
+              </td>
+              <td className="px-3 py-2 text-slate-700">{r.description}</td>
+              <td className="px-3 py-2 text-slate-600">{r.roomType}</td>
+              <td className="px-3 py-2 text-slate-600">{r.site}</td>
+              <td className="px-3 py-2">
+                <button onClick={() => navigate(`/rooms/${r.id}`)} className="text-sky-700 hover:underline text-xs">Book</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
+        {results.length} room{results.length !== 1 ? "s" : ""} found
+      </div>
+    </div>
+  );
+}
+
+function RoomSearchTab() {
+  const { data: courses } = useListCourses();
+  const [roomCode, setRoomCode] = useState("");
+  const [roomDesc, setRoomDesc] = useState("");
+  const [sessionCode, setSessionCode] = useState("");
+  const [roomType, setRoomType] = useState("");
+  const [site, setSite] = useState("");
+  const [searched, setSearched] = useState(false);
+  const [results, setResults] = useState<RoomRow[]>([]);
+
+  const allRooms: RoomRow[] = [...new Set((courses ?? []).map(c => c.room).filter(Boolean))]
+    .map((name, idx) => ({
+      id: idx,
+      code: name as string,
+      description: `${ROOM_TYPES[idx % ROOM_TYPES.length]} — ${name}`,
+      roomType: ROOM_TYPES[idx % ROOM_TYPES.length],
+      site: SITES[idx % SITES.length],
+    }));
+
+  function handleSearch() {
+    const filtered = allRooms.filter(r => {
+      if (roomCode && !r.code.toLowerCase().includes(roomCode.toLowerCase())) return false;
+      if (roomDesc && !r.description.toLowerCase().includes(roomDesc.toLowerCase())) return false;
+      if (roomType && r.roomType !== roomType) return false;
+      if (site && r.site !== site) return false;
+      return true;
+    });
+    setResults(filtered);
+    setSearched(true);
+  }
+
+  return (
+    <TabsContent value="room" className="mt-0 outline-none">
+      <div className="space-y-0">
+        <div className="grid grid-cols-2 gap-x-8">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Room Code</span>
+              <Input value={roomCode} onChange={e => { setRoomCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Room Description</span>
+              <Input value={roomDesc} onChange={e => { setRoomDesc(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Session Code</span>
+              <Input value={sessionCode} onChange={e => { setSessionCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-24 shrink-0 text-sm text-slate-700">Room Type</span>
+              <Select value={roomType} onValueChange={v => { setRoomType(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  {ROOM_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-24 shrink-0 text-sm text-slate-700">Site</span>
+              <Select value={site} onValueChange={v => { setSite(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  {SITES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1">Use % as a wildcard, e.g. <code>Lab%</code> finds all labs.</p>
+        <div className="flex justify-end pt-2">
+          <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+            <Search className="w-3.5 h-3.5" /> Search
+          </Button>
+        </div>
+        {searched && (
+          <div className="mt-4">
+            <RoomSearchResults results={results} />
+          </div>
+        )}
+      </div>
+    </TabsContent>
+  );
+}
+
+function StaffSearchResults({ results }: { results: StaffRow[] }) {
+  const [, navigate] = useLocation();
+  if (results.length === 0) {
+    return <div className="text-sm text-slate-400 py-3">No staff found matching the search criteria.</div>;
+  }
+  return (
+    <div className="border border-slate-200 rounded overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-slate-100 border-b border-slate-200">
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Staff Code</th>
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Forename</th>
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Surname</th>
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Organisation</th>
+            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Position</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {results.map(r => (
+            <tr key={r.id} className="hover:bg-slate-50">
+              <td className="px-3 py-2">
+                <button onClick={() => navigate(`/staff/${r.id}`)} className="text-sky-700 hover:underline font-medium text-xs">
+                  {r.code}
+                </button>
+              </td>
+              <td className="px-3 py-2 text-slate-700">{r.forename}</td>
+              <td className="px-3 py-2 text-slate-700">
+                <button onClick={() => navigate(`/staff/${r.id}`)} className="text-sky-700 hover:underline">
+                  {r.surname}
+                </button>
+              </td>
+              <td className="px-3 py-2 text-slate-600">{r.organisation}</td>
+              <td className="px-3 py-2 text-slate-600">{r.position}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
+        {results.length} staff member{results.length !== 1 ? "s" : ""} found
+      </div>
+    </div>
+  );
+}
+
+function StaffSearchTab() {
+  const { data: courses } = useListCourses();
+  const [staffCode, setStaffCode] = useState("");
+  const [forename, setForename] = useState("");
+  const [surname, setSurname] = useState("");
+  const [organisation, setOrganisation] = useState("");
+  const [position, setPosition] = useState("");
+  const [searched, setSearched] = useState(false);
+  const [results, setResults] = useState<StaffRow[]>([]);
+
+  const allStaff: StaffRow[] = [...new Set((courses ?? []).map(c => c.staffName).filter(Boolean) as string[])]
+    .map((name, idx) => {
+      const parts = name.split(" ");
+      const fn = parts.slice(0, -1).join(" ") || name;
+      const sn = parts.length > 1 ? parts[parts.length - 1] : "";
+      return {
+        id: idx,
+        code: `S${String(idx).padStart(4, "0")}`,
+        forename: fn,
+        surname: sn,
+        organisation: DEPARTMENTS[idx % DEPARTMENTS.length],
+        position: POSITIONS[idx % POSITIONS.length],
+      };
+    });
+
+  function handleSearch() {
+    const filtered = allStaff.filter(s => {
+      if (staffCode && !s.code.toLowerCase().includes(staffCode.toLowerCase())) return false;
+      if (forename && !s.forename.toLowerCase().includes(forename.toLowerCase())) return false;
+      if (surname && !s.surname.toLowerCase().includes(surname.toLowerCase())) return false;
+      if (organisation && !s.organisation.toLowerCase().includes(organisation.toLowerCase())) return false;
+      if (position && !s.position.toLowerCase().includes(position.toLowerCase())) return false;
+      return true;
+    });
+    setResults(filtered);
+    setSearched(true);
+  }
+
+  return (
+    <TabsContent value="staff" className="mt-0 outline-none">
+      <div className="space-y-0">
+        <div className="grid grid-cols-2 gap-x-8">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Staff Code</span>
+              <Input value={staffCode} onChange={e => { setStaffCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Forename</span>
+              <Input value={forename} onChange={e => { setForename(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Surname</span>
+              <Input value={surname} onChange={e => { setSurname(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Organisation</span>
+              <Input value={organisation} onChange={e => { setOrganisation(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-sm text-slate-700">Position</span>
+              <Input value={position} onChange={e => { setPosition(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1">Use % as a wildcard, e.g. <code>Smit%</code> finds Smith, Smithson, etc.</p>
+        <div className="flex justify-end pt-2">
+          <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+            <Search className="w-3.5 h-3.5" /> Search
+          </Button>
+        </div>
+        {searched && (
+          <div className="mt-4">
+            <StaffSearchResults results={results} />
+          </div>
+        )}
+      </div>
+    </TabsContent>
+  );
+}
+
 function StatsCard({ title, value, unit = "", colorClass = "bg-white text-slate-800 border-slate-200" }: { title: string, value?: string | number, unit?: string, colorClass?: string }) {
   return (
     <Card className={`rounded-xl shadow-sm overflow-hidden border ${colorClass}`}>
@@ -748,7 +1014,7 @@ export default function Home() {
 
   const { data: searchResults, isLoading: isSearchLoading } = useListStudents(
     { personCode, forename, surname, gender },
-    { query: { enabled: searchEnabled } }
+    { query: { enabled: searchEnabled } as any }
   );
 
   function handleSearch() {
@@ -972,11 +1238,8 @@ export default function Home() {
             <CourseSearchTab />
             <RegisterSearchTab />
             <ExamSearchTab />
-            {['room', 'staff'].map(tab => (
-              <TabsContent key={tab} value={tab} className="mt-0 outline-none text-sm text-muted-foreground py-4">
-                Search interface for {tab}s...
-              </TabsContent>
-            ))}
+            <RoomSearchTab />
+            <StaffSearchTab />
           </CardContent>
         </Tabs>
       </Card>

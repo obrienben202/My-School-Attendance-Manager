@@ -33,8 +33,8 @@ export default function CourseDetail() {
   const params = useParams();
   const id = parseInt(params.id || "0", 10);
 
-  const { data: course, isLoading } = useGetCourse(id, { query: { enabled: !!id } });
-  const { data: attendance } = useListAttendanceRecords({ courseId: id }, { query: { enabled: !!id } });
+  const { data: course, isLoading } = useGetCourse(id, { query: { enabled: !!id } as any });
+  const { data: attendance } = useListAttendanceRecords({ courseId: id }, { query: { enabled: !!id } as any });
 
   if (isLoading) {
     return (
