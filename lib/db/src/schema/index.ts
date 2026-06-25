@@ -4,3 +4,4 @@ export * from "./attendance";
 export * from "./targets";
 export * from "./ilps";
 export * from "./schedule";
+export * from "./auth";
