@@ -18,7 +18,7 @@ export default function Attendance() {
   
   const { data: records, isLoading: isRecordsLoading } = useListAttendanceRecords(
     { courseId: courseId ? parseInt(courseId) : undefined, date }, 
-    { query: { enabled: !!courseId && !!date } }
+    { query: { enabled: !!courseId && !!date } as any }
   );
 
   const queryClient = useQueryClient();
