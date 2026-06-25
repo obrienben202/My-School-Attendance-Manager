@@ -383,6 +383,17 @@ function RegisterSearchTab() {
   const [endTimeOp, setEndTimeOp] = useState("=");
   const [endTime, setEndTime] = useState("");
   const [session, setSession] = useState("");
+  const [academicYear, setAcademicYear] = useState("");
+  const [site, setSite] = useState("");
+  const [lecturerName, setLecturerName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [dayOfWeek, setDayOfWeek] = useState("");
+  const [sessionPeriod, setSessionPeriod] = useState("");
+  const [registerType, setRegisterType] = useState("");
+  const [markingStatus, setMarkingStatus] = useState("");
+  const [courseCode, setCourseCode] = useState("");
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<typeof allCourses>([]);
 
@@ -390,7 +401,9 @@ function RegisterSearchTab() {
     const filtered = (allCourses ?? []).filter(c => {
       if (description && !c.name.toLowerCase().includes(description.toLowerCase())) return false;
       if (staffSurname && !(c.staffName ?? "").toLowerCase().includes(staffSurname.toLowerCase())) return false;
+      if (lecturerName && !(c.staffName ?? "").toLowerCase().includes(lecturerName.toLowerCase())) return false;
       if (roomCode && !(c.room ?? "").toLowerCase().includes(roomCode.toLowerCase())) return false;
+      if (courseCode && !c.code.toLowerCase().includes(courseCode.toLowerCase())) return false;
       return true;
     });
     setResults(filtered);
@@ -422,8 +435,24 @@ function RegisterSearchTab() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Course / Occurrence</span>
+              <Input value={courseCode} onChange={e => { setCourseCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Description</span>
+              <Input value={description} onChange={e => { setDescription(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
               <span className="w-32 shrink-0 text-sm text-slate-700">Staff Surname</span>
-              <Input value={staffSurname} onChange={e => { setStaffSurname(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              <Input value={staffSurname} onChange={e => { setStaffSurname(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Lecturer Name</span>
+              <Input value={lecturerName} onChange={e => { setLecturerName(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Department</span>
+              <Input value={department} onChange={e => { setDepartment(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
             </div>
             <div className="flex items-center gap-2">
               <span className="w-32 shrink-0 text-sm text-slate-700">Start Time</span>
@@ -432,30 +461,8 @@ function RegisterSearchTab() {
                   <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>{opOptions}</SelectContent>
                 </Select>
-                <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="flex-1 h-8 text-sm" placeholder="--:--" />
+                <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="flex-1 h-8 text-sm" />
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-32 shrink-0 text-sm text-slate-700">Session</span>
-              <Select value={session} onValueChange={setSession}>
-                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="current">Current Year</SelectItem>
-                  <SelectItem value="2024">2024/2025</SelectItem>
-                  <SelectItem value="2023">2023/2024</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {/* RIGHT */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="w-32 shrink-0 text-sm text-slate-700">Description</span>
-              <Input value={description} onChange={e => { setDescription(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-32 shrink-0 text-sm text-slate-700">Room Code</span>
-              <Input value={roomCode} onChange={e => { setRoomCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
               <span className="w-32 shrink-0 text-sm text-slate-700">End Time</span>
@@ -464,12 +471,114 @@ function RegisterSearchTab() {
                   <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>{opOptions}</SelectContent>
                 </Select>
-                <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="flex-1 h-8 text-sm" placeholder="--:--" />
+                <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="flex-1 h-8 text-sm" />
               </div>
             </div>
           </div>
+          {/* RIGHT */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Academic Year</span>
+              <Select value={academicYear} onValueChange={v => { setAcademicYear(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  <SelectItem value="2024">2024/2025</SelectItem>
+                  <SelectItem value="2023">2023/2024</SelectItem>
+                  <SelectItem value="2022">2022/2023</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Session</span>
+              <Select value={session} onValueChange={v => { setSession(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  <SelectItem value="current">Current Year</SelectItem>
+                  <SelectItem value="previous">Previous Year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Site / Campus</span>
+              <Select value={site} onValueChange={v => { setSite(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  <SelectItem value="main">Main Campus</SelectItem>
+                  <SelectItem value="north">North Block</SelectItem>
+                  <SelectItem value="south">South Annexe</SelectItem>
+                  <SelectItem value="sports">Sports Centre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Room Name / Code</span>
+              <Input value={roomCode} onChange={e => { setRoomCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Day of Week</span>
+              <Select value={dayOfWeek} onValueChange={v => { setDayOfWeek(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  {["Monday","Tuesday","Wednesday","Thursday","Friday"].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Session Period</span>
+              <Select value={sessionPeriod} onValueChange={v => { setSessionPeriod(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  <SelectItem value="AM">AM</SelectItem>
+                  <SelectItem value="PM">PM</SelectItem>
+                  <SelectItem value="Evening">Evening</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Register Type</span>
+              <Select value={registerType} onValueChange={v => { setRegisterType(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  <SelectItem value="Class">Class</SelectItem>
+                  <SelectItem value="Exam">Exam</SelectItem>
+                  <SelectItem value="Tutorial">Tutorial</SelectItem>
+                  <SelectItem value="Workshop">Workshop</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Marking Status</span>
+              <Select value={markingStatus} onValueChange={v => { setMarkingStatus(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  <SelectItem value="Marked">Marked</SelectItem>
+                  <SelectItem value="Unmarked">Unmarked</SelectItem>
+                  <SelectItem value="Partial">Partially Marked</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-        <div className="flex justify-end pt-3">
+        {/* Date range row */}
+        <div className="mt-2 flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="w-32 shrink-0 text-sm text-slate-700">Date From</span>
+            <Input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setSearched(false); }} className="h-8 text-sm w-36" />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-700">To</span>
+            <Input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setSearched(false); }} className="h-8 text-sm w-36" />
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1">Use % as a wildcard. Leave fields blank to match all.</p>
+        <div className="flex justify-end pt-2">
           <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>

@@ -7,49 +7,56 @@ import {
   useListIlps,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, AlertTriangle, UserCircle2, Target, FileText, ClipboardList } from "lucide-react";
+import { AlertTriangle, UserCircle2, Printer, Mail, Edit, PlusCircle, FileText } from "lucide-react";
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex gap-2 py-0.5">
-      <span className="w-32 shrink-0 text-sm text-slate-500">{label}</span>
-      <span className="text-sm text-slate-900">{value || ""}</span>
+      <span className="w-36 shrink-0 text-xs text-slate-500">{label}</span>
+      <span className="text-xs text-slate-900">{value || "—"}</span>
     </div>
   );
 }
 
-function CollapsibleSection({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="border border-slate-200 rounded mb-4">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-5 py-3 bg-white hover:bg-slate-50 text-left"
-      >
-        <span className="font-semibold text-slate-800 text-sm">{title}</span>
-        {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-      </button>
-      {open && <div className="px-5 py-4 border-t border-slate-100 bg-white">{children}</div>}
-    </div>
-  );
-}
+const LEFT_LINKS = [
+  "Personal Details",
+  "Emergency Contacts",
+  "Medical / Disability",
+  "Prior Attainment",
+  "Qualifications",
+  "Exam Timetable",
+  "Finance & Funding",
+  "Documents / Uploads",
+  "Audit Trail",
+];
 
-const LEARNER_NAV = [
-  "Details",
-  "Learner Progress",
-  "Academic History",
-  "Employment",
-  "Aims",
-  "Progressions",
-  "Support Needs",
-  "Documents",
+const CENTER_TABS = [
+  "Summary",
+  "Address",
+  "Enrolments",
+  "Attendance",
+  "Performance",
+  "ILP",
+  "Pastoral",
+  "Evidence",
+  "Communication",
+];
+
+const REPORTS = [
+  "Learner Timetable",
+  "Attendance Report (Detailed)",
+  "Achievement Report",
+  "Disciplinary History",
+  "ILP Summary Report",
+  "Enrichment Activity Report",
+  "Work Experience Log",
 ];
 
 export default function StudentDetail() {
   const params = useParams();
   const id = parseInt(params.id || "0", 10);
-  const [activeSection, setActiveSection] = useState("Details");
+  const [activeLink, setActiveLink] = useState("Personal Details");
+  const [activeTab, setActiveTab] = useState("Summary");
 
   const { data: student, isLoading: isStudentLoading } = useGetStudent(id, { query: { enabled: !!id } as any });
   const { data: attendance, isLoading: isAttendanceLoading } = useListAttendanceRecords({ studentId: id }, { query: { enabled: !!id } as any });
@@ -58,7 +65,7 @@ export default function StudentDetail() {
 
   if (isStudentLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 p-6">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -70,22 +77,26 @@ export default function StudentDetail() {
   }
 
   const fullName = [student.forename, student.middleNames, student.surname].filter(Boolean).join(" ");
+  const dob = student.dateOfBirth || "—";
+  const age = student.dateOfBirth
+    ? Math.floor((Date.now() - new Date(student.dateOfBirth).getTime()) / (365.25 * 24 * 3600 * 1000))
+    : null;
 
   return (
-    <div className="flex gap-0 -mx-6 -mt-6 min-h-screen">
-      {/* Left sub-nav */}
-      <div className="w-44 shrink-0 bg-slate-100 border-r border-slate-200 pt-4">
-        <div className="px-3 pb-1">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Learner</p>
+    <div className="flex -mx-6 -mt-6 min-h-screen bg-slate-50">
+      {/* ── Left Links Pane ── */}
+      <div className="w-44 shrink-0 bg-white border-r border-slate-200 flex flex-col">
+        <div className="px-3 py-3 border-b border-slate-100">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Learner Links</p>
         </div>
-        {LEARNER_NAV.map(item => (
+        {LEFT_LINKS.map(item => (
           <button
             key={item}
-            onClick={() => setActiveSection(item)}
-            className={`w-full text-left text-sm px-4 py-1.5 transition-colors ${
-              activeSection === item
-                ? "bg-teal-700 text-white font-medium"
-                : "text-slate-700 hover:bg-slate-200"
+            onClick={() => setActiveLink(item)}
+            className={`w-full text-left text-xs px-4 py-2 border-b border-slate-100 transition-colors ${
+              activeLink === item
+                ? "bg-teal-700 text-white font-semibold"
+                : "text-slate-700 hover:bg-slate-50"
             }`}
           >
             {item}
@@ -93,194 +104,304 @@ export default function StudentDetail() {
         ))}
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 p-6 bg-white overflow-auto">
-        {/* Page title */}
-        <h1 className="text-xl font-semibold text-slate-800 mb-4">Learner Details</h1>
+      {/* ── Center Content ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
+        {/* Header bar */}
+        <div className="bg-white border-b border-slate-200 px-5 py-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-lg font-bold text-slate-800">{fullName}</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                DOB: {dob}{age ? ` (Age ${age})` : ""} &nbsp;|&nbsp; Ref: {student.personCode} &nbsp;|&nbsp; Status: {student.confirmedLearner ? "Confirmed" : "Unconfirmed"}
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0 ml-4">
+              <button className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"><Edit className="w-3 h-3" /> Edit Details</button>
+              <button className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"><PlusCircle className="w-3 h-3" /> Add Note</button>
+              <button className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"><Mail className="w-3 h-3" /> Send Message</button>
+              <button className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"><Printer className="w-3 h-3" /> Print Profile</button>
+            </div>
+          </div>
 
-        {activeSection === "Details" && (
-          <>
-            {/* Top info row */}
-            <div className="border border-slate-200 rounded mb-4 bg-white">
-              <div className="px-5 py-3 grid grid-cols-2 gap-4 border-b border-slate-100">
-                <InfoRow label="Name" value={`${student.forename} ${student.surname}`} />
-                <InfoRow label="Student Number" value={student.personCode} />
+          {student.atRisk && (
+            <div className="mt-2 inline-flex items-center gap-2 bg-red-600 text-white text-xs font-semibold px-3 py-1 rounded">
+              <AlertTriangle className="w-3 h-3" /> At Risk — Requires Additional Support
+            </div>
+          )}
+
+          {/* Tab bar */}
+          <div className="flex gap-0 mt-3 -mb-3">
+            {CENTER_TABS.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`text-xs px-3 py-1.5 border-t border-l border-r rounded-t transition-colors ${
+                  activeTab === tab
+                    ? "bg-white border-slate-300 font-semibold text-teal-700 -mb-px z-10 relative"
+                    : "bg-slate-100 border-transparent text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 p-5">
+          {activeTab === "Summary" && (
+            <div className="space-y-4">
+              {/* Photo + identity */}
+              <div className="bg-white border border-slate-200 rounded">
+                <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Learner Details</p>
+                </div>
+                <div className="px-5 py-4 flex gap-6">
+                  <div className="w-24 h-28 shrink-0 bg-slate-100 border border-slate-200 rounded flex items-center justify-center text-slate-300">
+                    <UserCircle2 className="w-16 h-16" />
+                  </div>
+                  <div className="flex-1 grid grid-cols-2 gap-x-10">
+                    <div className="space-y-1">
+                      <InfoRow label="Full Name" value={fullName} />
+                      <InfoRow label="Gender" value={student.gender} />
+                      <InfoRow label="Date of Birth" value={dob} />
+                      <InfoRow label="Age" value={age?.toString()} />
+                      <InfoRow label="Ethnicity" value="—" />
+                      <InfoRow label="ULN" value={`ULN${String(student.id).padStart(10, "0")}`} />
+                    </div>
+                    <div className="space-y-1">
+                      <InfoRow label="Student Status" value={student.confirmedLearner ? "Current" : "Unconfirmed"} />
+                      <InfoRow label="Student Type" value="Standard" />
+                      <InfoRow label="Year / Tutor Group" value={student.yearGroup} />
+                      <InfoRow label="Home Telephone" value="—" />
+                      <InfoRow label="Mobile Telephone" value="—" />
+                      <InfoRow label="Email Address" value="—" />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Health alert */}
-              {student.atRisk && (
-                <div className="px-5 py-2 border-b border-slate-100">
-                  <div className="inline-flex items-center gap-2 bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    At Risk — Requires Additional Support
-                  </div>
+              {/* Attendance card */}
+              <div className="bg-white border border-slate-200 rounded">
+                <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Attendance</p>
                 </div>
-              )}
-
-              {/* Photo + details grid */}
-              <div className="px-5 py-4 flex gap-6">
-                {/* Photo placeholder */}
-                <div className="w-24 h-28 shrink-0 bg-slate-100 border border-slate-200 rounded flex items-center justify-center text-slate-300">
-                  <UserCircle2 className="w-16 h-16" />
-                </div>
-
-                {/* Details: two columns */}
-                <div className="flex-1 grid grid-cols-2 gap-x-10 gap-y-1">
-                  {/* Left */}
-                  <div className="space-y-1">
-                    <InfoRow label="Full Name" value={fullName} />
-                    <InfoRow label="Gender" value={student.gender} />
-                    <InfoRow label="Tutor Group" value={student.yearGroup} />
-                    <InfoRow label="Last Registered" value="—" />
+                <div className="px-5 py-4 grid grid-cols-4 gap-6">
+                  <div>
+                    <p className="text-xs text-slate-500">Current Year Attendance</p>
+                    <p className={`text-2xl font-bold mt-1 ${student.attendancePercent < 90 ? "text-red-600" : "text-emerald-600"}`}>
+                      {student.attendancePercent}%
+                    </p>
                   </div>
-                  {/* Right */}
-                  <div className="space-y-1">
-                    <InfoRow label="Address" value="—" />
-                    <InfoRow label="Post Code" value={student.postCode} />
-                    <InfoRow label="Email" value="—" />
-                    <InfoRow label="Phone" value="—" />
+                  <div>
+                    <p className="text-xs text-slate-500">Cumulative Attendance</p>
+                    <p className={`text-2xl font-bold mt-1 ${student.attendancePercent < 90 ? "text-red-600" : "text-emerald-600"}`}>
+                      {Math.round(student.attendancePercent * 0.97)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Punctuality</p>
+                    <p className={`text-2xl font-bold mt-1 ${student.punctualityPercent < 95 ? "text-amber-500" : "text-emerald-600"}`}>
+                      {student.punctualityPercent}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Confirmed Learner</p>
+                    <p className="text-sm font-semibold mt-2 text-slate-800">{student.confirmedLearner ? "Yes" : "No"}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Attendance stats row */}
-              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 grid grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500">Attendance</p>
-                  <p className={`text-lg font-bold ${student.attendancePercent < 90 ? "text-red-600" : "text-emerald-600"}`}>
-                    {student.attendancePercent}%
-                  </p>
+              {/* Course summary card */}
+              <div className="bg-white border border-slate-200 rounded">
+                <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Course Summary</p>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500">Punctuality</p>
-                  <p className={`text-lg font-bold ${student.punctualityPercent < 95 ? "text-amber-600" : "text-emerald-600"}`}>
-                    {student.punctualityPercent}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Date of Birth</p>
-                  <p className="text-sm font-medium text-slate-800">{student.dateOfBirth || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Confirmed Learner</p>
-                  <p className="text-sm font-medium text-slate-800">{student.confirmedLearner ? "Yes" : "No"}</p>
-                </div>
+                {isAttendanceLoading ? (
+                  <div className="px-5 py-4"><Skeleton className="h-16 w-full" /></div>
+                ) : attendance?.length ? (
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="text-left font-semibold text-slate-600 px-5 py-2">Course Name</th>
+                        <th className="text-left font-semibold text-slate-600 px-3 py-2">Date</th>
+                        <th className="text-left font-semibold text-slate-600 px-3 py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {attendance.slice(0, 5).map(r => (
+                        <tr key={r.id} className="hover:bg-slate-50">
+                          <td className="px-5 py-1.5 text-sky-700">{r.courseName}</td>
+                          <td className="px-3 py-1.5 text-slate-500">{r.date}</td>
+                          <td className="px-3 py-1.5">
+                            <span className={`font-semibold capitalize ${
+                              r.status === "present" ? "text-emerald-600" :
+                              r.status === "absent" ? "text-red-600" :
+                              r.status === "late" ? "text-amber-600" : "text-blue-600"
+                            }`}>{r.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="px-5 py-4 text-xs text-slate-400">No course records.</div>
+                )}
               </div>
             </div>
+          )}
 
-            {/* Emergency Contacts */}
-            <CollapsibleSection title="Emergency Contacts">
-              <div className="text-sm text-slate-500 italic">No emergency contacts on record.</div>
-            </CollapsibleSection>
-
-            {/* More Details */}
-            <CollapsibleSection title="More Details" defaultOpen={false}>
-              <div className="grid grid-cols-2 gap-x-10 gap-y-1">
-                <InfoRow label="Title" value={student.title} />
-                <InfoRow label="Forename" value={student.forename} />
-                <InfoRow label="Middle Names" value={student.middleNames} />
-                <InfoRow label="Surname" value={student.surname} />
-                <InfoRow label="Post Code" value={student.postCode} />
-                <InfoRow label="Gender" value={student.gender} />
-                <InfoRow label="Date of Birth" value={student.dateOfBirth} />
-                <InfoRow label="Year Group" value={student.yearGroup} />
+          {activeTab === "Address" && (
+            <div className="bg-white border border-slate-200 rounded">
+              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Address Details</p>
               </div>
-            </CollapsibleSection>
+              <div className="px-5 py-4 grid grid-cols-2 gap-x-10 gap-y-1">
+                <InfoRow label="Address Line 1" value="—" />
+                <InfoRow label="Address Line 2" value="—" />
+                <InfoRow label="Town / City" value="—" />
+                <InfoRow label="County" value="—" />
+                <InfoRow label="Post Code" value={student.postCode} />
+                <InfoRow label="Country" value="England" />
+                <InfoRow label="Home Telephone" value="—" />
+                <InfoRow label="Mobile" value="—" />
+                <InfoRow label="Email" value="—" />
+              </div>
+            </div>
+          )}
 
-            {/* Attendance History */}
-            <CollapsibleSection title="Recent Attendance" defaultOpen={false}>
+          {activeTab === "Enrolments" && (
+            <div className="bg-white border border-slate-200 rounded">
+              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Enrolments</p>
+              </div>
+              <div className="px-5 py-4 text-xs text-slate-400">No enrolment records on file.</div>
+            </div>
+          )}
+
+          {activeTab === "Attendance" && (
+            <div className="bg-white border border-slate-200 rounded">
+              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Attendance History</p>
+              </div>
               {isAttendanceLoading ? (
-                <Skeleton className="h-20 w-full" />
+                <div className="px-5 py-4"><Skeleton className="h-32 w-full" /></div>
               ) : attendance?.length ? (
-                <table className="w-full text-sm">
+                <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b text-left text-xs text-slate-500">
-                      <th className="pb-1 pr-4">Course</th>
-                      <th className="pb-1 pr-4">Date</th>
-                      <th className="pb-1">Status</th>
+                    <tr className="border-b border-slate-100">
+                      <th className="text-left font-semibold text-slate-600 px-5 py-2">Course</th>
+                      <th className="text-left font-semibold text-slate-600 px-3 py-2">Date</th>
+                      <th className="text-left font-semibold text-slate-600 px-3 py-2">Status</th>
+                      <th className="text-left font-semibold text-slate-600 px-3 py-2">Minutes Late</th>
+                      <th className="text-left font-semibold text-slate-600 px-3 py-2">Notes</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-50">
                     {attendance.map(r => (
-                      <tr key={r.id}>
-                        <td className="py-1.5 pr-4 text-slate-700">{r.courseName}</td>
-                        <td className="py-1.5 pr-4 text-slate-500">{r.date}</td>
-                        <td className="py-1.5">
-                          <span className={`font-semibold capitalize text-xs ${
+                      <tr key={r.id} className="hover:bg-slate-50">
+                        <td className="px-5 py-1.5 text-sky-700">{r.courseName}</td>
+                        <td className="px-3 py-1.5 text-slate-500">{r.date}</td>
+                        <td className="px-3 py-1.5">
+                          <span className={`font-semibold capitalize ${
                             r.status === "present" ? "text-emerald-600" :
                             r.status === "absent" ? "text-red-600" :
                             r.status === "late" ? "text-amber-600" : "text-blue-600"
                           }`}>{r.status}</span>
                         </td>
+                        <td className="px-3 py-1.5 text-slate-500">{r.minutesLate ?? 0}</td>
+                        <td className="px-3 py-1.5 text-slate-400">{r.notes ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
-                <p className="text-sm text-slate-400">No attendance records.</p>
+                <div className="px-5 py-4 text-xs text-slate-400">No attendance records.</div>
               )}
-            </CollapsibleSection>
-          </>
-        )}
+            </div>
+          )}
 
-        {activeSection === "Learner Progress" && (
-          <CollapsibleSection title="SMART Targets">
-            {isTargetsLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : targets?.length ? (
-              <div className="space-y-3">
-                {targets.map(t => (
-                  <div key={t.id} className="border border-slate-200 rounded p-3">
-                    <div className="flex justify-between items-start">
-                      <p className="font-medium text-sm text-slate-800">{t.title}</p>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                        t.completed ? "bg-emerald-100 text-emerald-700" :
-                        t.overdue ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
-                      }`}>
-                        {t.completed ? "Completed" : t.overdue ? "Overdue" : "Active"}
-                      </span>
-                    </div>
-                    {t.description && <p className="text-xs text-slate-500 mt-1">{t.description}</p>}
-                    {t.dueDate && <p className="text-xs text-slate-400 mt-1">Due: {t.dueDate}</p>}
-                  </div>
-                ))}
+          {activeTab === "Performance" && (
+            <div className="bg-white border border-slate-200 rounded">
+              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Performance / SMART Targets</p>
               </div>
-            ) : (
-              <p className="text-sm text-slate-400">No SMART targets set.</p>
-            )}
-          </CollapsibleSection>
-        )}
-
-        {activeSection === "Academic History" && (
-          <CollapsibleSection title="Individual Learning Plans (ILPs)">
-            {isIlpsLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : ilps?.length ? (
-              <div className="space-y-3">
-                {ilps.map(i => (
-                  <div key={i.id} className="border border-slate-200 rounded p-3">
-                    <div className="flex justify-between items-start">
-                      <p className="font-medium text-sm text-slate-800">{i.title}</p>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded capitalize ${
-                        i.status === "active" ? "bg-teal-100 text-teal-700" :
-                        i.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
-                      }`}>{i.status}</span>
+              {isTargetsLoading ? (
+                <div className="px-5 py-4"><Skeleton className="h-24 w-full" /></div>
+              ) : targets?.length ? (
+                <div className="px-5 py-4 space-y-3">
+                  {targets.map(t => (
+                    <div key={t.id} className="border border-slate-200 rounded p-3">
+                      <div className="flex justify-between items-start">
+                        <p className="font-semibold text-xs text-slate-800">{t.title}</p>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                          t.completed ? "bg-emerald-100 text-emerald-700" :
+                          t.overdue ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
+                        }`}>
+                          {t.completed ? "Completed" : t.overdue ? "Overdue" : "Active"}
+                        </span>
+                      </div>
+                      {t.description && <p className="text-xs text-slate-500 mt-1">{t.description}</p>}
+                      {t.dueDate && <p className="text-xs text-slate-400 mt-1">Due: {t.dueDate}</p>}
                     </div>
-                    {i.content && <p className="text-xs text-slate-500 mt-1 line-clamp-3">{i.content}</p>}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400">No ILPs created.</p>
-            )}
-          </CollapsibleSection>
-        )}
+                  ))}
+                </div>
+              ) : (
+                <div className="px-5 py-4 text-xs text-slate-400">No SMART targets set.</div>
+              )}
+            </div>
+          )}
 
-        {!["Details", "Learner Progress", "Academic History"].includes(activeSection) && (
-          <div className="border border-slate-200 rounded p-8 text-center text-slate-400 text-sm">
-            {activeSection} — no data available yet.
-          </div>
-        )}
+          {activeTab === "ILP" && (
+            <div className="bg-white border border-slate-200 rounded">
+              <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Individual Learning Plans</p>
+              </div>
+              {isIlpsLoading ? (
+                <div className="px-5 py-4"><Skeleton className="h-24 w-full" /></div>
+              ) : ilps?.length ? (
+                <div className="px-5 py-4 space-y-3">
+                  {ilps.map(i => (
+                    <div key={i.id} className="border border-slate-200 rounded p-3">
+                      <div className="flex justify-between items-start">
+                        <p className="font-semibold text-xs text-slate-800">{i.title}</p>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded capitalize ${
+                          i.status === "active" ? "bg-teal-100 text-teal-700" :
+                          i.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                        }`}>{i.status}</span>
+                      </div>
+                      {i.content && <p className="text-xs text-slate-500 mt-1 line-clamp-3">{i.content}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-5 py-4 text-xs text-slate-400">No ILPs on file.</div>
+              )}
+            </div>
+          )}
+
+          {!["Summary", "Address", "Enrolments", "Attendance", "Performance", "ILP"].includes(activeTab) && (
+            <div className="bg-white border border-slate-200 rounded px-5 py-8 text-center text-xs text-slate-400">
+              {activeTab} — no data available yet.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Right Reports Pane ── */}
+      <div className="w-44 shrink-0 bg-white border-l border-slate-200 flex flex-col">
+        <div className="px-3 py-3 border-b border-slate-100">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reports</p>
+        </div>
+        {REPORTS.map(r => (
+          <button
+            key={r}
+            className="w-full text-left text-xs px-4 py-2 border-b border-slate-100 text-sky-700 hover:bg-sky-50 flex items-center gap-1.5 transition-colors"
+          >
+            <FileText className="w-3 h-3 shrink-0 text-sky-500" />
+            {r}
+          </button>
+        ))}
       </div>
     </div>
   );
