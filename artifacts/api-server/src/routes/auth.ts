@@ -7,6 +7,7 @@ import {
   LogoutMobileSessionResponse,
 } from "@workspace/api-zod";
 import { db, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   clearSession,
   getOidcConfig,
@@ -267,6 +268,68 @@ router.post("/mobile-auth/logout", async (req: Request, res: Response) => {
     await deleteSession(sid);
   }
   res.json(LogoutMobileSessionResponse.parse({ success: true }));
+});
+
+// ── Admin: User Management ───────────────────────────────────────────────────
+
+function requireAdmin(req: Request, res: Response): boolean {
+  const u = req.user as { role?: string } | undefined;
+  if (!req.isAuthenticated() || u?.role !== "admin") {
+    res.status(403).json({ error: "Admin access required" });
+    return false;
+  }
+  return true;
+}
+
+router.get("/admin/users", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const users = await db.select().from(usersTable).orderBy(usersTable.createdAt);
+  res.json(users);
+});
+
+router.patch("/admin/users/:id/role", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const id = String(req.params.id);
+  const { role } = req.body as { role?: string };
+  const allowed = ["admin", "hod", "staff", "office"];
+  if (!role || !allowed.includes(role)) {
+    res.status(400).json({ error: "Invalid role" });
+    return;
+  }
+  const me = req.user as { id?: string } | undefined;
+  if (me?.id === id) {
+    res.status(400).json({ error: "Cannot change your own role" });
+    return;
+  }
+  const [updated] = await db
+    .update(usersTable)
+    .set({ role, updatedAt: new Date() })
+    .where(eq(usersTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(updated);
+});
+
+router.delete("/admin/users/:id", async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const id = String(req.params.id);
+  const me = req.user as { id?: string } | undefined;
+  if (me?.id === id) {
+    res.status(400).json({ error: "Cannot remove yourself" });
+    return;
+  }
+  const [deleted] = await db
+    .delete(usersTable)
+    .where(eq(usersTable.id, id))
+    .returning();
+  if (!deleted) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json({ success: true });
 });
 
 export default router;
