@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useListCourses } from "@workspace/api-client-react";
 import {
   UserCircle, Mail, Phone, MapPin, Building2, BadgeCheck,
   Calendar, BookOpen, ClipboardList, Info, ExternalLink,
-  ShieldCheck, Lock,
+  ShieldCheck, Lock, Printer,
 } from "lucide-react";
 import { Link } from "wouter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -28,6 +30,84 @@ function Row({ label, value }: { label: string; value?: string | null }) {
       <span className="text-sm text-gray-800">{value || "—"}</span>
     </div>
   );
+}
+
+// ─── Timetable constants ────────────────────────────────────────────────────────
+const TT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const TT_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
+const TT_LESSONS = ["Lesson 1", "Lesson 2", "Lesson 3", "Lesson 4", "Lesson 5", "Lesson 6"];
+const TT_PERIODS = ["09:00–10:00", "10:00–11:00", "11:15–12:15", "13:00–14:00", "14:00–15:00", "15:00–16:00"];
+
+// Build a cell-map: lesson-index → day-index → course
+type TtCourse = { id: number; code: string; name: string; room?: string | null; staffName?: string | null };
+function buildTtGrid(courses: TtCourse[]): Record<string, TtCourse> {
+  const map: Record<string, TtCourse> = {};
+  courses.forEach((c, i) => { map[`${Math.floor(i / 5)}-${i % 5}`] = c; });
+  return map;
+}
+
+// Colors for course blocks (cycling)
+const BLOCK_COLORS = [
+  "bg-rose-300 border-rose-400 text-rose-900",
+  "bg-sky-300 border-sky-400 text-sky-900",
+  "bg-violet-300 border-violet-400 text-violet-900",
+  "bg-amber-300 border-amber-400 text-amber-900",
+  "bg-emerald-300 border-emerald-400 text-emerald-900",
+];
+
+function printStaffTimetable(fullName: string, courses: TtCourse[]) {
+  const grid = buildTtGrid(courses);
+  const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  const dayHeaders = TT_DAYS.map(d =>
+    `<th style="border:1px solid #bbb;padding:6px 4px;text-align:center;background:#f0f0f0;font-size:11px;min-width:100px;">${d}</th>`
+  ).join("");
+  const lessonRow = (label: string, period: string, idx: number) => {
+    const cells = TT_DAYS.map((_, d) => {
+      const c = grid[`${idx}-${d}`];
+      return c
+        ? `<td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;background:#f9d0d0;">
+            <strong>${c.code}</strong><br/>${c.name}${c.room ? `<br/><span style="color:#555">${c.room}</span>` : ""}
+           </td>`
+        : `<td style="border:1px solid #bbb;padding:4px 6px;"></td>`;
+    }).join("");
+    return `<tr>
+      <td style="border:1px solid #bbb;padding:5px 6px;font-weight:bold;font-size:11px;background:#fafafa;white-space:nowrap;">${label}</td>
+      <td style="border:1px solid #bbb;padding:5px 6px;font-size:10px;background:#fafafa;color:#666;">${period}</td>
+      ${cells}
+    </tr>`;
+  };
+  const breakRow = (label: string) =>
+    `<tr><td colspan="${TT_DAYS.length + 2}" style="border:1px solid #bbb;padding:4px;text-align:center;font-style:italic;font-size:11px;color:#555;background:#f9f9f9;">${label}</td></tr>`;
+
+  const html = `
+<h1 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;">Timetable</h1>
+<p style="font-size:11px;color:#555;text-align:center;margin-bottom:12px;">Staff: ${fullName} &nbsp;|&nbsp; Generated: ${today} &nbsp;|&nbsp; Academic Year 2024/25</p>
+<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;">
+  <thead>
+    <tr>
+      <th style="border:1px solid #bbb;padding:6px 4px;width:70px;background:#f0f0f0;font-size:11px;"></th>
+      <th style="border:1px solid #bbb;padding:6px 4px;width:90px;background:#f0f0f0;font-size:11px;">Time</th>
+      ${dayHeaders}
+    </tr>
+  </thead>
+  <tbody>
+    ${lessonRow("Lesson 1", TT_PERIODS[0], 0)}
+    ${lessonRow("Lesson 2", TT_PERIODS[1], 1)}
+    ${breakRow("Break")}
+    ${lessonRow("Lesson 3", TT_PERIODS[2], 2)}
+    ${lessonRow("Lesson 4", TT_PERIODS[3], 3)}
+    ${breakRow("Lunch")}
+    ${lessonRow("Lesson 5", TT_PERIODS[4], 4)}
+    ${lessonRow("Lesson 6", TT_PERIODS[5], 5)}
+  </tbody>
+</table>`;
+
+  const w = window.open("", "_blank", "width=950,height=700");
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>Staff Timetable</title>
+<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#222;}@media print{body{margin:10px;}}</style>
+</head><body onload="window.print()">${html}</body></html>`);
+  w.document.close();
 }
 
 // ─── Sample employment data ────────────────────────────────────────────────────
@@ -58,6 +138,7 @@ const EMPLOYMENT = {
 export default function MyDetails() {
   const { user } = useAuth();
   const { data: courses = [] } = useListCourses({ query: { enabled: true } as any });
+  const [activeModal, setActiveModal] = useState<string | null>(null);
 
   const firstName = user?.firstName ?? "Staff";
   const lastName = user?.lastName ?? "Member";
@@ -228,26 +309,20 @@ export default function MyDetails() {
           )}
         </Section>
 
-        {/* Reports links — docs state timetable reports are accessible from Reports section when My Details is selected */}
+        {/* Reports links */}
         <Section title="Reports &amp; Links" icon={<ClipboardList size={14} />}>
           <p className="text-xs text-gray-500 mb-3">
             Timetable and other reports are accessible from the Reports section of the navigation pane.
           </p>
           <div className="flex flex-wrap gap-2">
-            {[
-              { label: "My Attendance Reports", href: "/reports" },
-              { label: "My Timetable", href: "/reports" },
-              { label: "Register History", href: "/registers" },
-              { label: "My Schedules", href: "/schedules" },
-              { label: "Planned Absences", href: "/planned-absence" },
-            ].map(({ label, href }) => (
-              <Link
+            {["My Attendance Reports", "My Timetable", "Register History", "My Schedules", "Planned Absences"].map(label => (
+              <button
                 key={label}
-                href={href}
+                onClick={() => setActiveModal(label)}
                 className="flex items-center gap-1 text-xs text-teal-700 bg-teal-50 border border-teal-200 rounded px-3 py-1.5 hover:bg-teal-100 transition-colors font-medium"
               >
                 <ExternalLink size={11} /> {label}
-              </Link>
+              </button>
             ))}
           </div>
         </Section>
@@ -265,6 +340,225 @@ export default function MyDetails() {
         </div>
 
       </div>
+
+      {/* ── My Timetable Dialog ── */}
+      <Dialog open={activeModal === "My Timetable"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden p-0">
+          <div className="bg-teal-800 text-white px-5 py-3 flex items-start justify-between">
+            <div>
+              <DialogHeader>
+                <DialogTitle className="text-white text-base font-bold">My Timetable</DialogTitle>
+              </DialogHeader>
+              <p className="text-teal-200 text-xs mt-0.5">
+                {EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; {EMPLOYMENT.department} &nbsp;|&nbsp; Academic Year 2024/25 &nbsp;|&nbsp; Session: 1718 &nbsp;|&nbsp; Weeks: 10
+              </p>
+            </div>
+            <button
+              onClick={() => printStaffTimetable(`${EMPLOYMENT.title} ${fullName}`, myCourses)}
+              className="ml-4 flex items-center gap-1.5 bg-white text-teal-800 text-xs font-semibold px-3 py-1.5 rounded hover:bg-teal-50 shrink-0"
+            >
+              <Printer size={13} /> Print
+            </button>
+          </div>
+
+          {/* Calendar-style weekly grid */}
+          <div className="flex-1 overflow-auto p-4 bg-slate-50">
+            <p className="text-xs text-slate-500 mb-3">Select a session block to view course details. Showing week view — Mon to Fri.</p>
+            <div className="overflow-x-auto">
+              {/* Time axis header */}
+              <div className="flex" style={{ minWidth: 900 }}>
+                <div className="w-20 shrink-0" />
+                {TT_TIMES.map(t => (
+                  <div key={t} className="flex-1 text-center text-[10px] font-mono text-slate-500 pb-1 border-b border-slate-200">{t}</div>
+                ))}
+              </div>
+              {/* Day rows */}
+              {TT_DAYS.map((day, di) => {
+                const dayLessons = TT_LESSONS.map((_, li) => {
+                  const grid = buildTtGrid(myCourses);
+                  return grid[`${li}-${di}`] ?? null;
+                });
+                return (
+                  <div key={day} className="flex border-b border-slate-200" style={{ minWidth: 900, minHeight: 80 }}>
+                    <div className="w-20 shrink-0 flex items-center justify-center border-r border-slate-200 bg-slate-100">
+                      <span className="text-[11px] font-bold text-slate-600 [writing-mode:vertical-lr] rotate-180">{day}</span>
+                    </div>
+                    <div className="flex-1 grid grid-cols-7 divide-x divide-slate-100">
+                      {TT_TIMES.map((_, ti) => {
+                        // Map time slot to lesson index (slots 0-1 = lessons 0-1, slot 2 = break, slots 3-4 = lessons 2-3, slot 5 = lunch, slot 6 = lesson 4)
+                        const lessonIdx = ti === 2 ? -1 : ti === 5 ? -2 : ti < 2 ? ti : ti < 5 ? ti - 1 : ti - 2;
+                        const isBreak = ti === 2;
+                        const isLunch = ti === 5;
+                        const course = lessonIdx >= 0 ? dayLessons[lessonIdx] ?? null : null;
+                        const colorCls = course ? BLOCK_COLORS[course.id % BLOCK_COLORS.length] : "";
+                        return (
+                          <div
+                            key={ti}
+                            className={`relative p-1 min-h-[76px] ${isBreak || isLunch ? "bg-slate-100" : "bg-white hover:bg-slate-50"}`}
+                          >
+                            {isBreak && <span className="text-[9px] text-slate-400 font-medium">Break</span>}
+                            {isLunch && <span className="text-[9px] text-slate-400 font-medium">Lunch</span>}
+                            {course && !isBreak && !isLunch && (
+                              <div className={`rounded border p-1 text-[9px] leading-tight ${colorCls}`}>
+                                <div className="font-bold">{course.code}</div>
+                                <div className="opacity-90 mt-0.5">{course.name}</div>
+                                {course.room && <div className="opacity-75 mt-0.5">{course.room}</div>}
+                                {course.staffName && <div className="opacity-75">{course.staffName}</div>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── My Attendance Reports Dialog ── */}
+      <Dialog open={activeModal === "My Attendance Reports"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
+          <div className="bg-teal-800 text-white px-5 py-3">
+            <DialogHeader><DialogTitle className="text-white text-base font-bold">My Attendance Reports</DialogTitle></DialogHeader>
+            <p className="text-teal-200 text-xs mt-0.5">{EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; Academic Year 2024/25</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <p className="text-xs text-slate-500 mb-3">Attendance summary across all assigned courses for this academic year.</p>
+            <table className="w-full text-xs border-collapse">
+              <thead><tr className="bg-teal-800 text-white">
+                {["Course", "Sessions Taken", "Present", "Absent", "Late", "Avg Rate"].map(h => (
+                  <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {myCourses.length ? myCourses.map(c => {
+                  const present = Math.round(c.enrolledCount * 0.85);
+                  const absent = Math.round(c.enrolledCount * 0.10);
+                  const late = c.enrolledCount - present - absent;
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-1.5 font-medium text-slate-800">{c.code} — {c.name}</td>
+                      <td className="px-3 py-1.5 text-center text-slate-600">{c.enrolledCount}</td>
+                      <td className="px-3 py-1.5 text-center text-green-700 font-semibold">{present}</td>
+                      <td className="px-3 py-1.5 text-center text-red-600 font-semibold">{absent}</td>
+                      <td className="px-3 py-1.5 text-center text-amber-700 font-semibold">{late}</td>
+                      <td className="px-3 py-1.5 text-center font-bold text-green-700">85%</td>
+                    </tr>
+                  );
+                }) : <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">No attendance data.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Register History Dialog ── */}
+      <Dialog open={activeModal === "Register History"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
+          <div className="bg-teal-800 text-white px-5 py-3">
+            <DialogHeader><DialogTitle className="text-white text-base font-bold">Register History</DialogTitle></DialogHeader>
+            <p className="text-teal-200 text-xs mt-0.5">Recent registers submitted by {EMPLOYMENT.title} {fullName}</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <table className="w-full text-xs border-collapse">
+              <thead><tr className="bg-teal-800 text-white">
+                {["Date", "Course", "Session", "Submitted", "Status"].map(h => (
+                  <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {myCourses.slice(0, 3).flatMap((c, ci) =>
+                  [0, 1, 2].map(offset => {
+                    const d = new Date(); d.setDate(d.getDate() - (ci * 7 + offset * 2));
+                    return (
+                      <tr key={`${c.id}-${offset}`} className="hover:bg-slate-50">
+                        <td className="px-3 py-1.5 text-slate-600">{d.toLocaleDateString("en-GB")}</td>
+                        <td className="px-3 py-1.5 text-slate-800 font-medium">{c.code}</td>
+                        <td className="px-3 py-1.5 text-slate-600">{offset % 2 === 0 ? "AM" : "PM"}</td>
+                        <td className="px-3 py-1.5 text-slate-600">{d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</td>
+                        <td className="px-3 py-1.5"><span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border text-green-700 bg-green-50 border-green-200">Submitted</span></td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── My Schedules Dialog ── */}
+      <Dialog open={activeModal === "My Schedules"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
+          <div className="bg-teal-800 text-white px-5 py-3">
+            <DialogHeader><DialogTitle className="text-white text-base font-bold">My Schedules</DialogTitle></DialogHeader>
+            <p className="text-teal-200 text-xs mt-0.5">{EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; Academic Year 2024/25</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <table className="w-full text-xs border-collapse">
+              <thead><tr className="bg-teal-800 text-white">
+                {["Course", "Day", "Start", "End", "Room", "Week Pattern"].map(h => (
+                  <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {myCourses.length ? myCourses.map((c, i) => (
+                  <tr key={c.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-1.5 font-medium text-slate-800">{c.code} — {c.name}</td>
+                    <td className="px-3 py-1.5 text-slate-700">{TT_DAYS[i % TT_DAYS.length]}</td>
+                    <td className="px-3 py-1.5 text-slate-600 font-mono">{TT_PERIODS[i % TT_PERIODS.length].split("–")[0]}</td>
+                    <td className="px-3 py-1.5 text-slate-600 font-mono">{TT_PERIODS[i % TT_PERIODS.length].split("–")[1]}</td>
+                    <td className="px-3 py-1.5 text-slate-600">{c.room ?? "—"}</td>
+                    <td className="px-3 py-1.5 text-slate-500">1–49, 51–52</td>
+                  </tr>
+                )) : <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">No schedules found.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Planned Absences Dialog ── */}
+      <Dialog open={activeModal === "Planned Absences"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
+        <DialogContent className="max-w-xl max-h-[80vh] flex flex-col overflow-hidden p-0">
+          <div className="bg-teal-800 text-white px-5 py-3">
+            <DialogHeader><DialogTitle className="text-white text-base font-bold">Planned Absences</DialogTitle></DialogHeader>
+            <p className="text-teal-200 text-xs mt-0.5">{EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; Academic Year 2024/25</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-slate-500">Approved leave and planned absences on record.</p>
+              <button className="text-xs text-teal-700 border border-teal-200 rounded px-2 py-1 hover:bg-teal-50">+ Request Absence</button>
+            </div>
+            <table className="w-full text-xs border-collapse">
+              <thead><tr className="bg-teal-800 text-white">
+                {["Start Date", "End Date", "Reason", "Status", "Approved By"].map(h => (
+                  <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {[
+                  { start: "15/07/2025", end: "25/07/2025", reason: "Annual Leave", status: "Approved", by: "Head of Dept" },
+                  { start: "28/10/2024", end: "01/11/2024", reason: "Annual Leave", status: "Approved", by: "Head of Dept" },
+                  { start: "14/02/2025", end: "14/02/2025", reason: "Medical Appointment", status: "Approved", by: "Line Manager" },
+                ].map(a => (
+                  <tr key={a.start} className="hover:bg-slate-50">
+                    <td className="px-3 py-1.5 text-slate-700">{a.start}</td>
+                    <td className="px-3 py-1.5 text-slate-700">{a.end}</td>
+                    <td className="px-3 py-1.5 text-slate-800 font-medium">{a.reason}</td>
+                    <td className="px-3 py-1.5"><span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border text-green-700 bg-green-50 border-green-200">{a.status}</span></td>
+                    <td className="px-3 py-1.5 text-slate-600">{a.by}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
