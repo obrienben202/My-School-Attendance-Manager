@@ -16,6 +16,7 @@ import {
   PlusCircle,
   LogOut,
   LogIn,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ const SIDEBAR_ITEMS = [
   { icon: ClipboardList, label: "My Registers", href: "/attendance" },
   { icon: BookMarked, label: "Markbook", href: "/licence-required?feature=markbook" },
   { icon: PenTool, label: "My Assessments", href: "/assessments" },
+  { icon: ClipboardCheck, label: "My Unconfirmed Assessments", href: "/assessments?unconfirmed=1" },
   { icon: Users, label: "My Assignments / Groups", href: "/licence-required?feature=assignments-groups" },
   { icon: AlertTriangle, label: "At Risk Learners", href: "/students?atRisk=true", color: "text-red-400" },
   { icon: Target, label: "Targets", href: "/targets" },

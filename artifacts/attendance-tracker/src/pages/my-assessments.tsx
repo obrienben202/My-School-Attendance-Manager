@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
-import { useListAssessments, useListCourses, useCreateAssessment, useDeleteAssessment } from "@workspace/api-client-react";
+import { useLocation, useSearch } from "wouter";
+import { useListAssessments, useListAssessmentResults, useListCourses, useCreateAssessment, useDeleteAssessment } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PenTool, Plus, Trash2, ChevronRight, ChevronsUpDown, X, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -114,6 +114,9 @@ function AddAssessmentForm({ courseId, onSuccess, onCancel }: { courseId: number
 
 export default function MyAssessments() {
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const isUnconfirmedMode = new URLSearchParams(search).get("unconfirmed") === "1";
+
   const [filterText, setFilterText] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -123,11 +126,18 @@ export default function MyAssessments() {
     selectedCourseId ? { courseId: selectedCourseId } : {},
     { query: {} as any }
   );
+  const { data: allResults } = useListAssessmentResults({}, { query: {} as any });
   const { mutateAsync: deleteAssessment } = useDeleteAssessment();
 
-  const filtered = (assessments ?? []).filter(a =>
-    !filterText || (a.code + " " + a.description).toLowerCase().includes(filterText.toLowerCase())
-  );
+  // In unconfirmed mode: only show assessments that have at least one submitted-but-not-confirmed result
+  const unconfirmedAssessmentIds = isUnconfirmedMode
+    ? new Set((allResults ?? []).filter(r => r.status === "Submitted" && !r.confirmed).map(r => r.assessmentId))
+    : null;
+
+  const filtered = (assessments ?? []).filter(a => {
+    if (isUnconfirmedMode && !unconfirmedAssessmentIds?.has(a.id)) return false;
+    return !filterText || (a.code + " " + a.description).toLowerCase().includes(filterText.toLowerCase());
+  });
 
   async function handleDelete(id: number) {
     if (!confirm("Delete this assessment? This cannot be undone.")) return;
@@ -142,16 +152,24 @@ export default function MyAssessments() {
         <div className="flex items-center gap-3">
           <PenTool className="w-5 h-5 text-teal-700" />
           <div>
-            <h1 className="text-lg font-bold text-slate-800">My Assessments</h1>
-            <p className="text-xs text-slate-500">View and mark learner assessments</p>
+            <h1 className="text-lg font-bold text-slate-800">
+              {isUnconfirmedMode ? "My Unconfirmed Assessments" : "My Assessments"}
+            </h1>
+            <p className="text-xs text-slate-500">
+              {isUnconfirmedMode
+                ? "Assessments with submitted results awaiting confirmation"
+                : "View and mark learner assessments"}
+            </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowAddForm(v => !v)}
-          className="flex items-center gap-1.5 text-xs bg-teal-700 text-white rounded px-3 py-1.5 hover:bg-teal-800"
-        >
-          <Plus className="w-3.5 h-3.5" /> Add Assessment
-        </button>
+        {!isUnconfirmedMode && (
+          <button
+            onClick={() => setShowAddForm(v => !v)}
+            className="flex items-center gap-1.5 text-xs bg-teal-700 text-white rounded px-3 py-1.5 hover:bg-teal-800"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Assessment
+          </button>
+        )}
       </div>
 
       {/* Filters */}
