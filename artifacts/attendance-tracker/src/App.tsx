@@ -19,6 +19,7 @@ import Targets from "@/pages/targets";
 import Ilps from "@/pages/ilps";
 import MyAssessments from "@/pages/my-assessments";
 import AssessmentDetail from "@/pages/assessment-detail";
+import LicenceRequired from "@/pages/licence-required";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ function Router() {
         <Route path="/ilps" component={Ilps} />
         <Route path="/assessments" component={MyAssessments} />
         <Route path="/assessments/:id" component={AssessmentDetail} />
+        <Route path="/licence-required" component={LicenceRequired} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

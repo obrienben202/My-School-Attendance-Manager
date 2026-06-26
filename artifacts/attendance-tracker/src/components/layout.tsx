@@ -24,14 +24,14 @@ const SIDEBAR_ITEMS = [
   { icon: UserCircle, label: "My Details", href: "/students" },
   { icon: BookOpen, label: "My Courses", href: "/courses" },
   { icon: ClipboardList, label: "My Registers", href: "/attendance" },
-  { icon: BookMarked, label: "Markbook", href: "#" },
+  { icon: BookMarked, label: "Markbook", href: "/licence-required?feature=markbook" },
   { icon: PenTool, label: "My Assessments", href: "/assessments" },
-  { icon: Users, label: "My Assignments / Groups", href: "#" },
+  { icon: Users, label: "My Assignments / Groups", href: "/licence-required?feature=assignments-groups" },
   { icon: AlertTriangle, label: "At Risk Learners", href: "/students?atRisk=true", color: "text-red-400" },
   { icon: Target, label: "Targets", href: "/targets" },
   { icon: FileText, label: "ILP", href: "/ilps" },
-  { icon: Archive, label: "Old Markbook", href: "#" },
-  { icon: LifeBuoy, label: "Support", href: "#" },
+  { icon: Archive, label: "Old Markbook", href: "/licence-required?feature=old-markbook" },
+  { icon: LifeBuoy, label: "Support", href: "/licence-required?feature=support" },
   { icon: PlusCircle, label: "New ILP", href: "/ilps/new" },
 ];
 
