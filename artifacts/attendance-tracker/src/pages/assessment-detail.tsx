@@ -63,7 +63,7 @@ export default function AssessmentDetail() {
   const [submitted, setSubmitted] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-  const [groupFilter, setGroupFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [saving, setSaving] = useState(false);
   const [extensionStudentId, setExtensionStudentId] = useState<number | null>(null);
   const [extensionDate, setExtensionDate] = useState("");
@@ -206,7 +206,7 @@ export default function AssessmentDetail() {
                   <Select value={groupFilter} onValueChange={setGroupFilter}>
                     <SelectTrigger className="h-6 text-xs w-36"><SelectValue placeholder="All Groups" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="" className="text-xs">All Groups</SelectItem>
+                      <SelectItem value="all" className="text-xs">All Groups</SelectItem>
                       <SelectItem value="A" className="text-xs">Group A</SelectItem>
                       <SelectItem value="B" className="text-xs">Group B</SelectItem>
                     </SelectContent>
