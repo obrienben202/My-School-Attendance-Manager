@@ -181,15 +181,36 @@ export default function AssessmentDetail() {
         <span className="text-xs text-slate-700">{assessment.code}</span>
       </div>
 
-      {/* Status banners */}
+      {/* Submit banner */}
       {submitted && !isConfirmMode && (
         <div className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-semibold px-4 py-2 rounded">
           <Check className="w-4 h-4" /> Results submitted successfully.
         </div>
       )}
+
+      {/* Confirm results modal */}
       {confirmed && (
-        <div className="flex items-center gap-2 bg-teal-700 text-white text-xs font-semibold px-4 py-2 rounded">
-          <Check className="w-4 h-4" /> Assessment results confirmed.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-sm mx-4 overflow-hidden">
+            <div className="bg-teal-700 px-5 py-3 flex items-center gap-2">
+              <Check className="w-4 h-4 text-white" />
+              <p className="text-sm font-semibold text-white">Assessment Confirmed</p>
+            </div>
+            <div className="px-5 py-5 space-y-3">
+              <p className="text-sm text-slate-700">
+                The assessment results for <span className="font-semibold">{assessment.code}</span> have been confirmed successfully.
+              </p>
+              <p className="text-xs text-slate-500">All learner results have been set to Confirmed status.</p>
+            </div>
+            <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => { setConfirmed(false); navigate("/assessments?unconfirmed=1"); }}
+                className="text-xs bg-teal-700 text-white rounded px-4 py-1.5 hover:bg-teal-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
