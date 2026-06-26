@@ -86,20 +86,39 @@ function buildReportHtml(
   const header = reportHeader(reportName, student);
 
   if (reportName === "Learner Timetable") {
-    const timetableCourses = courses.slice(0, 5);
-    const rows = timetableCourses.map((c, i) => `
-      <tr>
-        <td>${DAYS[i % DAYS.length]}</td>
-        <td>${PERIODS[i % PERIODS.length]}</td>
-        <td>${c.code}</td>
-        <td>${c.name}</td>
-        <td>${c.room ?? "—"}</td>
-        <td>${c.staffName ?? "—"}</td>
-      </tr>`).join("");
+    // Distribute courses into a 6-lesson × 5-day grid
+    const cellMap: Record<string, CourseRec> = {};
+    courses.forEach((c, i) => { cellMap[`${Math.floor(i / 5)}-${i % 5}`] = c; });
+    const cell = (lesson: number, day: number) => {
+      const c = cellMap[`${lesson}-${day}`];
+      return c ? `<strong>${c.code}</strong><br/><span style="font-size:10px;color:#555;">${c.name}${c.room ? ` · ${c.room}` : ""}</span>` : "";
+    };
+    const dayRow = DAYS.map(d => `<th style="border:1px solid #bbb;padding:6px 4px;text-align:center;background:#f0f0f0;font-size:11px;">${d}</th>`).join("");
+    const lessonRow = (label: string, idx: number) =>
+      `<tr><td style="border:1px solid #bbb;padding:5px 6px;font-weight:bold;font-size:11px;background:#fafafa;white-space:nowrap;">${label}</td>` +
+      DAYS.map((_, d) => `<td style="border:1px solid #bbb;padding:5px 6px;font-size:11px;min-width:100px;">${cell(idx, d)}</td>`).join("") +
+      `</tr>`;
+    const breakRow = (label: string) =>
+      `<tr><td colspan="6" style="border:1px solid #bbb;padding:5px 6px;text-align:center;font-style:italic;font-size:12px;color:#555;background:#f9f9f9;">${label}</td></tr>`;
     return `${header}
-<table>
-  <thead><tr><th>Day</th><th>Time</th><th>Course Code</th><th>Course Name</th><th>Room</th><th>Staff</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="6">No timetable entries found.</td></tr>'}</tbody>
+<h2 style="text-align:center;font-size:15px;font-weight:bold;margin-bottom:10px;">Timetable</h2>
+<table style="border-collapse:collapse;width:100%;">
+  <thead>
+    <tr>
+      <th style="border:1px solid #bbb;padding:6px 4px;width:80px;background:#f0f0f0;"></th>
+      ${dayRow}
+    </tr>
+  </thead>
+  <tbody>
+    ${lessonRow("Lesson 1", 0)}
+    ${lessonRow("Lesson 2", 1)}
+    ${breakRow("Break")}
+    ${lessonRow("Lesson 3", 2)}
+    ${lessonRow("Lesson 4", 3)}
+    ${breakRow("Lunch")}
+    ${lessonRow("Lesson 5", 4)}
+    ${lessonRow("Lesson 6", 5)}
+  </tbody>
 </table>`;
   }
 
@@ -256,23 +275,54 @@ function StudentReportDialog({
     );
 
     if (reportName === "Learner Timetable") {
-      const timetableCourses = courses.slice(0, 5);
+      // Build a lesson×day cell map
+      const cellMap: Record<string, CourseRec> = {};
+      courses.forEach((c, i) => { cellMap[`${Math.floor(i / 5)}-${i % 5}`] = c; });
+      const getCell = (lesson: number, day: number) => cellMap[`${lesson}-${day}`] ?? null;
+
+      const LessonRow = ({ label, idx }: { label: string; idx: number }) => (
+        <tr>
+          <td className="border border-slate-300 px-2 py-1.5 text-[11px] font-bold text-slate-700 bg-slate-50 whitespace-nowrap w-20">{label}</td>
+          {DAYS.map((_, d) => {
+            const c = getCell(idx, d);
+            return (
+              <td key={d} className="border border-slate-300 px-2 py-1.5 text-[10px] text-slate-700 min-w-[100px]">
+                {c ? <><span className="font-semibold text-teal-800">{c.code}</span><br /><span className="text-slate-500">{c.name}{c.room ? ` · ${c.room}` : ""}</span></> : ""}
+              </td>
+            );
+          })}
+        </tr>
+      );
+      const BreakRow = ({ label }: { label: string }) => (
+        <tr>
+          <td colSpan={6} className="border border-slate-300 px-3 py-1.5 text-center text-xs italic text-slate-500 bg-slate-50">{label}</td>
+        </tr>
+      );
+
       return (
-        <table className="w-full text-xs border-collapse">
-          {tblHead("Day", "Time", "Code", "Course", "Room", "Staff")}
-          <tbody className="divide-y divide-slate-100">
-            {timetableCourses.length ? timetableCourses.map((c, i) => (
-              <tr key={c.id} className="hover:bg-slate-50">
-                <td className="px-3 py-1.5 text-slate-700">{DAYS[i % DAYS.length]}</td>
-                <td className="px-3 py-1.5 text-slate-600 font-mono">{PERIODS[i % PERIODS.length]}</td>
-                <td className="px-3 py-1.5 text-slate-700 font-medium">{c.code}</td>
-                <td className="px-3 py-1.5 text-slate-700">{c.name}</td>
-                <td className="px-3 py-1.5 text-slate-600">{c.room ?? "—"}</td>
-                <td className="px-3 py-1.5 text-slate-600">{c.staffName ?? "—"}</td>
+        <div className="overflow-x-auto">
+          <p className="text-center font-bold text-sm text-slate-700 mb-2">Timetable</p>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr>
+                <th className="border border-slate-300 px-2 py-1.5 bg-slate-100 w-20"></th>
+                {DAYS.map(d => (
+                  <th key={d} className="border border-slate-300 px-2 py-1.5 bg-slate-100 text-slate-700 font-semibold text-center text-[11px]">{d}</th>
+                ))}
               </tr>
-            )) : empty(6)}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              <LessonRow label="Lesson 1" idx={0} />
+              <LessonRow label="Lesson 2" idx={1} />
+              <BreakRow label="Break" />
+              <LessonRow label="Lesson 3" idx={2} />
+              <LessonRow label="Lesson 4" idx={3} />
+              <BreakRow label="Lunch" />
+              <LessonRow label="Lesson 5" idx={4} />
+              <LessonRow label="Lesson 6" idx={5} />
+            </tbody>
+          </table>
+        </div>
       );
     }
 
