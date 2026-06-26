@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { useGetCourse, useListAttendanceRecords, useListStudents } from "@workspace/api-client-react";
+import { useGetCourse, useListAttendanceRecords, useListStudents, useListAssessments } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool } from "lucide-react";
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -57,6 +57,7 @@ export default function CourseDetail() {
   const { data: course, isLoading } = useGetCourse(id, { query: { enabled: !!id } as any });
   const { data: attendance } = useListAttendanceRecords({ courseId: id }, { query: { enabled: !!id } as any });
   const { data: allStudents } = useListStudents();
+  const { data: courseAssessments } = useListAssessments({ courseId: id }, { query: { enabled: !!id } as any });
 
   if (isLoading) {
     return <div className="space-y-4 p-6"><Skeleton className="h-8 w-64" /><Skeleton className="h-48 w-full" /></div>;
@@ -263,8 +264,50 @@ export default function CourseDetail() {
               )}
 
               {activeLink === "Assessment Plan" && (
-                <Section title="Assessment Plan">
-                  <p className="text-xs text-slate-400">No assessment plan on record. Add your data to populate this section.</p>
+                <Section title={`Assessment Plan (${courseAssessments?.length ?? 0} assessments)`}>
+                  {courseAssessments?.length ? (
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Code</th>
+                          <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Description</th>
+                          <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Type</th>
+                          <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Due Date</th>
+                          <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Grading Scheme</th>
+                          <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Min Pass</th>
+                          <th className="text-center font-semibold text-slate-600 pb-2 pr-4">Mandatory</th>
+                          <th className="text-left font-semibold text-slate-600 pb-2">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {courseAssessments.map(a => (
+                          <tr key={a.id} className="hover:bg-slate-50">
+                            <td className="py-1.5 pr-4 font-medium text-slate-800">{a.code}</td>
+                            <td className="py-1.5 pr-4 text-slate-700">{a.description}</td>
+                            <td className="py-1.5 pr-4 text-slate-500">{a.type}</td>
+                            <td className="py-1.5 pr-4 text-slate-500">{a.dueDate ?? "—"}</td>
+                            <td className="py-1.5 pr-4 text-slate-500">{a.gradingScheme}</td>
+                            <td className="py-1.5 pr-4 text-slate-500">{a.minPassMark ?? "—"}</td>
+                            <td className="py-1.5 pr-4 text-center">{a.mandatory ? "✓" : "—"}</td>
+                            <td className="py-1.5">
+                              <button onClick={() => navigate(`/assessments/${a.id}`)}
+                                className="flex items-center gap-1 text-xs text-sky-700 hover:underline">
+                                <PenTool className="w-3 h-3" /> Mark
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-400">No assessments on record for this course.</p>
+                      <button onClick={() => navigate("/assessments")}
+                        className="flex items-center gap-1 text-xs text-teal-700 hover:underline">
+                        <PenTool className="w-3 h-3" /> Go to My Assessments to add one
+                      </button>
+                    </div>
+                  )}
                 </Section>
               )}
 

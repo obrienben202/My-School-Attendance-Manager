@@ -20,7 +20,7 @@ router.get("/attendance", async (req, res) => {
   const conditions: SQL[] = [];
   if (studentId) conditions.push(eq(attendanceTable.studentId, studentId));
   if (courseId) conditions.push(eq(attendanceTable.courseId, courseId));
-  if (date) conditions.push(eq(attendanceTable.date, date));
+  if (date) conditions.push(eq(attendanceTable.date, date instanceof Date ? date.toISOString().split("T")[0] : date));
   if (status) conditions.push(eq(attendanceTable.status, status));
 
   const records = await db
@@ -53,7 +53,11 @@ router.post("/attendance", async (req, res) => {
   const parsed = CreateAttendanceRecordBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
-  const [record] = await db.insert(attendanceTable).values(parsed.data).returning();
+  const { date, ...restAttendance } = parsed.data;
+  const [record] = await db.insert(attendanceTable).values({
+    ...restAttendance,
+    date: date instanceof Date ? date.toISOString().split("T")[0] : date,
+  }).returning();
   return res.status(201).json({
     ...record,
     studentName: null,

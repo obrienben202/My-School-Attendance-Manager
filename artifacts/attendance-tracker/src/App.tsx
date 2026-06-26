@@ -17,6 +17,8 @@ import StaffDetail from "@/pages/staff-detail";
 import Attendance from "@/pages/attendance";
 import Targets from "@/pages/targets";
 import Ilps from "@/pages/ilps";
+import MyAssessments from "@/pages/my-assessments";
+import AssessmentDetail from "@/pages/assessment-detail";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +38,8 @@ function Router() {
         <Route path="/attendance" component={Attendance} />
         <Route path="/targets" component={Targets} />
         <Route path="/ilps" component={Ilps} />
+        <Route path="/assessments" component={MyAssessments} />
+        <Route path="/assessments/:id" component={AssessmentDetail} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

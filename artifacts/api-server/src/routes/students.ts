@@ -42,7 +42,11 @@ router.post("/students", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid body" });
   }
-  const [student] = await db.insert(studentsTable).values(parsed.data).returning();
+  const { dateOfBirth, ...restData } = parsed.data;
+  const [student] = await db.insert(studentsTable).values({
+    ...restData,
+    dateOfBirth: dateOfBirth instanceof Date ? dateOfBirth.toISOString().split("T")[0] : (dateOfBirth ?? null),
+  }).returning();
   return res.status(201).json(toStudentResponse(student));
 });
 
@@ -71,9 +75,13 @@ router.patch("/students/:id", async (req, res) => {
   const bodyParsed = UpdateStudentBody.safeParse(req.body);
   if (!bodyParsed.success) return res.status(400).json({ error: "Invalid body" });
 
+  const { dateOfBirth: dob, ...updateData } = bodyParsed.data;
   const [student] = await db
     .update(studentsTable)
-    .set(bodyParsed.data)
+    .set({
+      ...updateData,
+      dateOfBirth: dob instanceof Date ? dob.toISOString().split("T")[0] : (dob ?? null),
+    })
     .where(eq(studentsTable.id, paramsParsed.data.id))
     .returning();
   if (!student) return res.status(404).json({ error: "Not found" });

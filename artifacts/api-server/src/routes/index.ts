@@ -8,6 +8,7 @@ import targetsRouter from "./targets";
 import ilpsRouter from "./ilps";
 import scheduleRouter from "./schedule";
 import dashboardRouter from "./dashboard";
+import assessmentsRouter from "./assessments";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(attendanceRouter);
 router.use(targetsRouter);
 router.use(ilpsRouter);
 router.use(scheduleRouter);
+router.use(assessmentsRouter);
 
 export default router;
