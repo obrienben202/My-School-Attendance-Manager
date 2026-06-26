@@ -29,6 +29,8 @@ import type {
   AttendanceUpdate,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
+  ConciergeApplication,
+  ConciergeApplicationInput,
   Course,
   CourseInput,
   DashboardSummary,
@@ -40,6 +42,7 @@ import type {
   ListAssessmentResultsParams,
   ListAssessmentsParams,
   ListAttendanceRecordsParams,
+  ListConciergeApplicationsParams,
   ListIlpsParams,
   ListStudentsParams,
   ListTargetsParams,
@@ -2176,6 +2179,380 @@ export const useUpdateAssessmentResult = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateAssessmentResultMutationOptions(options));
+    }
+
+export const getListConciergeApplicationsUrl = (params?: ListConciergeApplicationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/concierge/applications?${stringifiedParams}` : `/api/concierge/applications`
+}
+
+/**
+ * @summary List all concierge applications
+ */
+export const listConciergeApplications = async (params?: ListConciergeApplicationsParams, options?: RequestInit): Promise<ConciergeApplication[]> => {
+
+  return customFetch<ConciergeApplication[]>(getListConciergeApplicationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListConciergeApplicationsQueryKey = (params?: ListConciergeApplicationsParams,) => {
+    return [
+    `/api/concierge/applications`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListConciergeApplicationsQueryOptions = <TData = Awaited<ReturnType<typeof listConciergeApplications>>, TError = ErrorType<unknown>>(params?: ListConciergeApplicationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listConciergeApplications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListConciergeApplicationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listConciergeApplications>>> = ({ signal }) => listConciergeApplications(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listConciergeApplications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListConciergeApplicationsQueryResult = NonNullable<Awaited<ReturnType<typeof listConciergeApplications>>>
+export type ListConciergeApplicationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all concierge applications
+ */
+
+export function useListConciergeApplications<TData = Awaited<ReturnType<typeof listConciergeApplications>>, TError = ErrorType<unknown>>(
+ params?: ListConciergeApplicationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listConciergeApplications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListConciergeApplicationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateConciergeApplicationUrl = () => {
+
+
+
+
+  return `/api/concierge/applications`
+}
+
+/**
+ * @summary Create a new concierge application
+ */
+export const createConciergeApplication = async (conciergeApplicationInput: ConciergeApplicationInput, options?: RequestInit): Promise<ConciergeApplication> => {
+
+  return customFetch<ConciergeApplication>(getCreateConciergeApplicationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      conciergeApplicationInput,)
+  }
+);}
+
+
+
+
+export const getCreateConciergeApplicationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createConciergeApplication>>, TError,{data: BodyType<ConciergeApplicationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createConciergeApplication>>, TError,{data: BodyType<ConciergeApplicationInput>}, TContext> => {
+
+const mutationKey = ['createConciergeApplication'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createConciergeApplication>>, {data: BodyType<ConciergeApplicationInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createConciergeApplication(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateConciergeApplicationMutationResult = NonNullable<Awaited<ReturnType<typeof createConciergeApplication>>>
+    export type CreateConciergeApplicationMutationBody = BodyType<ConciergeApplicationInput>
+    export type CreateConciergeApplicationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new concierge application
+ */
+export const useCreateConciergeApplication = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createConciergeApplication>>, TError,{data: BodyType<ConciergeApplicationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createConciergeApplication>>,
+        TError,
+        {data: BodyType<ConciergeApplicationInput>},
+        TContext
+      > => {
+      return useMutation(getCreateConciergeApplicationMutationOptions(options));
+    }
+
+export const getGetConciergeApplicationUrl = (id: number,) => {
+
+
+
+
+  return `/api/concierge/applications/${id}`
+}
+
+/**
+ * @summary Get a single concierge application
+ */
+export const getConciergeApplication = async (id: number, options?: RequestInit): Promise<ConciergeApplication> => {
+
+  return customFetch<ConciergeApplication>(getGetConciergeApplicationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConciergeApplicationQueryKey = (id: number,) => {
+    return [
+    `/api/concierge/applications/${id}`
+    ] as const;
+    }
+
+
+export const getGetConciergeApplicationQueryOptions = <TData = Awaited<ReturnType<typeof getConciergeApplication>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConciergeApplication>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConciergeApplicationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConciergeApplication>>> = ({ signal }) => getConciergeApplication(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConciergeApplication>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConciergeApplicationQueryResult = NonNullable<Awaited<ReturnType<typeof getConciergeApplication>>>
+export type GetConciergeApplicationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get a single concierge application
+ */
+
+export function useGetConciergeApplication<TData = Awaited<ReturnType<typeof getConciergeApplication>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConciergeApplication>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConciergeApplicationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateConciergeApplicationUrl = (id: number,) => {
+
+
+
+
+  return `/api/concierge/applications/${id}`
+}
+
+/**
+ * @summary Update a concierge application
+ */
+export const updateConciergeApplication = async (id: number,
+    conciergeApplicationInput: ConciergeApplicationInput, options?: RequestInit): Promise<ConciergeApplication> => {
+
+  return customFetch<ConciergeApplication>(getUpdateConciergeApplicationUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      conciergeApplicationInput,)
+  }
+);}
+
+
+
+
+export const getUpdateConciergeApplicationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConciergeApplication>>, TError,{id: number;data: BodyType<ConciergeApplicationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateConciergeApplication>>, TError,{id: number;data: BodyType<ConciergeApplicationInput>}, TContext> => {
+
+const mutationKey = ['updateConciergeApplication'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateConciergeApplication>>, {id: number;data: BodyType<ConciergeApplicationInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateConciergeApplication(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateConciergeApplicationMutationResult = NonNullable<Awaited<ReturnType<typeof updateConciergeApplication>>>
+    export type UpdateConciergeApplicationMutationBody = BodyType<ConciergeApplicationInput>
+    export type UpdateConciergeApplicationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a concierge application
+ */
+export const useUpdateConciergeApplication = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConciergeApplication>>, TError,{id: number;data: BodyType<ConciergeApplicationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateConciergeApplication>>,
+        TError,
+        {id: number;data: BodyType<ConciergeApplicationInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateConciergeApplicationMutationOptions(options));
+    }
+
+export const getDeleteConciergeApplicationUrl = (id: number,) => {
+
+
+
+
+  return `/api/concierge/applications/${id}`
+}
+
+/**
+ * @summary Delete a concierge application
+ */
+export const deleteConciergeApplication = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteConciergeApplicationUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteConciergeApplicationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteConciergeApplication>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteConciergeApplication>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteConciergeApplication'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteConciergeApplication>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteConciergeApplication(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteConciergeApplicationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteConciergeApplication>>>
+
+    export type DeleteConciergeApplicationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a concierge application
+ */
+export const useDeleteConciergeApplication = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteConciergeApplication>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteConciergeApplication>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteConciergeApplicationMutationOptions(options));
     }
 
 export const getGetCurrentAuthUserUrl = () => {

@@ -22,6 +22,14 @@ import AssessmentDetail from "@/pages/assessment-detail";
 import AssignmentsGroups from "@/pages/assignments-groups";
 import AssignmentResults from "@/pages/assignment-results";
 import LicenceRequired from "@/pages/licence-required";
+import ConciergeIndex from "@/pages/concierge/index";
+import ConciergeApplicants from "@/pages/concierge/applicants";
+import ConciergeApplications from "@/pages/concierge/applications";
+import ApplicationDetail from "@/pages/concierge/application-detail";
+import ConciergeInterviews from "@/pages/concierge/interviews";
+import EnrolmentsList from "@/pages/concierge/enrolments-list";
+import EnrolmentsWizard from "@/pages/concierge/enrolments";
+import EnrolmentOverview from "@/pages/concierge/enrolment-overview";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +54,14 @@ function Router() {
         <Route path="/assignments-groups" component={AssignmentsGroups} />
         <Route path="/assignment-results/:id" component={AssignmentResults} />
         <Route path="/licence-required" component={LicenceRequired} />
+        <Route path="/concierge" component={ConciergeIndex} />
+        <Route path="/concierge/applicants" component={ConciergeApplicants} />
+        <Route path="/concierge/applications" component={ConciergeApplications} />
+        <Route path="/concierge/applications/:id" component={ApplicationDetail} />
+        <Route path="/concierge/interviews" component={ConciergeInterviews} />
+        <Route path="/concierge/enrolments" component={EnrolmentsList} />
+        <Route path="/concierge/enrolments/new" component={EnrolmentsWizard} />
+        <Route path="/concierge/enrolments/:id" component={EnrolmentOverview} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

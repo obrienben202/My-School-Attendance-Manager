@@ -17,24 +17,52 @@ import {
   LogOut,
   LogIn,
   ClipboardCheck,
+  ConciergeBell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SIDEBAR_ITEMS = [
-  { icon: Home, label: "My Homepage", href: "/" },
-  { icon: UserCircle, label: "My Details", href: "/students" },
-  { icon: BookOpen, label: "My Courses", href: "/courses" },
-  { icon: ClipboardList, label: "My Registers", href: "/attendance" },
-  { icon: BookMarked, label: "Markbook", href: "/licence-required?feature=markbook" },
-  { icon: PenTool, label: "My Assessments", href: "/assessments" },
-  { icon: ClipboardCheck, label: "My Unconfirmed Assessments", href: "/assessments?unconfirmed=1" },
-  { icon: Users, label: "My Assignments / Groups", href: "/assignments-groups" },
-  { icon: AlertTriangle, label: "At Risk Learners", href: "/students?atRisk=true", color: "text-red-400" },
-  { icon: Target, label: "Targets", href: "/targets" },
-  { icon: FileText, label: "ILP", href: "/ilps" },
-  { icon: Archive, label: "Old Markbook", href: "/licence-required?feature=old-markbook" },
-  { icon: LifeBuoy, label: "Support", href: "/licence-required?feature=support" },
-  { icon: PlusCircle, label: "New ILP", href: "/ilps/new" },
+type SidebarItem = {
+  icon: React.ElementType;
+  label: string;
+  href: string;
+  color?: string;
+};
+
+type SidebarSection = {
+  heading: string;
+  items: SidebarItem[];
+};
+
+const SIDEBAR_SECTIONS: SidebarSection[] = [
+  {
+    heading: "Staff Portal",
+    items: [
+      { icon: Home, label: "My Homepage", href: "/" },
+      { icon: UserCircle, label: "My Details", href: "/students" },
+      { icon: BookOpen, label: "My Courses", href: "/courses" },
+      { icon: ClipboardList, label: "My Registers", href: "/attendance" },
+      { icon: BookMarked, label: "Markbook", href: "/licence-required?feature=markbook" },
+      { icon: PenTool, label: "My Assessments", href: "/assessments" },
+      { icon: ClipboardCheck, label: "My Unconfirmed Assessments", href: "/assessments?unconfirmed=1" },
+      { icon: Users, label: "My Assignments / Groups", href: "/assignments-groups" },
+      { icon: AlertTriangle, label: "At Risk Learners", href: "/students?atRisk=true", color: "text-red-400" },
+      { icon: Target, label: "Targets", href: "/targets" },
+      { icon: FileText, label: "ILP", href: "/ilps" },
+      { icon: Archive, label: "Old Markbook", href: "/licence-required?feature=old-markbook" },
+      { icon: LifeBuoy, label: "Support", href: "/licence-required?feature=support" },
+      { icon: PlusCircle, label: "New ILP", href: "/ilps/new" },
+    ],
+  },
+  {
+    heading: "Concierge",
+    items: [
+      { icon: ConciergeBell, label: "Concierge", href: "/concierge" },
+      { icon: Users, label: "Applicants", href: "/concierge/applicants" },
+      { icon: FileText, label: "Applications", href: "/concierge/applications" },
+      { icon: ClipboardCheck, label: "Interviews", href: "/concierge/interviews" },
+      { icon: BookOpen, label: "Enrolments", href: "/concierge/enrolments" },
+    ],
+  },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -70,6 +98,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const isActive = (href: string) => {
+    if (href === "/") return location === "/";
+    // Strip query string for comparison
+    const hrefPath = href.split("?")[0];
+    return location === hrefPath || location.startsWith(hrefPath + "/");
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-50">
       {/* Sidebar */}
@@ -80,26 +115,40 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="font-semibold text-lg tracking-tight">Attendance</span>
           </div>
         </div>
-        <nav className="flex-1 py-4">
-          <ul className="space-y-1 px-2">
-            {SIDEBAR_ITEMS.map((item) => {
-              const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href) && !item.href.startsWith("#"));
-              return (
-                <li key={item.label}>
-                  <Link href={item.href} className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    isActive 
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  )}>
-                    <item.icon className={cn("w-4 h-4", item.color)} />
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+
+        <nav className="flex-1 py-4 space-y-4">
+          {SIDEBAR_SECTIONS.map((section) => (
+            <div key={section.heading}>
+              <div className="px-4 pb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+                  {section.heading}
+                </span>
+              </div>
+              <ul className="space-y-0.5 px-2">
+                {section.items.map((item) => {
+                  const active = isActive(item.href);
+                  return (
+                    <li key={item.label}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                          active
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                        )}
+                      >
+                        <item.icon className={cn("w-4 h-4 shrink-0", item.color)} />
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </nav>
+
         {/* User footer */}
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-2 mb-3">
