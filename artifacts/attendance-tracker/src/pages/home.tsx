@@ -803,15 +803,15 @@ function RoomSearchTab() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="w-32 shrink-0 text-sm text-slate-700">Room Code</span>
-              <Input value={roomCode} onChange={e => { setRoomCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+              <Input value={roomCode} onChange={e => { setRoomCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
               <span className="w-32 shrink-0 text-sm text-slate-700">Room Description</span>
-              <Input value={roomDesc} onChange={e => { setRoomDesc(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+              <Input value={roomDesc} onChange={e => { setRoomDesc(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
               <span className="w-32 shrink-0 text-sm text-slate-700">Session Code</span>
-              <Input value={sessionCode} onChange={e => { setSessionCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+              <Input value={sessionCode} onChange={e => { setSessionCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
           </div>
           <div className="space-y-2">
@@ -837,8 +837,7 @@ function RoomSearchTab() {
             </div>
           </div>
         </div>
-        <p className="text-[11px] text-slate-400 mt-1">Use % as a wildcard, e.g. <code>Lab%</code> finds all labs.</p>
-        <div className="flex justify-end pt-2">
+        <div className="flex justify-end pt-3">
           <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
@@ -942,30 +941,29 @@ function StaffSearchTab() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="w-28 shrink-0 text-sm text-slate-700">Staff Code</span>
-              <Input value={staffCode} onChange={e => { setStaffCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+              <Input value={staffCode} onChange={e => { setStaffCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
               <span className="w-28 shrink-0 text-sm text-slate-700">Forename</span>
-              <Input value={forename} onChange={e => { setForename(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+              <Input value={forename} onChange={e => { setForename(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
               <span className="w-28 shrink-0 text-sm text-slate-700">Surname</span>
-              <Input value={surname} onChange={e => { setSurname(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+              <Input value={surname} onChange={e => { setSurname(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="w-28 shrink-0 text-sm text-slate-700">Organisation</span>
-              <Input value={organisation} onChange={e => { setOrganisation(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+              <Input value={organisation} onChange={e => { setOrganisation(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
               <span className="w-28 shrink-0 text-sm text-slate-700">Position</span>
-              <Input value={position} onChange={e => { setPosition(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" placeholder="%" />
+              <Input value={position} onChange={e => { setPosition(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
           </div>
         </div>
-        <p className="text-[11px] text-slate-400 mt-1">Use % as a wildcard, e.g. <code>Smit%</code> finds Smith, Smithson, etc.</p>
-        <div className="flex justify-end pt-2">
+        <div className="flex justify-end pt-3">
           <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
