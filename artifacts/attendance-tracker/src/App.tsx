@@ -27,6 +27,7 @@ import MarkbookVerification from "@/pages/markbook/verification";
 import PlannedAbsence from "@/pages/planned-absence/index";
 import ManageReports from "@/pages/reports/index";
 import ManageSchedules from "@/pages/schedules/index";
+import MyDetails from "@/pages/my-details";
 import SafeguardingTutor from "@/pages/safeguarding/index";
 import SafeguardingAdmin from "@/pages/safeguarding/admin";
 import IlpTutorHub from "@/pages/ilp-tutor/index";
@@ -81,6 +82,7 @@ function Router() {
         <Route path="/planned-absence" component={PlannedAbsence} />
         <Route path="/reports" component={ManageReports} />
         <Route path="/schedules" component={ManageSchedules} />
+        <Route path="/my-details" component={MyDetails} />
         <Route path="/safeguarding" component={SafeguardingTutor} />
         <Route path="/safeguarding/admin" component={SafeguardingAdmin} />
         <Route path="/ilp-tutor" component={IlpTutorHub} />
