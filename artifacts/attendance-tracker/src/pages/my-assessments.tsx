@@ -160,10 +160,10 @@ export default function MyAssessments() {
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-2">
             <span className="w-24 shrink-0 text-xs text-slate-600">Course</span>
-            <Select value={selectedCourseId?.toString() ?? ""} onValueChange={v => setSelectedCourseId(v ? parseInt(v) : null)}>
+            <Select value={selectedCourseId?.toString() ?? "all"} onValueChange={v => setSelectedCourseId(v === "all" ? null : parseInt(v))}>
               <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="All courses" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="" className="text-xs">All Courses</SelectItem>
+                <SelectItem value="all" className="text-xs">All Courses</SelectItem>
                 {(courses ?? []).map(c => <SelectItem key={c.id} value={c.id.toString()} className="text-xs">{c.code} — {c.name}</SelectItem>)}
               </SelectContent>
             </Select>
