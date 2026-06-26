@@ -6,9 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Calendar, BookOpen, AlertTriangle, ChevronRight, ChevronsUpDown } from "lucide-react";
+import { Search, Calendar, BookOpen, AlertTriangle, ChevronRight, ChevronsUpDown, X, Plus, CheckCircle, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
 
 type CourseRow = {
   id: number;
@@ -723,45 +726,252 @@ type StaffRow = { id: number; code: string; forename: string; surname: string; o
 const POSITIONS = ["Teacher", "Head of Department", "Senior Teacher", "Assistant Principal", "Subject Leader", "Form Tutor"];
 const DEPARTMENTS = ["Business & Administration", "Mathematics", "English", "Science", "Arts", "Computing", "PE", "MFL"];
 
+const SAMPLE_STAFF = [
+  "Adams, Claire", "Bailey, James", "Carter, Helen", "Davies, Mark",
+  "Evans, Ruth", "Fletcher, Tom", "Green, Sandra", "Harris, Paul",
+  "Ingram, Lisa", "Johnson, Kieran",
+];
+
+type BookingState = {
+  room: RoomRow;
+  reason: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  staffSearch: string;
+  addedStaff: string[];
+};
+
+function RoomBookingDialog({
+  room, onClose,
+}: { room: RoomRow | null; onClose: () => void }) {
+  const [reason, setReason] = useState("");
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [staffSearch, setStaffSearch] = useState("");
+  const [addedStaff, setAddedStaff] = useState<string[]>([]);
+  const [showClash, setShowClash] = useState(false);
+  const [booked, setBooked] = useState(false);
+
+  if (!room) return null;
+
+  const filteredStaff = SAMPLE_STAFF.filter(
+    s => s.toLowerCase().includes(staffSearch.toLowerCase()) && !addedStaff.includes(s)
+  );
+
+  function handleBook() {
+    if (!room || !reason.trim() || !date || !startTime || !endTime) return;
+    // Simulate a clash for room id 1 on specific times (demonstration)
+    const clashSimulated = room.id === 1 && startTime === "09:00";
+    if (clashSimulated) {
+      setShowClash(true);
+    } else {
+      setBooked(true);
+    }
+  }
+
+  function handleConfirmDespiteClash() {
+    setShowClash(false);
+    setBooked(true);
+  }
+
+  const canSubmit = reason.trim() && date && startTime && endTime;
+
+  return (
+    <>
+      <Dialog open={!booked} onOpenChange={open => { if (!open) onClose(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Calendar className="w-4 h-4 text-sky-600" />
+              Book Room — {room.code}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="text-xs text-slate-500 mb-3 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            <strong>Note:</strong> You must have the appropriate role to book rooms. Meeting clashes will be flagged before confirming.
+          </div>
+
+          <div className="space-y-3">
+            {/* Reason */}
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-1">Reason for booking <span className="text-red-500">*</span></label>
+              <Textarea
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                placeholder="e.g. Department meeting, Study session…"
+                className="text-sm resize-none h-20"
+              />
+            </div>
+
+            {/* Date + Times */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Date <span className="text-red-500">*</span></label>
+                <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Start Time <span className="text-red-500">*</span></label>
+                <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">End Time <span className="text-red-500">*</span></label>
+                <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-8 text-sm" />
+              </div>
+            </div>
+
+            {/* Add Staff */}
+            <div>
+              <label className="text-sm font-medium text-slate-700 flex items-center gap-1 mb-1">
+                <Users className="w-3.5 h-3.5" /> Add Staff Members
+              </label>
+              <div className="relative">
+                <Input
+                  value={staffSearch}
+                  onChange={e => setStaffSearch(e.target.value)}
+                  placeholder="Search by name…"
+                  className="h-8 text-sm"
+                />
+                {staffSearch && filteredStaff.length > 0 && (
+                  <div className="absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-slate-200 rounded shadow-md max-h-36 overflow-y-auto">
+                    {filteredStaff.slice(0, 6).map(s => (
+                      <button
+                        key={s}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-sky-50 hover:text-sky-700 flex items-center gap-2"
+                        onClick={() => { setAddedStaff(prev => [...prev, s]); setStaffSearch(""); }}
+                      >
+                        <Plus className="w-3 h-3" /> {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {addedStaff.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {addedStaff.map(s => (
+                    <span key={s} className="inline-flex items-center gap-1 bg-sky-100 text-sky-800 text-xs px-2 py-0.5 rounded-full">
+                      {s}
+                      <button onClick={() => setAddedStaff(prev => prev.filter(x => x !== s))}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {addedStaff.length > 0 && (
+                <p className="text-xs text-slate-400 mt-1">Added staff will be notified by email once the room is booked.</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4 gap-2">
+            <Button variant="outline" onClick={onClose} className="h-8 text-sm">Cancel</Button>
+            <Button
+              onClick={handleBook}
+              disabled={!canSubmit}
+              className="h-8 text-sm bg-sky-600 hover:bg-sky-700 gap-1.5"
+            >
+              <Calendar className="w-3.5 h-3.5" /> Book Room
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clash warning */}
+      <AlertDialog open={showClash} onOpenChange={setShowClash}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="w-5 h-5" /> Meeting Clash Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Room <strong>{room.code}</strong> already has a booking on{" "}
+              <strong>{date}</strong> at <strong>{startTime}</strong>. Proceeding will create an overlapping booking. Do you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowClash(false)}>Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDespiteClash} className="bg-amber-600 hover:bg-amber-700">
+              Book Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Success state */}
+      <Dialog open={booked} onOpenChange={() => { setBooked(false); onClose(); }}>
+        <DialogContent className="max-w-sm text-center">
+          <div className="flex flex-col items-center gap-3 py-4">
+            <CheckCircle className="w-12 h-12 text-green-500" />
+            <h2 className="text-lg font-semibold text-slate-800">Room Booked!</h2>
+            <p className="text-sm text-slate-500">
+              <strong>{room.code}</strong> has been booked for <strong>{date}</strong> from <strong>{startTime}</strong> to <strong>{endTime}</strong>.
+            </p>
+            {addedStaff.length > 0 && (
+              <p className="text-xs text-slate-400">
+                Notification emails sent to: {addedStaff.join(", ")}.
+              </p>
+            )}
+            <p className="text-xs text-sky-600 mt-1 cursor-pointer hover:underline">
+              View and manage your bookings in Staff Room Bookings
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => { setBooked(false); onClose(); }} className="w-full h-8 text-sm">Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function RoomSearchResults({ results }: { results: RoomRow[] }) {
   const [, navigate] = useLocation();
+  const [bookingRoom, setBookingRoom] = useState<RoomRow | null>(null);
+
   if (results.length === 0) {
     return <div className="text-sm text-slate-400 py-3">No rooms found matching the search criteria.</div>;
   }
   return (
-    <div className="border border-slate-200 rounded overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-slate-100 border-b border-slate-200">
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Room Code</th>
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Description</th>
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Room Type</th>
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Site</th>
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
-          {results.map(r => (
-            <tr key={r.id} className="hover:bg-slate-50">
-              <td className="px-3 py-2">
-                <button onClick={() => navigate(`/rooms/${r.id}`)} className="text-sky-700 hover:underline font-medium text-xs">
-                  {r.code}
-                </button>
-              </td>
-              <td className="px-3 py-2 text-slate-700">{r.description}</td>
-              <td className="px-3 py-2 text-slate-600">{r.roomType}</td>
-              <td className="px-3 py-2 text-slate-600">{r.site}</td>
-              <td className="px-3 py-2">
-                <button onClick={() => navigate(`/rooms/${r.id}`)} className="text-sky-700 hover:underline text-xs">Book</button>
-              </td>
+    <>
+      <div className="border border-slate-200 rounded overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-100 border-b border-slate-200">
+              <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Room Code</th>
+              <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Description</th>
+              <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Room Type</th>
+              <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Site</th>
+              <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
-        {results.length} room{results.length !== 1 ? "s" : ""} found
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {results.map(r => (
+              <tr key={r.id} className="hover:bg-slate-50">
+                <td className="px-3 py-2">
+                  <button onClick={() => navigate(`/rooms/${r.id}`)} className="text-sky-700 hover:underline font-medium text-xs">
+                    {r.code}
+                  </button>
+                </td>
+                <td className="px-3 py-2 text-slate-700 text-xs">{r.description}</td>
+                <td className="px-3 py-2 text-slate-600 text-xs">{r.roomType}</td>
+                <td className="px-3 py-2 text-slate-600 text-xs">{r.site}</td>
+                <td className="px-3 py-2 flex gap-2">
+                  <button onClick={() => navigate(`/rooms/${r.id}`)} className="text-sky-700 hover:underline text-xs">Details</button>
+                  <span className="text-slate-300">|</span>
+                  <button onClick={() => setBookingRoom(r)} className="text-sky-700 hover:underline text-xs font-medium">Book</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
+          {results.length} room{results.length !== 1 ? "s" : ""} found
+        </div>
       </div>
-    </div>
+      <RoomBookingDialog room={bookingRoom} onClose={() => setBookingRoom(null)} />
+    </>
   );
 }
 
