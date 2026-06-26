@@ -41,7 +41,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       { icon: Home, label: "My Homepage", href: "/" },
       { icon: UserCircle, label: "My Details", href: "/students" },
       { icon: BookOpen, label: "My Courses", href: "/courses" },
-      { icon: ClipboardList, label: "My Registers", href: "/attendance" },
+      { icon: ClipboardList, label: "eRegisters", href: "/attendance" },
       { icon: BookMarked, label: "Markbook", href: "/licence-required?feature=markbook" },
       { icon: PenTool, label: "My Assessments", href: "/assessments" },
       { icon: ClipboardCheck, label: "My Unconfirmed Assessments", href: "/assessments?unconfirmed=1" },
