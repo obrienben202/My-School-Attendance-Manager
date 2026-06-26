@@ -721,7 +721,7 @@ const ROOM_TYPES = ["Classroom", "Laboratory", "Sports Hall", "IT Suite", "Music
 const SITES = ["Main Campus", "North Block", "South Annexe", "Sports Centre"];
 
 type RoomRow = { id: number; code: string; description: string; roomType: string; site: string };
-type StaffRow = { id: number; code: string; forename: string; surname: string; organisation: string; position: string };
+type StaffRow = { id: number; code: string; personCode: number; forename: string; middleNames: string; surname: string; title: string; organisation: string; };
 
 const POSITIONS = ["Teacher", "Head of Department", "Senior Teacher", "Assistant Principal", "Subject Leader", "Form Tutor"];
 const DEPARTMENTS = ["Business & Administration", "Mathematics", "English", "Science", "Arts", "Computing", "PE", "MFL"];
@@ -1099,45 +1099,93 @@ function RoomSearchTab() {
   );
 }
 
+const TITLES = ["Mr", "Mrs", "Miss", "Ms", "Dr", "Prof"];
+
 function StaffSearchResults({ results }: { results: StaffRow[] }) {
   const [, navigate] = useLocation();
+  const [filter, setFilter] = useState("");
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(0);
+
+  const filtered = filter
+    ? results.filter(r =>
+        `${r.code} ${r.surname} ${r.forename} ${r.organisation}`.toLowerCase().includes(filter.toLowerCase())
+      )
+    : results;
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
   if (results.length === 0) {
     return <div className="text-sm text-slate-400 py-3">No staff found matching the search criteria.</div>;
   }
+
   return (
-    <div className="border border-slate-200 rounded overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="border border-slate-300 rounded overflow-hidden text-sm">
+      {/* Results header */}
+      <div className="bg-slate-700 text-white px-4 py-2 font-semibold text-sm">Staff Search Results</div>
+      <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Export:</span>
+          {[
+            { label: "XLS", color: "bg-green-600" },
+            { label: "CSV", color: "bg-emerald-600" },
+            { label: "PDF", color: "bg-red-600" },
+            { label: "DOC", color: "bg-blue-700" },
+          ].map(({ label, color }) => (
+            <button key={label} className={`${color} text-white text-[10px] font-bold px-1.5 py-0.5 rounded`}>{label}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-xs text-slate-500">Filter:</span>
+          <Input value={filter} onChange={e => { setFilter(e.target.value); setPage(0); }} className="h-6 w-36 text-xs px-2 py-0" />
+        </div>
+      </div>
+
+      <table className="w-full">
         <thead>
-          <tr className="bg-slate-100 border-b border-slate-200">
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Staff Code</th>
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Forename</th>
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Surname</th>
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Organisation</th>
-            <th className="text-left text-xs font-semibold text-slate-600 px-3 py-2">Position</th>
+          <tr className="border-b border-slate-200 bg-slate-50">
+            {["Staff Code", "Person Code", "Staff Name", "Organisations"].map(col => (
+              <th key={col} className="text-left text-xs font-semibold text-slate-600 px-3 py-2">{col}</th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
-          {results.map(r => (
+          {pageRows.map(r => (
             <tr key={r.id} className="hover:bg-slate-50">
               <td className="px-3 py-2">
                 <button onClick={() => navigate(`/staff/${r.id}`)} className="text-sky-700 hover:underline font-medium text-xs">
                   {r.code}
                 </button>
               </td>
-              <td className="px-3 py-2 text-slate-700">{r.forename}</td>
-              <td className="px-3 py-2 text-slate-700">
-                <button onClick={() => navigate(`/staff/${r.id}`)} className="text-sky-700 hover:underline">
-                  {r.surname}
+              <td className="px-3 py-2 text-slate-600 text-xs">{r.personCode}</td>
+              <td className="px-3 py-2 text-xs">
+                <button onClick={() => navigate(`/staff/${r.id}`)} className="text-slate-800 hover:text-sky-700 hover:underline">
+                  {r.surname}, {r.forename}
                 </button>
               </td>
-              <td className="px-3 py-2 text-slate-600">{r.organisation}</td>
-              <td className="px-3 py-2 text-slate-600">{r.position}</td>
+              <td className="px-3 py-2 text-slate-600 text-xs">{r.organisation}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
-        {results.length} staff member{results.length !== 1 ? "s" : ""} found
+
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
+        <span className="text-xs text-slate-500">
+          Showing {filtered.length === 0 ? 0 : page * PAGE_SIZE + 1} to {Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} entries (max 100)
+        </span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-600 text-xs flex items-center justify-center disabled:opacity-40 hover:bg-slate-100"
+          >‹</button>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-600 text-xs flex items-center justify-center disabled:opacity-40 hover:bg-slate-100"
+          >›</button>
+        </div>
       </div>
     </div>
   );
@@ -1146,10 +1194,17 @@ function StaffSearchResults({ results }: { results: StaffRow[] }) {
 function StaffSearchTab() {
   const { data: courses } = useListCourses();
   const [staffCode, setStaffCode] = useState("");
+  const [personCodeOp, setPersonCodeOp] = useState("=");
+  const [personCode, setPersonCode] = useState("");
   const [forename, setForename] = useState("");
+  const [middleNames, setMiddleNames] = useState("");
   const [surname, setSurname] = useState("");
-  const [organisation, setOrganisation] = useState("");
-  const [position, setPosition] = useState("");
+  const [title, setTitle] = useState("");
+  const [organisationCode, setOrganisationCode] = useState("");
+  const [sessionCode, setSessionCode] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<StaffRow[]>([]);
 
@@ -1160,57 +1215,124 @@ function StaffSearchTab() {
       const sn = parts.length > 1 ? parts[parts.length - 1] : "";
       return {
         id: idx,
-        code: `S${String(idx).padStart(4, "0")}`,
+        code: String(8000 + idx),
+        personCode: 8100 + idx,
         forename: fn,
+        middleNames: "",
         surname: sn,
+        title: TITLES[idx % TITLES.length],
         organisation: DEPARTMENTS[idx % DEPARTMENTS.length],
-        position: POSITIONS[idx % POSITIONS.length],
       };
     });
 
   function handleSearch() {
     const filtered = allStaff.filter(s => {
-      if (staffCode && !s.code.toLowerCase().includes(staffCode.toLowerCase())) return false;
+      if (staffCode && !s.code.includes(staffCode)) return false;
       if (forename && !s.forename.toLowerCase().includes(forename.toLowerCase())) return false;
       if (surname && !s.surname.toLowerCase().includes(surname.toLowerCase())) return false;
-      if (organisation && !s.organisation.toLowerCase().includes(organisation.toLowerCase())) return false;
-      if (position && !s.position.toLowerCase().includes(position.toLowerCase())) return false;
+      if (organisationCode && !s.organisation.toLowerCase().includes(organisationCode.toLowerCase())) return false;
+      if (title && s.title !== title) return false;
       return true;
     });
     setResults(filtered);
     setSearched(true);
   }
 
+  const opOptions = (
+    <>
+      <SelectItem value="=">=</SelectItem>
+      <SelectItem value="<">{"<"}</SelectItem>
+      <SelectItem value=">">{">"}</SelectItem>
+    </>
+  );
+
   return (
     <TabsContent value="staff" className="mt-0 outline-none">
-      <div className="space-y-0">
+      <div className="space-y-2">
+        {/* Main fields */}
         <div className="grid grid-cols-2 gap-x-8">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="w-28 shrink-0 text-sm text-slate-700">Staff Code</span>
+              <span className="w-32 shrink-0 text-sm text-slate-700">Staff Code</span>
               <Input value={staffCode} onChange={e => { setStaffCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-28 shrink-0 text-sm text-slate-700">Forename</span>
+              <span className="w-32 shrink-0 text-sm text-slate-700">Forename</span>
               <Input value={forename} onChange={e => { setForename(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-28 shrink-0 text-sm text-slate-700">Surname</span>
+              <span className="w-32 shrink-0 text-sm text-slate-700">Surname</span>
               <Input value={surname} onChange={e => { setSurname(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Organisation Code</span>
+              <Input value={organisationCode} onChange={e => { setOrganisationCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="w-28 shrink-0 text-sm text-slate-700">Organisation</span>
-              <Input value={organisation} onChange={e => { setOrganisation(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              <span className="w-32 shrink-0 text-sm text-slate-700">Person Code</span>
+              <div className="flex flex-1 gap-1">
+                <Select value={personCodeOp} onValueChange={setPersonCodeOp}>
+                  <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{opOptions}</SelectContent>
+                </Select>
+                <Input value={personCode} onChange={e => { setPersonCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" type="number" min="0" />
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-28 shrink-0 text-sm text-slate-700">Position</span>
-              <Input value={position} onChange={e => { setPosition(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              <span className="w-32 shrink-0 text-sm text-slate-700">Middle Names</span>
+              <Input value={middleNames} onChange={e => { setMiddleNames(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-32 shrink-0 text-sm text-slate-700">Title</span>
+              <Select value={title} onValueChange={v => { setTitle(v === "_all" ? "" : v); setSearched(false); }}>
+                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">— All —</SelectItem>
+                  {TITLES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
-        <div className="flex justify-end pt-3">
+
+        {/* Free Staff Search Options */}
+        <div className="pt-1">
+          <p className="text-sm font-semibold text-slate-800 mb-2">Free Staff Search Options</p>
+          <div className="grid grid-cols-2 gap-x-8">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-sm text-slate-700">Session Code</span>
+                <Select value={sessionCode} onValueChange={v => { setSessionCode(v === "_all" ? "" : v); setSearched(false); }}>
+                  <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">— All —</SelectItem>
+                    <SelectItem value="AM">AM</SelectItem>
+                    <SelectItem value="PM">PM</SelectItem>
+                    <SelectItem value="Evening">Evening</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-sm text-slate-700">Start Time</span>
+                <Input type="time" value={startTime} onChange={e => { setStartTime(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-sm text-slate-700">Start Date</span>
+                <Input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-sm text-slate-700">End Time</span>
+                <Input type="time" value={endTime} onChange={e => { setEndTime(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-1">
           <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
