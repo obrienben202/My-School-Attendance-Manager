@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useGetCourse, useListAttendanceRecords, useListStudents, useListAssessments } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp, Printer } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -49,11 +50,414 @@ const LEVELS = ["Level 1", "Level 2", "Level 3", "GCSE", "A Level", "BTEC", "Ent
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
 
+// ── Report / Print helpers ────────────────────────────────────────────────────
+
+type CourseType = { id: number; code: string; name: string; room?: string | null; staffName?: string | null; enrolledCount: number };
+type AttType = { studentName?: string | null; date: string; status: string; studentId?: number };
+type StudentType = { id: number; forename: string; surname: string; personCode?: string | null; gender?: string | null; yearGroup?: string | null; attendancePercent: number };
+type AssessType = { code: string; description: string; type: string; dueDate?: string | null; gradingScheme: string; minPassMark?: string | null; mandatory: number | boolean };
+
+function openPrintWindow(title: string, html: string) {
+  const w = window.open("", "_blank", "width=900,height=700");
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:12px;margin:24px;color:#222;}
+  h1{font-size:17px;margin-bottom:4px;}
+  .meta{font-size:11px;color:#555;margin-bottom:16px;border-bottom:1px solid #ccc;padding-bottom:8px;}
+  .section-title{font-size:13px;font-weight:bold;margin:16px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px;}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px;}
+  th{background:#1e3a5f;color:#fff;text-align:left;padding:6px 8px;font-size:11px;}
+  td{border-bottom:1px solid #e0e0e0;padding:5px 8px;font-size:11px;}
+  tr:nth-child(even) td{background:#f8f8f8;}
+  .g{color:#166534;font-weight:bold;} .r{color:#991b1b;font-weight:bold;} .a{color:#92400e;font-weight:bold;}
+  .tbl2 td,.tbl2 th{border:1px solid #bbb;padding:5px 8px;}
+  @media print{body{margin:12px;}}
+</style></head><body onload="window.print()">${html}</body></html>`);
+  w.document.close();
+}
+
+function courseHeader(course: CourseType, level: string, faculty: string, extra = "") {
+  const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  return `<h1>${course.name}</h1>
+<div class="meta">Code: ${course.code} &nbsp;|&nbsp; ${level} &nbsp;|&nbsp; ${faculty} &nbsp;|&nbsp; Status: Active &nbsp;|&nbsp; Staff: ${course.staffName ?? "—"} &nbsp;|&nbsp; Generated: ${today}${extra}</div>`;
+}
+
+function printCurriculumWindow(
+  course: CourseType, level: string, faculty: string,
+  dayOfWeek: string, startTime: string, endTime: string,
+  assessments: AssessType[],
+  presentCount: number, absentCount: number, lateCount: number,
+) {
+  const hdr = courseHeader(course, level, faculty);
+  const placeRows = [
+    ["Total Places", course.enrolledCount], ["Active Places", Math.max(0, course.enrolledCount - absentCount)],
+    ["Non Starter Places", absentCount], ["Finished Places", lateCount],
+    ["Remaining Places", Math.max(0, course.enrolledCount - presentCount)], ["Waiting", 0],
+  ].map(([l, v]) => `<tr><td style="font-weight:500">${l}</td><td>${v}</td></tr>`).join("");
+
+  const asmRows = assessments.length
+    ? assessments.map(a => `<tr><td>${a.code}</td><td>${a.description}</td><td>${a.type}</td><td>${a.dueDate ?? "—"}</td><td>${a.gradingScheme}</td><td>${a.mandatory ? "Yes" : "No"}</td></tr>`).join("")
+    : `<tr><td colspan="6">No assessments on record.</td></tr>`;
+
+  const html = `${hdr}
+<div class="section-title">Course Details</div>
+<table class="tbl2" style="width:auto;min-width:400px">
+  <tbody>
+    <tr><td style="font-weight:500">Course Code</td><td>${course.code}</td><td style="font-weight:500">Course Leader</td><td>${course.staffName ?? "—"}</td></tr>
+    <tr><td style="font-weight:500">Level</td><td>${level}</td><td style="font-weight:500">Academic Year</td><td>2024/25</td></tr>
+    <tr><td style="font-weight:500">Faculty</td><td>${faculty}</td><td style="font-weight:500">Course Hours</td><td>180</td></tr>
+    <tr><td style="font-weight:500">Room</td><td>${course.room ?? "—"}</td><td style="font-weight:500">Status</td><td>Active</td></tr>
+  </tbody>
+</table>
+<div class="section-title">Timetable</div>
+<table class="tbl2" style="width:auto">
+  <thead><tr><th>Day</th><th>Start</th><th>End</th><th>Room</th><th>Week Pattern</th></tr></thead>
+  <tbody><tr><td>${dayOfWeek}</td><td>${startTime}</td><td>${endTime}</td><td>${course.room ?? "—"}</td><td>1–49, 51–52</td></tr></tbody>
+</table>
+<div class="section-title">Place Totals</div>
+<table class="tbl2" style="width:auto"><tbody>${placeRows}</tbody></table>
+<div class="section-title">Assessment Plan</div>
+<table>
+  <thead><tr><th>Code</th><th>Description</th><th>Type</th><th>Due Date</th><th>Grading Scheme</th><th>Mandatory</th></tr></thead>
+  <tbody>${asmRows}</tbody>
+</table>
+<div class="section-title">Units / Modules</div>
+<p style="color:#777;font-style:italic">No units or modules on record.</p>
+<div class="section-title">Learning Resources</div>
+<p style="color:#777;font-style:italic">No learning resources linked.</p>`;
+
+  openPrintWindow(`Curriculum — ${course.name}`, html);
+}
+
+function buildCourseReportHtml(
+  reportName: string,
+  course: CourseType, level: string, faculty: string,
+  attendance: AttType[], students: StudentType[],
+  assessments: AssessType[],
+): string {
+  const hdr = courseHeader(course, level, faculty);
+
+  if (reportName === "Course Register (Master)") {
+    const rows = students.map(s => `<tr>
+      <td>${s.forename} ${s.surname}</td>
+      <td>${s.personCode ?? "—"}</td>
+      <td>${s.gender ?? "—"}</td>
+      <td>${s.yearGroup ?? "—"}</td>
+      <td class="${s.attendancePercent < 90 ? "r" : "g"}">${s.attendancePercent}%</td>
+    </tr>`).join("");
+    return `${hdr}<div class="section-title">Enrolled Learners (${students.length})</div>
+<table><thead><tr><th>Name</th><th>Ref</th><th>Gender</th><th>Year</th><th>Attendance %</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="5">No learners enrolled.</td></tr>'}</tbody></table>`;
+  }
+
+  if (reportName === "Attendance Analysis by Student") {
+    const byStudent: Record<number, { name: string; present: number; absent: number; late: number }> = {};
+    attendance.forEach(a => {
+      const sid = a.studentId ?? 0;
+      if (!byStudent[sid]) byStudent[sid] = { name: a.studentName ?? `Student ${sid}`, present: 0, absent: 0, late: 0 };
+      if (a.status === "present") byStudent[sid].present++;
+      else if (a.status === "absent") byStudent[sid].absent++;
+      else byStudent[sid].late++;
+    });
+    const rows = Object.values(byStudent).map(s => {
+      const total = s.present + s.absent + s.late;
+      const pct = total ? Math.round((s.present / total) * 100) : 0;
+      return `<tr><td>${s.name}</td><td class="g">${s.present}</td><td class="r">${s.absent}</td><td class="a">${s.late}</td><td>${total}</td><td class="${pct < 90 ? "r" : "g"}">${pct}%</td></tr>`;
+    }).join("");
+    return `${hdr}<div class="section-title">Attendance by Student</div>
+<table><thead><tr><th>Student</th><th>Present</th><th>Absent</th><th>Late</th><th>Total</th><th>Rate</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="6">No attendance records.</td></tr>'}</tbody></table>`;
+  }
+
+  if (reportName === "Course Completion Report") {
+    const rows = students.map(s => {
+      const status = s.attendancePercent >= 80 ? "On Track" : s.attendancePercent >= 60 ? "At Risk" : "Withdrawn";
+      const cls = status === "On Track" ? "g" : status === "At Risk" ? "a" : "r";
+      return `<tr><td>${s.forename} ${s.surname}</td><td>${s.personCode ?? "—"}</td><td class="${cls}">${status}</td><td class="${s.attendancePercent < 90 ? "r" : "g"}">${s.attendancePercent}%</td></tr>`;
+    }).join("");
+    return `${hdr}<div class="section-title">Completion Status</div>
+<table><thead><tr><th>Name</th><th>Ref</th><th>Status</th><th>Attendance</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="4">No data available.</td></tr>'}</tbody></table>`;
+  }
+
+  if (reportName === "Retention Statistics") {
+    const onTrack = students.filter(s => s.attendancePercent >= 80).length;
+    const atRisk = students.filter(s => s.attendancePercent >= 60 && s.attendancePercent < 80).length;
+    const withdrawn = students.filter(s => s.attendancePercent < 60).length;
+    const retRate = students.length ? Math.round((onTrack / students.length) * 100) : 0;
+    return `${hdr}<div class="section-title">Retention Summary</div>
+<table class="tbl2" style="width:auto">
+  <tbody>
+    <tr><td style="font-weight:500">Total Enrolled</td><td>${students.length}</td></tr>
+    <tr><td style="font-weight:500">On Track</td><td class="g">${onTrack}</td></tr>
+    <tr><td style="font-weight:500">At Risk</td><td class="a">${atRisk}</td></tr>
+    <tr><td style="font-weight:500">Withdrawn</td><td class="r">${withdrawn}</td></tr>
+    <tr><td style="font-weight:500">Retention Rate</td><td class="${retRate >= 80 ? "g" : "r"}">${retRate}%</td></tr>
+  </tbody>
+</table>`;
+  }
+
+  if (reportName === "Grade Distribution Report") {
+    const grades: Record<string, number> = { Distinction: 0, Merit: 0, Pass: 0, "Near Miss": 0, Fail: 0 };
+    students.forEach(s => {
+      if (s.attendancePercent >= 90) grades["Distinction"]++;
+      else if (s.attendancePercent >= 80) grades["Merit"]++;
+      else if (s.attendancePercent >= 70) grades["Pass"]++;
+      else if (s.attendancePercent >= 60) grades["Near Miss"]++;
+      else grades["Fail"]++;
+    });
+    const rows = Object.entries(grades).map(([g, n]) => {
+      const pct = students.length ? Math.round((n / students.length) * 100) : 0;
+      return `<tr><td>${g}</td><td>${n}</td><td>${pct}%</td></tr>`;
+    }).join("");
+    return `${hdr}<div class="section-title">Grade Distribution (based on attendance bands)</div>
+<table><thead><tr><th>Grade</th><th>Count</th><th>%</th></tr></thead>
+<tbody>${rows}</tbody></table>
+${assessments.length ? `<div class="section-title">Assessments</div>
+<table><thead><tr><th>Code</th><th>Description</th><th>Type</th><th>Due Date</th></tr></thead>
+<tbody>${assessments.map(a => `<tr><td>${a.code}</td><td>${a.description}</td><td>${a.type}</td><td>${a.dueDate ?? "—"}</td></tr>`).join("")}</tbody></table>` : ""}`;
+  }
+
+  return `${hdr}<p>Report content not available.</p>`;
+}
+
+// ── In-app status badge ───────────────────────────────────────────────────────
+function CStatusBadge({ label }: { label: string }) {
+  const cls =
+    label === "On Track" || label === "Active" ? "text-green-700 bg-green-50 border-green-200" :
+    label === "At Risk" ? "text-amber-700 bg-amber-50 border-amber-200" :
+    label === "Withdrawn" || label === "Fail" ? "text-red-700 bg-red-50 border-red-200" :
+    "text-slate-600 bg-slate-50 border-slate-200";
+  return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cls}`}>{label}</span>;
+}
+
+function CourseReportDialog({
+  reportName, course, level, faculty,
+  attendance, students, assessments, onClose,
+}: {
+  reportName: string | null;
+  course: CourseType; level: string; faculty: string;
+  attendance: AttType[]; students: StudentType[];
+  assessments: AssessType[];
+  onClose: () => void;
+}) {
+  if (!reportName) return null;
+
+  function handlePrint() {
+    const html = buildCourseReportHtml(reportName!, course, level, faculty, attendance, students, assessments);
+    openPrintWindow(reportName!, html);
+  }
+
+  const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+
+  const tblHead = (...cols: string[]) => (
+    <thead>
+      <tr className="bg-teal-800 text-white text-[11px]">
+        {cols.map(c => <th key={c} className="text-left px-3 py-1.5 font-semibold">{c}</th>)}
+      </tr>
+    </thead>
+  );
+  const empty = (cols: number) => (
+    <tr><td colSpan={cols} className="px-3 py-6 text-center text-slate-400 text-xs">No records on file.</td></tr>
+  );
+
+  function renderContent() {
+    if (reportName === "Course Register (Master)") {
+      return (
+        <table className="w-full text-xs border-collapse">
+          {tblHead("Name", "Ref", "Gender", "Year Group", "Attendance %")}
+          <tbody className="divide-y divide-slate-100">
+            {students.length ? students.map(s => (
+              <tr key={s.id} className="hover:bg-slate-50">
+                <td className="px-3 py-1.5 text-slate-800 font-medium">{s.forename} {s.surname}</td>
+                <td className="px-3 py-1.5 text-slate-500">{s.personCode ?? "—"}</td>
+                <td className="px-3 py-1.5 text-slate-600">{s.gender ?? "—"}</td>
+                <td className="px-3 py-1.5 text-slate-600">{s.yearGroup ?? "—"}</td>
+                <td className="px-3 py-1.5 font-semibold text-right pr-6">
+                  <span className={s.attendancePercent < 90 ? "text-red-600" : "text-green-700"}>{s.attendancePercent}%</span>
+                </td>
+              </tr>
+            )) : empty(5)}
+          </tbody>
+        </table>
+      );
+    }
+
+    if (reportName === "Attendance Analysis by Student") {
+      const byStudent: Record<number, { name: string; present: number; absent: number; late: number }> = {};
+      attendance.forEach(a => {
+        const sid = a.studentId ?? 0;
+        if (!byStudent[sid]) byStudent[sid] = { name: a.studentName ?? `Student ${sid}`, present: 0, absent: 0, late: 0 };
+        if (a.status === "present") byStudent[sid].present++;
+        else if (a.status === "absent") byStudent[sid].absent++;
+        else byStudent[sid].late++;
+      });
+      return (
+        <table className="w-full text-xs border-collapse">
+          {tblHead("Student", "Present", "Absent", "Late", "Total", "Rate")}
+          <tbody className="divide-y divide-slate-100">
+            {Object.values(byStudent).length ? Object.values(byStudent).map((s, i) => {
+              const total = s.present + s.absent + s.late;
+              const pct = total ? Math.round((s.present / total) * 100) : 0;
+              return (
+                <tr key={i} className="hover:bg-slate-50">
+                  <td className="px-3 py-1.5 text-slate-800">{s.name}</td>
+                  <td className="px-3 py-1.5 text-center text-green-700 font-semibold">{s.present}</td>
+                  <td className="px-3 py-1.5 text-center text-red-600 font-semibold">{s.absent}</td>
+                  <td className="px-3 py-1.5 text-center text-amber-700 font-semibold">{s.late}</td>
+                  <td className="px-3 py-1.5 text-center text-slate-600">{total}</td>
+                  <td className="px-3 py-1.5 text-center font-bold">
+                    <span className={pct < 90 ? "text-red-600" : "text-green-700"}>{pct}%</span>
+                  </td>
+                </tr>
+              );
+            }) : empty(6)}
+          </tbody>
+        </table>
+      );
+    }
+
+    if (reportName === "Course Completion Report") {
+      return (
+        <table className="w-full text-xs border-collapse">
+          {tblHead("Name", "Ref", "Completion Status", "Attendance")}
+          <tbody className="divide-y divide-slate-100">
+            {students.length ? students.map(s => {
+              const status = s.attendancePercent >= 80 ? "On Track" : s.attendancePercent >= 60 ? "At Risk" : "Withdrawn";
+              return (
+                <tr key={s.id} className="hover:bg-slate-50">
+                  <td className="px-3 py-1.5 text-slate-800 font-medium">{s.forename} {s.surname}</td>
+                  <td className="px-3 py-1.5 text-slate-500">{s.personCode ?? "—"}</td>
+                  <td className="px-3 py-1.5"><CStatusBadge label={status} /></td>
+                  <td className="px-3 py-1.5 font-semibold">
+                    <span className={s.attendancePercent < 90 ? "text-red-600" : "text-green-700"}>{s.attendancePercent}%</span>
+                  </td>
+                </tr>
+              );
+            }) : empty(4)}
+          </tbody>
+        </table>
+      );
+    }
+
+    if (reportName === "Retention Statistics") {
+      const onTrack = students.filter(s => s.attendancePercent >= 80).length;
+      const atRisk = students.filter(s => s.attendancePercent >= 60 && s.attendancePercent < 80).length;
+      const withdrawn = students.filter(s => s.attendancePercent < 60).length;
+      const retRate = students.length ? Math.round((onTrack / students.length) * 100) : 0;
+      return (
+        <div className="space-y-4">
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { label: "Enrolled", val: students.length, cls: "text-blue-700 bg-blue-50 border-blue-200" },
+              { label: "On Track", val: onTrack, cls: "text-green-700 bg-green-50 border-green-200" },
+              { label: "At Risk", val: atRisk, cls: "text-amber-700 bg-amber-50 border-amber-200" },
+              { label: "Withdrawn", val: withdrawn, cls: "text-red-700 bg-red-50 border-red-200" },
+              { label: "Retention Rate", val: `${retRate}%`, cls: retRate >= 80 ? "text-green-700 bg-green-50 border-green-200" : "text-red-700 bg-red-50 border-red-200" },
+            ].map(({ label, val, cls }) => (
+              <div key={label} className={`border rounded p-2 text-center ${cls}`}>
+                <div className="text-xl font-bold">{val}</div>
+                <div className="text-[10px] font-medium mt-0.5">{label}</div>
+              </div>
+            ))}
+          </div>
+          <table className="w-full text-xs border-collapse">
+            {tblHead("Name", "Ref", "Status", "Attendance %")}
+            <tbody className="divide-y divide-slate-100">
+              {students.length ? students.map(s => {
+                const status = s.attendancePercent >= 80 ? "On Track" : s.attendancePercent >= 60 ? "At Risk" : "Withdrawn";
+                return (
+                  <tr key={s.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-1.5 text-slate-800">{s.forename} {s.surname}</td>
+                    <td className="px-3 py-1.5 text-slate-500">{s.personCode ?? "—"}</td>
+                    <td className="px-3 py-1.5"><CStatusBadge label={status} /></td>
+                    <td className="px-3 py-1.5 font-semibold">
+                      <span className={s.attendancePercent < 90 ? "text-red-600" : "text-green-700"}>{s.attendancePercent}%</span>
+                    </td>
+                  </tr>
+                );
+              }) : empty(4)}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    if (reportName === "Grade Distribution Report") {
+      const bands = [
+        { label: "Distinction", min: 90, cls: "text-green-700 bg-green-50 border-green-200" },
+        { label: "Merit", min: 80, cls: "text-teal-700 bg-teal-50 border-teal-200" },
+        { label: "Pass", min: 70, cls: "text-blue-700 bg-blue-50 border-blue-200" },
+        { label: "Near Miss", min: 60, cls: "text-amber-700 bg-amber-50 border-amber-200" },
+        { label: "Fail", min: 0, cls: "text-red-700 bg-red-50 border-red-200" },
+      ];
+      const counts = bands.map((b, i) => ({
+        ...b,
+        count: students.filter(s => s.attendancePercent >= b.min && (i === 0 || s.attendancePercent < bands[i - 1].min)).length,
+      }));
+      return (
+        <div className="space-y-4">
+          <div className="grid grid-cols-5 gap-2">
+            {counts.map(({ label, count, cls }) => (
+              <div key={label} className={`border rounded p-2 text-center ${cls}`}>
+                <div className="text-2xl font-bold">{count}</div>
+                <div className="text-[10px] font-medium mt-0.5">{label}</div>
+              </div>
+            ))}
+          </div>
+          <table className="w-full text-xs border-collapse">
+            {tblHead("Grade", "Count", "%")}
+            <tbody className="divide-y divide-slate-100">
+              {counts.map(({ label, count, cls }) => {
+                const pct = students.length ? Math.round((count / students.length) * 100) : 0;
+                return (
+                  <tr key={label} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 font-medium text-slate-800">{label}</td>
+                    <td className="px-3 py-2 text-center font-bold"><span className={cls.split(" ")[0]}>{count}</span></td>
+                    <td className="px-3 py-2 text-center text-slate-600">{pct}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
+  return (
+    <Dialog open={!!reportName} onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden p-0">
+        <div className="bg-teal-800 text-white px-5 py-3 flex items-start justify-between">
+          <div>
+            <DialogHeader>
+              <DialogTitle className="text-white text-base font-bold">{reportName}</DialogTitle>
+            </DialogHeader>
+            <p className="text-teal-200 text-xs mt-0.5">
+              {course.name} &nbsp;|&nbsp; {course.code} &nbsp;|&nbsp; {level} &nbsp;|&nbsp; {faculty} &nbsp;|&nbsp; Generated: {today}
+            </p>
+          </div>
+          <button onClick={handlePrint} className="ml-4 flex items-center gap-1.5 bg-white text-teal-800 text-xs font-semibold px-3 py-1.5 rounded hover:bg-teal-50 shrink-0">
+            <Printer className="w-3.5 h-3.5" /> Print
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {renderContent()}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function CourseDetail() {
   const params = useParams();
   const [, navigate] = useLocation();
   const id = parseInt(params.id || "0", 10);
   const [activeLink, setActiveLink] = useState("Enrolled Learners");
+  const [reportOpen, setReportOpen] = useState<string | null>(null);
 
   const { data: course, isLoading } = useGetCourse(id, { query: { enabled: !!id } as any });
   const { data: attendance } = useListAttendanceRecords({ courseId: id }, { query: { enabled: !!id } as any });
@@ -136,7 +540,7 @@ export default function CourseDetail() {
                 <Download className="w-3 h-3" /> Export List
               </button>
               <button
-                onClick={() => window.print()}
+                onClick={() => printCurriculumWindow(course, level, faculty, dayOfWeek, startTime, endTime, courseAssessments ?? [], presentCount, absentCount, lateCount)}
                 className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"
               >
                 <FileText className="w-3 h-3" /> Print Curriculum
@@ -359,11 +763,22 @@ export default function CourseDetail() {
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reports</p>
         </div>
         {COURSE_REPORTS.map(r => (
-          <button key={r} onClick={() => window.print()} className="w-full text-left text-xs px-4 py-2 border-b border-slate-100 text-sky-700 hover:bg-sky-50 flex items-center gap-1.5 transition-colors">
+          <button key={r} onClick={() => setReportOpen(r)} className="w-full text-left text-xs px-4 py-2 border-b border-slate-100 text-sky-700 hover:bg-sky-50 flex items-center gap-1.5 transition-colors">
             <FileText className="w-3 h-3 shrink-0 text-sky-500" />{r}
           </button>
         ))}
       </div>
+
+      <CourseReportDialog
+        reportName={reportOpen}
+        course={course}
+        level={level}
+        faculty={faculty}
+        attendance={attendance ?? []}
+        students={enrolledStudents}
+        assessments={courseAssessments ?? []}
+        onClose={() => setReportOpen(null)}
+      />
     </div>
   );
 }
