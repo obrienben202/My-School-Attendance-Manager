@@ -270,7 +270,7 @@ export default function RegisterDetail() {
                             />
                           </td>
                           <td className="px-3 py-1.5 text-center">
-                            {s.atRisk && <AlertTriangle className="w-3.5 h-3.5 text-red-500" title="At Risk" />}
+                            {s.atRisk && <AlertTriangle className="w-3.5 h-3.5 text-red-500" aria-label="At Risk" />}
                           </td>
                         </tr>
                       );

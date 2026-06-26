@@ -200,7 +200,7 @@ export default function CourseDetail() {
                           r.status === "late" ? "text-amber-600" : "text-blue-600"
                         }`}>{r.status}</span>
                       </td>
-                      <td className="py-1.5 text-slate-500">{r.minutesLate ?? 0}</td>
+                      <td className="py-1.5 text-slate-500">0</td>
                     </tr>
                   ))}
                 </tbody>
