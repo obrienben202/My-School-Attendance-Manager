@@ -30,6 +30,8 @@ tags:
     description: Assessment and marking operations
   - name: concierge
     description: Concierge applicant and application operations
+  - name: eprogressions
+    description: eProgression submission and pending queue
 
 paths:
   /healthz:
@@ -590,6 +592,92 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AssessmentResult"
+
+  /eprogressions:
+    get:
+      operationId: listEprogressions
+      tags: [eprogressions]
+      summary: List eProgressions
+      parameters:
+        - name: studentId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: courseId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of eProgressions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Eprogression"
+    post:
+      operationId: createEprogression
+      tags: [eprogressions]
+      summary: Submit eProgression(s)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EprogressionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Eprogression"
+
+  /eprogressions/{id}:
+    patch:
+      operationId: updateEprogression
+      tags: [eprogressions]
+      summary: Update eProgression status (authorise/reject)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EprogressionInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Eprogression"
+    delete:
+      operationId: deleteEprogression
+      tags: [eprogressions]
+      summary: Delete an eProgression
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   /concierge/applications:
     get:
@@ -1417,6 +1505,78 @@ components:
         - courseCode
         - courseName
         - registerMarked
+
+    Eprogression:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        studentId:
+          type: ["integer", "null"]
+        courseId:
+          type: ["integer", "null"]
+        courseCode:
+          type: string
+        calOccCode:
+          type: ["string", "null"]
+        currentProgressCode:
+          type: ["string", "null"]
+        newProgressCode:
+          type: string
+        progressDate:
+          type: string
+        comments:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        status:
+          type: string
+        submittedBy:
+          type: ["string", "null"]
+        submittedAt:
+          type: string
+      required:
+        - id
+        - type
+        - courseCode
+        - newProgressCode
+        - progressDate
+        - status
+        - submittedAt
+
+    EprogressionInput:
+      type: object
+      properties:
+        type:
+          type: string
+        studentId:
+          type: ["integer", "null"]
+        courseId:
+          type: ["integer", "null"]
+        courseCode:
+          type: string
+        calOccCode:
+          type: ["string", "null"]
+        currentProgressCode:
+          type: ["string", "null"]
+        newProgressCode:
+          type: string
+        progressDate:
+          type: string
+        comments:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        status:
+          type: string
+        submittedBy:
+          type: ["string", "null"]
+      required:
+        - courseCode
+        - newProgressCode
+        - progressDate
 
     ConciergeApplication:
       type: object

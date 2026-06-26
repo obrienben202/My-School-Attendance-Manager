@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import {
   useGetStudent,
   useListAttendanceRecords,
@@ -54,6 +54,7 @@ const LEFT_LINKS = [
   "Finance & Funding",
   "Documents / Uploads",
   "Audit Trail",
+  "Progressions",
 ];
 
 const CENTER_TABS = [
@@ -73,6 +74,7 @@ const REPORTS = [
 export default function StudentDetail() {
   const params = useParams();
   const id = parseInt(params.id || "0", 10);
+  const [, setLocation] = useLocation();
   const [activeLink, setActiveLink] = useState("Personal Details");
   const [activeTab, setActiveTab] = useState("Summary");
   const [showNoteForm, setShowNoteForm] = useState(false);
@@ -117,7 +119,11 @@ export default function StudentDetail() {
         {LEFT_LINKS.map(item => (
           <button
             key={item}
-            onClick={() => { setActiveLink(item); if (item === "Personal Details") setActiveTab("Summary"); }}
+            onClick={() => {
+                if (item === "Progressions") { setLocation(`/students/${id}/progressions`); return; }
+                setActiveLink(item);
+                if (item === "Personal Details") setActiveTab("Summary");
+              }}
             className={`w-full text-left text-xs px-4 py-2 border-b border-slate-100 transition-colors ${
               activeLink === item ? "bg-teal-700 text-white font-semibold" : "text-slate-700 hover:bg-slate-50"
             }`}

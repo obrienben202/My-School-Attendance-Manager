@@ -22,6 +22,9 @@ import AssessmentDetail from "@/pages/assessment-detail";
 import AssignmentsGroups from "@/pages/assignments-groups";
 import AssignmentResults from "@/pages/assignment-results";
 import LicenceRequired from "@/pages/licence-required";
+import EprogressionsHub from "@/pages/eprogressions/index";
+import ProgressLearner from "@/pages/eprogressions/progress-learner";
+import EnrolmentProgressions from "@/pages/eprogressions/enrolment-progressions";
 import ConciergeIndex from "@/pages/concierge/index";
 import ConciergeApplicants from "@/pages/concierge/applicants";
 import ConciergeApplications from "@/pages/concierge/applications";
@@ -54,6 +57,9 @@ function Router() {
         <Route path="/assignments-groups" component={AssignmentsGroups} />
         <Route path="/assignment-results/:id" component={AssignmentResults} />
         <Route path="/licence-required" component={LicenceRequired} />
+        <Route path="/eprogressions" component={EprogressionsHub} />
+        <Route path="/students/:id/progressions" component={ProgressLearner} />
+        <Route path="/courses/:id/progressions" component={EnrolmentProgressions} />
         <Route path="/concierge" component={ConciergeIndex} />
         <Route path="/concierge/applicants" component={ConciergeApplicants} />
         <Route path="/concierge/applications" component={ConciergeApplications} />

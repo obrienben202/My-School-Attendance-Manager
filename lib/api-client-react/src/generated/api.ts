@@ -34,6 +34,8 @@ import type {
   Course,
   CourseInput,
   DashboardSummary,
+  Eprogression,
+  EprogressionInput,
   ErrorEnvelope,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
@@ -43,6 +45,7 @@ import type {
   ListAssessmentsParams,
   ListAttendanceRecordsParams,
   ListConciergeApplicationsParams,
+  ListEprogressionsParams,
   ListIlpsParams,
   ListStudentsParams,
   ListTargetsParams,
@@ -2179,6 +2182,303 @@ export const useUpdateAssessmentResult = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateAssessmentResultMutationOptions(options));
+    }
+
+export const getListEprogressionsUrl = (params?: ListEprogressionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/eprogressions?${stringifiedParams}` : `/api/eprogressions`
+}
+
+/**
+ * @summary List eProgressions
+ */
+export const listEprogressions = async (params?: ListEprogressionsParams, options?: RequestInit): Promise<Eprogression[]> => {
+
+  return customFetch<Eprogression[]>(getListEprogressionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEprogressionsQueryKey = (params?: ListEprogressionsParams,) => {
+    return [
+    `/api/eprogressions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListEprogressionsQueryOptions = <TData = Awaited<ReturnType<typeof listEprogressions>>, TError = ErrorType<unknown>>(params?: ListEprogressionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEprogressions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEprogressionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEprogressions>>> = ({ signal }) => listEprogressions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEprogressions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEprogressionsQueryResult = NonNullable<Awaited<ReturnType<typeof listEprogressions>>>
+export type ListEprogressionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List eProgressions
+ */
+
+export function useListEprogressions<TData = Awaited<ReturnType<typeof listEprogressions>>, TError = ErrorType<unknown>>(
+ params?: ListEprogressionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEprogressions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEprogressionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateEprogressionUrl = () => {
+
+
+
+
+  return `/api/eprogressions`
+}
+
+/**
+ * @summary Submit eProgression(s)
+ */
+export const createEprogression = async (eprogressionInput: EprogressionInput, options?: RequestInit): Promise<Eprogression> => {
+
+  return customFetch<Eprogression>(getCreateEprogressionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      eprogressionInput,)
+  }
+);}
+
+
+
+
+export const getCreateEprogressionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEprogression>>, TError,{data: BodyType<EprogressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEprogression>>, TError,{data: BodyType<EprogressionInput>}, TContext> => {
+
+const mutationKey = ['createEprogression'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEprogression>>, {data: BodyType<EprogressionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createEprogression(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEprogressionMutationResult = NonNullable<Awaited<ReturnType<typeof createEprogression>>>
+    export type CreateEprogressionMutationBody = BodyType<EprogressionInput>
+    export type CreateEprogressionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Submit eProgression(s)
+ */
+export const useCreateEprogression = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEprogression>>, TError,{data: BodyType<EprogressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEprogression>>,
+        TError,
+        {data: BodyType<EprogressionInput>},
+        TContext
+      > => {
+      return useMutation(getCreateEprogressionMutationOptions(options));
+    }
+
+export const getUpdateEprogressionUrl = (id: number,) => {
+
+
+
+
+  return `/api/eprogressions/${id}`
+}
+
+/**
+ * @summary Update eProgression status (authorise/reject)
+ */
+export const updateEprogression = async (id: number,
+    eprogressionInput: EprogressionInput, options?: RequestInit): Promise<Eprogression> => {
+
+  return customFetch<Eprogression>(getUpdateEprogressionUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      eprogressionInput,)
+  }
+);}
+
+
+
+
+export const getUpdateEprogressionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionInput>}, TContext> => {
+
+const mutationKey = ['updateEprogression'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEprogression>>, {id: number;data: BodyType<EprogressionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateEprogression(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEprogressionMutationResult = NonNullable<Awaited<ReturnType<typeof updateEprogression>>>
+    export type UpdateEprogressionMutationBody = BodyType<EprogressionInput>
+    export type UpdateEprogressionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update eProgression status (authorise/reject)
+ */
+export const useUpdateEprogression = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEprogression>>,
+        TError,
+        {id: number;data: BodyType<EprogressionInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateEprogressionMutationOptions(options));
+    }
+
+export const getDeleteEprogressionUrl = (id: number,) => {
+
+
+
+
+  return `/api/eprogressions/${id}`
+}
+
+/**
+ * @summary Delete an eProgression
+ */
+export const deleteEprogression = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteEprogressionUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteEprogressionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEprogression>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEprogression>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteEprogression'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEprogression>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteEprogression(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteEprogressionMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEprogression>>>
+
+    export type DeleteEprogressionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an eProgression
+ */
+export const useDeleteEprogression = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEprogression>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteEprogression>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteEprogressionMutationOptions(options));
     }
 
 export const getListConciergeApplicationsUrl = (params?: ListConciergeApplicationsParams,) => {

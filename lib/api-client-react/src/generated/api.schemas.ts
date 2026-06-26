@@ -358,6 +358,52 @@ export interface ScheduleEntry {
   registerMarked: boolean;
 }
 
+export interface Eprogression {
+  id: number;
+  type: string;
+  /** @nullable */
+  studentId?: number | null;
+  /** @nullable */
+  courseId?: number | null;
+  courseCode: string;
+  /** @nullable */
+  calOccCode?: string | null;
+  /** @nullable */
+  currentProgressCode?: string | null;
+  newProgressCode: string;
+  progressDate: string;
+  /** @nullable */
+  comments?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  status: string;
+  /** @nullable */
+  submittedBy?: string | null;
+  submittedAt: string;
+}
+
+export interface EprogressionInput {
+  type?: string;
+  /** @nullable */
+  studentId?: number | null;
+  /** @nullable */
+  courseId?: number | null;
+  courseCode: string;
+  /** @nullable */
+  calOccCode?: string | null;
+  /** @nullable */
+  currentProgressCode?: string | null;
+  newProgressCode: string;
+  progressDate: string;
+  /** @nullable */
+  comments?: string | null;
+  /** @nullable */
+  reason?: string | null;
+  status?: string;
+  /** @nullable */
+  submittedBy?: string | null;
+}
+
 export interface ConciergeApplication {
   id: number;
   /** @nullable */
@@ -467,6 +513,12 @@ courseId?: number;
 export type ListAssessmentResultsParams = {
 assessmentId?: number;
 studentId?: number;
+};
+
+export type ListEprogressionsParams = {
+studentId?: number;
+courseId?: number;
+status?: string;
 };
 
 export type ListConciergeApplicationsParams = {
