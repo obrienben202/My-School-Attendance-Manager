@@ -22,6 +22,7 @@ import {
   Layers,
   Star,
   LayoutGrid,
+  CalendarOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       { icon: AlertTriangle, label: "At Risk Learners", href: "/students?atRisk=true", color: "text-red-400" },
       { icon: Target, label: "Targets", href: "/targets" },
       { icon: FileText, label: "ILP", href: "/ilps" },
+      { icon: CalendarOff, label: "Planned Absence", href: "/planned-absence" },
       { icon: Archive, label: "Old Markbook", href: "/licence-required?feature=old-markbook" },
       { icon: LifeBuoy, label: "Support", href: "/licence-required?feature=support" },
       { icon: PlusCircle, label: "New ILP", href: "/ilps/new" },
