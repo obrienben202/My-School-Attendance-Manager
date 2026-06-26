@@ -24,6 +24,8 @@ import {
   LayoutGrid,
   CalendarOff,
   BarChart2,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +83,13 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       { icon: Layers, label: "Groups", href: "/ilp-admin/groups" },
       { icon: Star, label: "Reviews", href: "/ilp-admin/reviews" },
       { icon: ClipboardCheck, label: "Sections", href: "/ilp-admin/sections" },
+    ],
+  },
+  {
+    heading: "Safeguarding",
+    items: [
+      { icon: ShieldAlert, label: "Safeguarding", href: "/safeguarding" },
+      { icon: ShieldCheck, label: "Safeguarding Admin", href: "/safeguarding/admin" },
     ],
   },
   {
