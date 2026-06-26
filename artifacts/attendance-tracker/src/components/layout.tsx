@@ -47,7 +47,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
     heading: "Staff Portal",
     items: [
       { icon: Home, label: "My Homepage", href: "/" },
-      { icon: UserCircle, label: "My Details", href: "/students" },
+      { icon: UserCircle, label: "My Details", href: "/my-details" },
       { icon: BookOpen, label: "My Courses", href: "/courses" },
       { icon: ClipboardList, label: "eRegisters", href: "/attendance" },
       { icon: BookMarked, label: "Markbook", href: "/markbook" },
