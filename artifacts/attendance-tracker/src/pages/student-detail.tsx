@@ -5,9 +5,441 @@ import {
   useListAttendanceRecords,
   useListTargets,
   useListIlps,
+  useListCourses,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, UserCircle2, Printer, Mail, Edit, PlusCircle, FileText, X, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+// ── Report helpers ───────────────────────────────────────────────────────────
+
+type Student = { forename: string; middleNames?: string | null; surname: string; personCode?: string | null; dateOfBirth?: string | null; yearGroup?: string | null; attendancePercent?: number; punctualityPercent?: number };
+type AttRec = { date: string; courseId: number; status: string; notes?: string | null };
+type TargetRec = { title: string; description?: string | null; dueDate?: string | null; completed: boolean };
+type IlpRec = { title: string; content?: string | null; status: string; createdAt: string };
+type CourseRec = { id: number; code: string; name: string; room?: string | null; staffName?: string | null };
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const PERIODS = ["09:00–10:00", "10:00–11:00", "11:15–12:15", "13:00–14:00", "14:00–15:00"];
+const ENRICHMENT = [
+  { activity: "Football Club", start: "2024-09-05", end: "2025-06-20", status: "Active" },
+  { activity: "Duke of Edinburgh", start: "2024-10-01", end: "2025-05-30", status: "Active" },
+  { activity: "Drama Society", start: "2024-09-10", end: "2025-03-31", status: "Completed" },
+];
+const WORK_EXP = [
+  { employer: "City Council", start: "2025-01-13", end: "2025-01-17", hours: 35, supervisor: "J. Graham" },
+  { employer: "Local Hospital", start: "2025-06-16", end: "2025-06-20", hours: 35, supervisor: "Dr T. Patel" },
+];
+const DISCIPLINARY = [
+  { date: "2024-10-15", incident: "Late to class (3rd offence)", action: "Verbal warning", staff: "Mr Harris" },
+  { date: "2024-11-08", incident: "Mobile phone use in lesson", action: "Phone confiscated, letter home", staff: "Ms Carter" },
+];
+
+function printReportWindow(title: string, html: string) {
+  const w = window.open("", "_blank", "width=850,height=700");
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:12px;margin:24px;color:#222;}
+  h1{font-size:17px;margin-bottom:4px;}
+  h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:16px;}
+  .meta{font-size:11px;color:#555;margin-bottom:16px;border-bottom:1px solid #ccc;padding-bottom:8px;}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+  th{background:#1e3a5f;color:#fff;text-align:left;padding:6px 8px;font-size:11px;}
+  td{border-bottom:1px solid #e0e0e0;padding:5px 8px;font-size:11px;}
+  tr:nth-child(even) td{background:#f8f8f8;}
+  .badge-present{color:#166534;font-weight:bold;}
+  .badge-absent{color:#991b1b;font-weight:bold;}
+  .badge-late{color:#92400e;font-weight:bold;}
+  .badge-done{color:#166534;}
+  .badge-pending{color:#92400e;}
+  .section-title{font-size:13px;font-weight:bold;margin:16px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px;}
+  @media print{body{margin:12px;}}
+</style>
+</head><body onload="window.print()">
+${html}
+</body></html>`);
+  w.document.close();
+}
+
+function reportHeader(title: string, student: Student) {
+  const name = [student.forename, student.middleNames, student.surname].filter(Boolean).join(" ");
+  const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  return `<h1>${title}</h1>
+<div class="meta">
+  <strong>Learner:</strong> ${name} &nbsp;|&nbsp;
+  <strong>Ref:</strong> ${student.personCode ?? "—"} &nbsp;|&nbsp;
+  <strong>Year Group:</strong> ${student.yearGroup ?? "—"} &nbsp;|&nbsp;
+  <strong>DOB:</strong> ${student.dateOfBirth ?? "—"} &nbsp;|&nbsp;
+  <strong>Generated:</strong> ${today}
+</div>`;
+}
+
+function buildReportHtml(
+  reportName: string,
+  student: Student,
+  attendance: AttRec[],
+  targets: TargetRec[],
+  ilps: IlpRec[],
+  courses: CourseRec[],
+): string {
+  const header = reportHeader(reportName, student);
+
+  if (reportName === "Learner Timetable") {
+    const timetableCourses = courses.slice(0, 5);
+    const rows = timetableCourses.map((c, i) => `
+      <tr>
+        <td>${DAYS[i % DAYS.length]}</td>
+        <td>${PERIODS[i % PERIODS.length]}</td>
+        <td>${c.code}</td>
+        <td>${c.name}</td>
+        <td>${c.room ?? "—"}</td>
+        <td>${c.staffName ?? "—"}</td>
+      </tr>`).join("");
+    return `${header}
+<table>
+  <thead><tr><th>Day</th><th>Time</th><th>Course Code</th><th>Course Name</th><th>Room</th><th>Staff</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="6">No timetable entries found.</td></tr>'}</tbody>
+</table>`;
+  }
+
+  if (reportName === "Attendance Report (Detailed)") {
+    const att = attendance.length ? attendance : [];
+    const present = att.filter(a => a.status === "present").length;
+    const absent = att.filter(a => a.status === "absent").length;
+    const late = att.filter(a => a.status === "late").length;
+    const pct = att.length ? Math.round((present / att.length) * 100) : (student.attendancePercent ?? 0);
+    const rows = att.slice(0, 50).map(a => {
+      const course = courses.find(c => c.id === a.courseId);
+      const cls = a.status === "present" ? "badge-present" : a.status === "absent" ? "badge-absent" : "badge-late";
+      return `<tr>
+        <td>${new Date(a.date).toLocaleDateString("en-GB")}</td>
+        <td>${course ? `${course.code} — ${course.name}` : `Course ${a.courseId}`}</td>
+        <td class="${cls}">${a.status.charAt(0).toUpperCase() + a.status.slice(1)}</td>
+        <td>${a.notes ?? ""}</td>
+      </tr>`;
+    }).join("");
+    return `${header}
+<div class="section-title">Summary</div>
+<table style="width:auto;margin-bottom:16px;">
+  <thead><tr><th>Present</th><th>Absent</th><th>Late</th><th>Attendance %</th></tr></thead>
+  <tbody><tr><td class="badge-present">${present}</td><td class="badge-absent">${absent}</td><td class="badge-late">${late}</td><td>${pct}%</td></tr></tbody>
+</table>
+<div class="section-title">Detailed Records</div>
+<table>
+  <thead><tr><th>Date</th><th>Course</th><th>Status</th><th>Notes</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="4">No attendance records found.</td></tr>'}</tbody>
+</table>`;
+  }
+
+  if (reportName === "Achievement Report") {
+    const done = targets.filter(t => t.completed).length;
+    const pending = targets.filter(t => !t.completed).length;
+    const rows = targets.map(t => `<tr>
+      <td>${t.title}</td>
+      <td>${t.description ?? "—"}</td>
+      <td>${t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-GB") : "—"}</td>
+      <td class="${t.completed ? "badge-done" : "badge-pending"}">${t.completed ? "Achieved" : "Pending"}</td>
+    </tr>`).join("");
+    return `${header}
+<div class="section-title">Summary — ${done} achieved, ${pending} pending</div>
+<table>
+  <thead><tr><th>Target</th><th>Description</th><th>Due Date</th><th>Status</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="4">No achievement targets on record.</td></tr>'}</tbody>
+</table>`;
+  }
+
+  if (reportName === "Disciplinary History") {
+    const rows = DISCIPLINARY.map(d => `<tr>
+      <td>${new Date(d.date).toLocaleDateString("en-GB")}</td>
+      <td>${d.incident}</td>
+      <td>${d.action}</td>
+      <td>${d.staff}</td>
+    </tr>`).join("");
+    return `${header}
+<table>
+  <thead><tr><th>Date</th><th>Incident</th><th>Action Taken</th><th>Recorded By</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>`;
+  }
+
+  if (reportName === "ILP Summary Report") {
+    const rows = ilps.map(i => `<tr>
+      <td>${i.title}</td>
+      <td>${i.content ?? "—"}</td>
+      <td>${i.status}</td>
+      <td>${new Date(i.createdAt).toLocaleDateString("en-GB")}</td>
+    </tr>`).join("");
+    return `${header}
+<table>
+  <thead><tr><th>Target / Objective</th><th>Detail</th><th>Status</th><th>Created</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="4">No ILP entries on record.</td></tr>'}</tbody>
+</table>`;
+  }
+
+  if (reportName === "Enrichment Activity Report") {
+    const rows = ENRICHMENT.map(e => `<tr>
+      <td>${e.activity}</td>
+      <td>${new Date(e.start).toLocaleDateString("en-GB")}</td>
+      <td>${new Date(e.end).toLocaleDateString("en-GB")}</td>
+      <td class="${e.status === "Active" ? "badge-present" : "badge-done"}">${e.status}</td>
+    </tr>`).join("");
+    return `${header}
+<table>
+  <thead><tr><th>Activity</th><th>Start Date</th><th>End Date</th><th>Status</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>`;
+  }
+
+  if (reportName === "Work Experience Log") {
+    const rows = WORK_EXP.map(w => `<tr>
+      <td>${w.employer}</td>
+      <td>${new Date(w.start).toLocaleDateString("en-GB")}</td>
+      <td>${new Date(w.end).toLocaleDateString("en-GB")}</td>
+      <td>${w.hours}</td>
+      <td>${w.supervisor}</td>
+    </tr>`).join("");
+    return `${header}
+<table>
+  <thead><tr><th>Employer</th><th>Start Date</th><th>End Date</th><th>Hours</th><th>Supervisor</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>`;
+  }
+
+  return `${header}<p>Report content not available.</p>`;
+}
+
+// Status badges for the in-app preview
+function StatusBadge({ status }: { status: string }) {
+  const cls =
+    status === "present" ? "text-green-700 bg-green-50 border-green-200" :
+    status === "absent" ? "text-red-700 bg-red-50 border-red-200" :
+    status === "late" ? "text-amber-700 bg-amber-50 border-amber-200" :
+    status === "Achieved" || status === "Active" ? "text-green-700 bg-green-50 border-green-200" :
+    "text-slate-600 bg-slate-50 border-slate-200";
+  return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cls}`}>{status}</span>;
+}
+
+function StudentReportDialog({
+  reportName, student, attendance, targets, ilps, courses, onClose,
+}: {
+  reportName: string | null;
+  student: Student;
+  attendance: AttRec[];
+  targets: TargetRec[];
+  ilps: IlpRec[];
+  courses: CourseRec[];
+  onClose: () => void;
+}) {
+  if (!reportName) return null;
+
+  function handlePrint() {
+    const html = buildReportHtml(reportName!, student, attendance, targets, ilps, courses);
+    printReportWindow(reportName!, html);
+  }
+
+  const name = [student.forename, student.middleNames, student.surname].filter(Boolean).join(" ");
+  const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+
+  // ── In-dialog preview renderers ─────────────────────────────────────────
+
+  function renderContent() {
+    const tblHead = (...cols: string[]) => (
+      <thead>
+        <tr className="bg-teal-800 text-white text-[11px]">
+          {cols.map(c => <th key={c} className="text-left px-3 py-1.5 font-semibold">{c}</th>)}
+        </tr>
+      </thead>
+    );
+    const empty = (cols: number) => (
+      <tr><td colSpan={cols} className="px-3 py-6 text-center text-slate-400 text-xs">No records on file.</td></tr>
+    );
+
+    if (reportName === "Learner Timetable") {
+      const timetableCourses = courses.slice(0, 5);
+      return (
+        <table className="w-full text-xs border-collapse">
+          {tblHead("Day", "Time", "Code", "Course", "Room", "Staff")}
+          <tbody className="divide-y divide-slate-100">
+            {timetableCourses.length ? timetableCourses.map((c, i) => (
+              <tr key={c.id} className="hover:bg-slate-50">
+                <td className="px-3 py-1.5 text-slate-700">{DAYS[i % DAYS.length]}</td>
+                <td className="px-3 py-1.5 text-slate-600 font-mono">{PERIODS[i % PERIODS.length]}</td>
+                <td className="px-3 py-1.5 text-slate-700 font-medium">{c.code}</td>
+                <td className="px-3 py-1.5 text-slate-700">{c.name}</td>
+                <td className="px-3 py-1.5 text-slate-600">{c.room ?? "—"}</td>
+                <td className="px-3 py-1.5 text-slate-600">{c.staffName ?? "—"}</td>
+              </tr>
+            )) : empty(6)}
+          </tbody>
+        </table>
+      );
+    }
+
+    if (reportName === "Attendance Report (Detailed)") {
+      const present = attendance.filter(a => a.status === "present").length;
+      const absent = attendance.filter(a => a.status === "absent").length;
+      const late = attendance.filter(a => a.status === "late").length;
+      const pct = attendance.length ? Math.round((present / attendance.length) * 100) : (student.attendancePercent ?? 0);
+      return (
+        <div className="space-y-3">
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: "Present", val: present, cls: "text-green-700 bg-green-50 border-green-200" },
+              { label: "Absent", val: absent, cls: "text-red-700 bg-red-50 border-red-200" },
+              { label: "Late", val: late, cls: "text-amber-700 bg-amber-50 border-amber-200" },
+              { label: "Attendance %", val: `${pct}%`, cls: "text-blue-700 bg-blue-50 border-blue-200" },
+            ].map(({ label, val, cls }) => (
+              <div key={label} className={`border rounded p-2 text-center ${cls}`}>
+                <div className="text-lg font-bold">{val}</div>
+                <div className="text-[10px] font-medium">{label}</div>
+              </div>
+            ))}
+          </div>
+          <table className="w-full text-xs border-collapse">
+            {tblHead("Date", "Course", "Status", "Notes")}
+            <tbody className="divide-y divide-slate-100">
+              {attendance.length ? attendance.slice(0, 30).map(a => {
+                const course = courses.find(c => c.id === a.courseId);
+                return (
+                  <tr key={a.date + a.courseId} className="hover:bg-slate-50">
+                    <td className="px-3 py-1.5 text-slate-700 whitespace-nowrap">{new Date(a.date).toLocaleDateString("en-GB")}</td>
+                    <td className="px-3 py-1.5 text-slate-700">{course ? `${course.code} — ${course.name}` : `Course ${a.courseId}`}</td>
+                    <td className="px-3 py-1.5"><StatusBadge status={a.status.charAt(0).toUpperCase() + a.status.slice(1)} /></td>
+                    <td className="px-3 py-1.5 text-slate-500">{a.notes ?? ""}</td>
+                  </tr>
+                );
+              }) : empty(4)}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    if (reportName === "Achievement Report") {
+      const done = targets.filter(t => t.completed).length;
+      return (
+        <div className="space-y-2">
+          <p className="text-xs text-slate-500">{done} of {targets.length} targets achieved</p>
+          <table className="w-full text-xs border-collapse">
+            {tblHead("Target", "Description", "Due Date", "Status")}
+            <tbody className="divide-y divide-slate-100">
+              {targets.length ? targets.map(t => (
+                <tr key={t.title} className="hover:bg-slate-50">
+                  <td className="px-3 py-1.5 font-medium text-slate-800">{t.title}</td>
+                  <td className="px-3 py-1.5 text-slate-600">{t.description ?? "—"}</td>
+                  <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-GB") : "—"}</td>
+                  <td className="px-3 py-1.5"><StatusBadge status={t.completed ? "Achieved" : "Pending"} /></td>
+                </tr>
+              )) : empty(4)}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    if (reportName === "Disciplinary History") {
+      return (
+        <table className="w-full text-xs border-collapse">
+          {tblHead("Date", "Incident", "Action Taken", "Recorded By")}
+          <tbody className="divide-y divide-slate-100">
+            {DISCIPLINARY.map(d => (
+              <tr key={d.date} className="hover:bg-slate-50">
+                <td className="px-3 py-1.5 text-slate-700 whitespace-nowrap">{new Date(d.date).toLocaleDateString("en-GB")}</td>
+                <td className="px-3 py-1.5 text-slate-700">{d.incident}</td>
+                <td className="px-3 py-1.5 text-slate-600">{d.action}</td>
+                <td className="px-3 py-1.5 text-slate-600">{d.staff}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+
+    if (reportName === "ILP Summary Report") {
+      return (
+        <table className="w-full text-xs border-collapse">
+          {tblHead("Target / Objective", "Detail", "Status", "Created")}
+          <tbody className="divide-y divide-slate-100">
+            {ilps.length ? ilps.map(i => (
+              <tr key={i.title + i.createdAt} className="hover:bg-slate-50">
+                <td className="px-3 py-1.5 font-medium text-slate-800">{i.title}</td>
+                <td className="px-3 py-1.5 text-slate-600">{i.content ?? "—"}</td>
+                <td className="px-3 py-1.5"><StatusBadge status={i.status} /></td>
+                <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{new Date(i.createdAt).toLocaleDateString("en-GB")}</td>
+              </tr>
+            )) : empty(4)}
+          </tbody>
+        </table>
+      );
+    }
+
+    if (reportName === "Enrichment Activity Report") {
+      return (
+        <table className="w-full text-xs border-collapse">
+          {tblHead("Activity", "Start Date", "End Date", "Status")}
+          <tbody className="divide-y divide-slate-100">
+            {ENRICHMENT.map(e => (
+              <tr key={e.activity} className="hover:bg-slate-50">
+                <td className="px-3 py-1.5 text-slate-700 font-medium">{e.activity}</td>
+                <td className="px-3 py-1.5 text-slate-600">{new Date(e.start).toLocaleDateString("en-GB")}</td>
+                <td className="px-3 py-1.5 text-slate-600">{new Date(e.end).toLocaleDateString("en-GB")}</td>
+                <td className="px-3 py-1.5"><StatusBadge status={e.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+
+    if (reportName === "Work Experience Log") {
+      return (
+        <table className="w-full text-xs border-collapse">
+          {tblHead("Employer", "Start Date", "End Date", "Hours", "Supervisor")}
+          <tbody className="divide-y divide-slate-100">
+            {WORK_EXP.map(w => (
+              <tr key={w.employer} className="hover:bg-slate-50">
+                <td className="px-3 py-1.5 text-slate-700 font-medium">{w.employer}</td>
+                <td className="px-3 py-1.5 text-slate-600">{new Date(w.start).toLocaleDateString("en-GB")}</td>
+                <td className="px-3 py-1.5 text-slate-600">{new Date(w.end).toLocaleDateString("en-GB")}</td>
+                <td className="px-3 py-1.5 text-slate-600 text-center">{w.hours}</td>
+                <td className="px-3 py-1.5 text-slate-600">{w.supervisor}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+
+    return null;
+  }
+
+  return (
+    <Dialog open={!!reportName} onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden p-0">
+        {/* Header */}
+        <div className="bg-teal-800 text-white px-5 py-3 flex items-start justify-between">
+          <div>
+            <DialogHeader>
+              <DialogTitle className="text-white text-base font-bold">{reportName}</DialogTitle>
+            </DialogHeader>
+            <p className="text-teal-200 text-xs mt-0.5">
+              {name} &nbsp;|&nbsp; Ref: {student.personCode ?? "—"} &nbsp;|&nbsp; Year: {student.yearGroup ?? "—"} &nbsp;|&nbsp; Generated: {today}
+            </p>
+          </div>
+          <button onClick={handlePrint} className="ml-4 flex items-center gap-1.5 bg-white text-teal-800 text-xs font-semibold px-3 py-1.5 rounded hover:bg-teal-50 shrink-0">
+            <Printer className="w-3.5 h-3.5" /> Print
+          </button>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {renderContent()}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -83,11 +515,13 @@ export default function StudentDetail() {
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [messageSent, setMessageSent] = useState(false);
+  const [reportOpen, setReportOpen] = useState<string | null>(null);
 
   const { data: student, isLoading: isStudentLoading } = useGetStudent(id, { query: { enabled: !!id } as any });
   const { data: attendance, isLoading: isAttendanceLoading } = useListAttendanceRecords({ studentId: id }, { query: { enabled: !!id } as any });
   const { data: targets, isLoading: isTargetsLoading } = useListTargets({ studentId: id }, { query: { enabled: !!id } as any });
   const { data: ilps, isLoading: isIlpsLoading } = useListIlps({ studentId: id }, { query: { enabled: !!id } as any });
+  const { data: allCourses } = useListCourses({ query: {} as any });
 
   if (isStudentLoading) {
     return <div className="space-y-4 p-6"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
@@ -473,13 +907,23 @@ export default function StudentDetail() {
         {REPORTS.map(r => (
           <button
             key={r}
-            onClick={() => window.print()}
+            onClick={() => setReportOpen(r)}
             className="w-full text-left text-xs px-4 py-2 border-b border-slate-100 text-sky-700 hover:bg-sky-50 flex items-center gap-1.5 transition-colors"
           >
             <FileText className="w-3 h-3 shrink-0 text-sky-500" />{r}
           </button>
         ))}
       </div>
+
+      <StudentReportDialog
+        reportName={reportOpen}
+        student={student}
+        attendance={attendance ?? []}
+        targets={targets ?? []}
+        ilps={ilps ?? []}
+        courses={allCourses ?? []}
+        onClose={() => setReportOpen(null)}
+      />
     </div>
   );
 }
