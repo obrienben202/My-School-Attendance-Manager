@@ -24,6 +24,7 @@ import AssignmentResults from "@/pages/assignment-results";
 import LicenceRequired from "@/pages/licence-required";
 import MarkbookMain from "@/pages/markbook/index";
 import MarkbookVerification from "@/pages/markbook/verification";
+import PlannedAbsence from "@/pages/planned-absence/index";
 import IlpTutorHub from "@/pages/ilp-tutor/index";
 import IlpTutorReviews from "@/pages/ilp-tutor/reviews";
 import IlpTutorLearners from "@/pages/ilp-tutor/learners";
@@ -73,6 +74,7 @@ function Router() {
         <Route path="/licence-required" component={LicenceRequired} />
         <Route path="/markbook" component={MarkbookMain} />
         <Route path="/markbook/verification" component={MarkbookVerification} />
+        <Route path="/planned-absence" component={PlannedAbsence} />
         <Route path="/ilp-tutor" component={IlpTutorHub} />
         <Route path="/ilp-tutor/reviews" component={IlpTutorReviews} />
         <Route path="/ilp-tutor/learners" component={IlpTutorLearners} />
