@@ -9,6 +9,7 @@ import ilpsRouter from "./ilps";
 import scheduleRouter from "./schedule";
 import dashboardRouter from "./dashboard";
 import assessmentsRouter from "./assessments";
+import conciergeRouter from "./concierge";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(targetsRouter);
 router.use(ilpsRouter);
 router.use(scheduleRouter);
 router.use(assessmentsRouter);
+router.use(conciergeRouter);
 
 export default router;

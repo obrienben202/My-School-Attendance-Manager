@@ -28,6 +28,8 @@ tags:
     description: Dashboard summary operations
   - name: assessments
     description: Assessment and marking operations
+  - name: concierge
+    description: Concierge applicant and application operations
 
 paths:
   /healthz:
@@ -588,6 +590,104 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AssessmentResult"
+
+  /concierge/applications:
+    get:
+      operationId: listConciergeApplications
+      tags: [concierge]
+      summary: List all concierge applications
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConciergeApplication"
+    post:
+      operationId: createConciergeApplication
+      tags: [concierge]
+      summary: Create a new concierge application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeApplicationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeApplication"
+
+  /concierge/applications/{id}:
+    get:
+      operationId: getConciergeApplication
+      tags: [concierge]
+      summary: Get a single concierge application
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeApplication"
+    patch:
+      operationId: updateConciergeApplication
+      tags: [concierge]
+      summary: Update a concierge application
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeApplicationInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeApplication"
+    delete:
+      operationId: deleteConciergeApplication
+      tags: [concierge]
+      summary: Delete a concierge application
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   /auth/user:
     get:
@@ -1317,3 +1417,77 @@ components:
         - courseCode
         - courseName
         - registerMarked
+
+    ConciergeApplication:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: ["integer", "null"]
+        courseId:
+          type: ["integer", "null"]
+        forename:
+          type: ["string", "null"]
+        surname:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        status:
+          type: string
+        interviewDate:
+          type: ["string", "null"]
+        interviewNotes:
+          type: ["string", "null"]
+        interviewStatus:
+          type: ["string", "null"]
+        offerType:
+          type: ["string", "null"]
+        offerStatus:
+          type: ["string", "null"]
+        progressNotes:
+          type: ["string", "null"]
+        qualifications:
+          type: ["string", "null"]
+        requirements:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - status
+        - createdAt
+
+    ConciergeApplicationInput:
+      type: object
+      properties:
+        studentId:
+          type: ["integer", "null"]
+        courseId:
+          type: ["integer", "null"]
+        forename:
+          type: ["string", "null"]
+        surname:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        status:
+          type: string
+        interviewDate:
+          type: ["string", "null"]
+        interviewNotes:
+          type: ["string", "null"]
+        interviewStatus:
+          type: ["string", "null"]
+        offerType:
+          type: ["string", "null"]
+        offerStatus:
+          type: ["string", "null"]
+        progressNotes:
+          type: ["string", "null"]
+        qualifications:
+          type: ["string", "null"]
+        requirements:
+          type: ["string", "null"]
+      required:
+        - status

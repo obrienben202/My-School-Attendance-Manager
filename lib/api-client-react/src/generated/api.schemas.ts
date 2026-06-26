@@ -358,6 +358,68 @@ export interface ScheduleEntry {
   registerMarked: boolean;
 }
 
+export interface ConciergeApplication {
+  id: number;
+  /** @nullable */
+  studentId?: number | null;
+  /** @nullable */
+  courseId?: number | null;
+  /** @nullable */
+  forename?: string | null;
+  /** @nullable */
+  surname?: string | null;
+  /** @nullable */
+  email?: string | null;
+  status: string;
+  /** @nullable */
+  interviewDate?: string | null;
+  /** @nullable */
+  interviewNotes?: string | null;
+  /** @nullable */
+  interviewStatus?: string | null;
+  /** @nullable */
+  offerType?: string | null;
+  /** @nullable */
+  offerStatus?: string | null;
+  /** @nullable */
+  progressNotes?: string | null;
+  /** @nullable */
+  qualifications?: string | null;
+  /** @nullable */
+  requirements?: string | null;
+  createdAt: string;
+}
+
+export interface ConciergeApplicationInput {
+  /** @nullable */
+  studentId?: number | null;
+  /** @nullable */
+  courseId?: number | null;
+  /** @nullable */
+  forename?: string | null;
+  /** @nullable */
+  surname?: string | null;
+  /** @nullable */
+  email?: string | null;
+  status: string;
+  /** @nullable */
+  interviewDate?: string | null;
+  /** @nullable */
+  interviewNotes?: string | null;
+  /** @nullable */
+  interviewStatus?: string | null;
+  /** @nullable */
+  offerType?: string | null;
+  /** @nullable */
+  offerStatus?: string | null;
+  /** @nullable */
+  progressNotes?: string | null;
+  /** @nullable */
+  qualifications?: string | null;
+  /** @nullable */
+  requirements?: string | null;
+}
+
 /**
  * Opaque session token — Bearer <sid>.
  */
@@ -405,6 +467,11 @@ courseId?: number;
 export type ListAssessmentResultsParams = {
 assessmentId?: number;
 studentId?: number;
+};
+
+export type ListConciergeApplicationsParams = {
+status?: string;
+search?: string;
 };
 
 export type BeginBrowserLoginParams = {

@@ -593,6 +593,135 @@ export const UpdateAssessmentResultResponse = zod.object({
 
 
 /**
+ * @summary List all concierge applications
+ */
+export const ListConciergeApplicationsQueryParams = zod.object({
+  "status": zod.coerce.string().optional(),
+  "search": zod.coerce.string().optional()
+})
+
+export const ListConciergeApplicationsResponseItem = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "forename": zod.string().nullish(),
+  "surname": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "status": zod.string(),
+  "interviewDate": zod.string().nullish(),
+  "interviewNotes": zod.string().nullish(),
+  "interviewStatus": zod.string().nullish(),
+  "offerType": zod.string().nullish(),
+  "offerStatus": zod.string().nullish(),
+  "progressNotes": zod.string().nullish(),
+  "qualifications": zod.string().nullish(),
+  "requirements": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListConciergeApplicationsResponse = zod.array(ListConciergeApplicationsResponseItem)
+
+
+/**
+ * @summary Create a new concierge application
+ */
+export const CreateConciergeApplicationBody = zod.object({
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "forename": zod.string().nullish(),
+  "surname": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "status": zod.string(),
+  "interviewDate": zod.string().nullish(),
+  "interviewNotes": zod.string().nullish(),
+  "interviewStatus": zod.string().nullish(),
+  "offerType": zod.string().nullish(),
+  "offerStatus": zod.string().nullish(),
+  "progressNotes": zod.string().nullish(),
+  "qualifications": zod.string().nullish(),
+  "requirements": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get a single concierge application
+ */
+export const GetConciergeApplicationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetConciergeApplicationResponse = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "forename": zod.string().nullish(),
+  "surname": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "status": zod.string(),
+  "interviewDate": zod.string().nullish(),
+  "interviewNotes": zod.string().nullish(),
+  "interviewStatus": zod.string().nullish(),
+  "offerType": zod.string().nullish(),
+  "offerStatus": zod.string().nullish(),
+  "progressNotes": zod.string().nullish(),
+  "qualifications": zod.string().nullish(),
+  "requirements": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a concierge application
+ */
+export const UpdateConciergeApplicationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateConciergeApplicationBody = zod.object({
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "forename": zod.string().nullish(),
+  "surname": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "status": zod.string(),
+  "interviewDate": zod.string().nullish(),
+  "interviewNotes": zod.string().nullish(),
+  "interviewStatus": zod.string().nullish(),
+  "offerType": zod.string().nullish(),
+  "offerStatus": zod.string().nullish(),
+  "progressNotes": zod.string().nullish(),
+  "qualifications": zod.string().nullish(),
+  "requirements": zod.string().nullish()
+})
+
+export const UpdateConciergeApplicationResponse = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "forename": zod.string().nullish(),
+  "surname": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "status": zod.string(),
+  "interviewDate": zod.string().nullish(),
+  "interviewNotes": zod.string().nullish(),
+  "interviewStatus": zod.string().nullish(),
+  "offerType": zod.string().nullish(),
+  "offerStatus": zod.string().nullish(),
+  "progressNotes": zod.string().nullish(),
+  "qualifications": zod.string().nullish(),
+  "requirements": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a concierge application
+ */
+export const DeleteConciergeApplicationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary Get the currently authenticated user
  */
 export const GetCurrentAuthUserHeader = zod.object({
