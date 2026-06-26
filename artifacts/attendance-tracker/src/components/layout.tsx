@@ -58,6 +58,15 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
     ],
   },
   {
+    heading: "ILP Tutor",
+    items: [
+      { icon: LayoutGrid, label: "ILP Tutor", href: "/ilp-tutor" },
+      { icon: Star, label: "Reviews", href: "/ilp-tutor/reviews" },
+      { icon: Users, label: "Learner Search", href: "/ilp-tutor/learners" },
+      { icon: BookOpen, label: "My Learners' ILPs", href: "/ilp-tutor/ilps" },
+    ],
+  },
+  {
     heading: "ILP Admin",
     items: [
       { icon: LayoutGrid, label: "ILP Admin", href: "/ilp-admin" },
