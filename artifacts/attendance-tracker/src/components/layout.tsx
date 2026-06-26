@@ -18,6 +18,7 @@ import {
   LogIn,
   ClipboardCheck,
   ConciergeBell,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,12 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       { icon: Archive, label: "Old Markbook", href: "/licence-required?feature=old-markbook" },
       { icon: LifeBuoy, label: "Support", href: "/licence-required?feature=support" },
       { icon: PlusCircle, label: "New ILP", href: "/ilps/new" },
+    ],
+  },
+  {
+    heading: "eProgressions",
+    items: [
+      { icon: TrendingUp, label: "eProgressions Hub", href: "/eprogressions" },
     ],
   },
   {

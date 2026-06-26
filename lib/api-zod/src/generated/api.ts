@@ -593,6 +593,101 @@ export const UpdateAssessmentResultResponse = zod.object({
 
 
 /**
+ * @summary List eProgressions
+ */
+export const ListEprogressionsQueryParams = zod.object({
+  "studentId": zod.coerce.number().optional(),
+  "courseId": zod.coerce.number().optional(),
+  "status": zod.coerce.string().optional()
+})
+
+export const ListEprogressionsResponseItem = zod.object({
+  "id": zod.number(),
+  "type": zod.string(),
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "courseCode": zod.string(),
+  "calOccCode": zod.string().nullish(),
+  "currentProgressCode": zod.string().nullish(),
+  "newProgressCode": zod.string(),
+  "progressDate": zod.string(),
+  "comments": zod.string().nullish(),
+  "reason": zod.string().nullish(),
+  "status": zod.string(),
+  "submittedBy": zod.string().nullish(),
+  "submittedAt": zod.string()
+})
+export const ListEprogressionsResponse = zod.array(ListEprogressionsResponseItem)
+
+
+/**
+ * @summary Submit eProgression(s)
+ */
+export const CreateEprogressionBody = zod.object({
+  "type": zod.string().optional(),
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "courseCode": zod.string(),
+  "calOccCode": zod.string().nullish(),
+  "currentProgressCode": zod.string().nullish(),
+  "newProgressCode": zod.string(),
+  "progressDate": zod.string(),
+  "comments": zod.string().nullish(),
+  "reason": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "submittedBy": zod.string().nullish()
+})
+
+
+/**
+ * @summary Update eProgression status (authorise/reject)
+ */
+export const UpdateEprogressionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateEprogressionBody = zod.object({
+  "type": zod.string().optional(),
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "courseCode": zod.string(),
+  "calOccCode": zod.string().nullish(),
+  "currentProgressCode": zod.string().nullish(),
+  "newProgressCode": zod.string(),
+  "progressDate": zod.string(),
+  "comments": zod.string().nullish(),
+  "reason": zod.string().nullish(),
+  "status": zod.string().optional(),
+  "submittedBy": zod.string().nullish()
+})
+
+export const UpdateEprogressionResponse = zod.object({
+  "id": zod.number(),
+  "type": zod.string(),
+  "studentId": zod.number().nullish(),
+  "courseId": zod.number().nullish(),
+  "courseCode": zod.string(),
+  "calOccCode": zod.string().nullish(),
+  "currentProgressCode": zod.string().nullish(),
+  "newProgressCode": zod.string(),
+  "progressDate": zod.string(),
+  "comments": zod.string().nullish(),
+  "reason": zod.string().nullish(),
+  "status": zod.string(),
+  "submittedBy": zod.string().nullish(),
+  "submittedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete an eProgression
+ */
+export const DeleteEprogressionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary List all concierge applications
  */
 export const ListConciergeApplicationsQueryParams = zod.object({

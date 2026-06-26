@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useGetCourse, useListAttendanceRecords, useListStudents, useListAssessments } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp } from "lucide-react";
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -33,6 +33,7 @@ const COURSE_LINKS = [
   { label: "Learning Resources", icon: BookOpen },
   { label: "Assessment Plan", icon: ClipboardList },
   { label: "Staff Assignments", icon: UserCheck },
+  { label: "Progressions", icon: TrendingUp },
 ];
 
 const COURSE_REPORTS = [
@@ -105,7 +106,10 @@ export default function CourseDetail() {
         {COURSE_LINKS.map(({ label, icon: Icon }) => (
           <button
             key={label}
-            onClick={() => setActiveLink(label)}
+            onClick={() => {
+                if (label === "Progressions") { navigate(`/courses/${id}/progressions`); return; }
+                setActiveLink(label);
+              }}
             className={`w-full text-left text-xs px-4 py-2 border-b border-slate-100 transition-colors flex items-center gap-2 ${
               activeLink === label ? "bg-teal-700 text-white font-semibold" : "text-slate-700 hover:bg-slate-50"
             }`}

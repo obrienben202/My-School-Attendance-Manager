@@ -7,3 +7,4 @@ export * from "./schedule";
 export * from "./auth";
 export * from "./assessments";
 export * from "./concierge";
+export * from "./eprogressions";
