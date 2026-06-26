@@ -769,9 +769,13 @@ function RoomSearchTab() {
   const { data: courses } = useListCourses();
   const [roomCode, setRoomCode] = useState("");
   const [roomDesc, setRoomDesc] = useState("");
+  const [locationCode, setLocationCode] = useState("");
+  const [capacityOp, setCapacityOp] = useState("=");
+  const [capacity, setCapacity] = useState("");
   const [sessionCode, setSessionCode] = useState("");
-  const [roomType, setRoomType] = useState("");
-  const [site, setSite] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<RoomRow[]>([]);
 
@@ -788,17 +792,24 @@ function RoomSearchTab() {
     const filtered = allRooms.filter(r => {
       if (roomCode && !r.code.toLowerCase().includes(roomCode.toLowerCase())) return false;
       if (roomDesc && !r.description.toLowerCase().includes(roomDesc.toLowerCase())) return false;
-      if (roomType && r.roomType !== roomType) return false;
-      if (site && r.site !== site) return false;
       return true;
     });
     setResults(filtered);
     setSearched(true);
   }
 
+  const opOptions = (
+    <>
+      <SelectItem value="=">=</SelectItem>
+      <SelectItem value="<">{"<"}</SelectItem>
+      <SelectItem value=">">{">"}</SelectItem>
+    </>
+  );
+
   return (
     <TabsContent value="room" className="mt-0 outline-none">
-      <div className="space-y-0">
+      <div className="space-y-2">
+        {/* Main room fields */}
         <div className="grid grid-cols-2 gap-x-8">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -806,38 +817,64 @@ function RoomSearchTab() {
               <Input value={roomCode} onChange={e => { setRoomCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-32 shrink-0 text-sm text-slate-700">Room Description</span>
-              <Input value={roomDesc} onChange={e => { setRoomDesc(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-32 shrink-0 text-sm text-slate-700">Session Code</span>
-              <Input value={sessionCode} onChange={e => { setSessionCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              <span className="w-32 shrink-0 text-sm text-slate-700">Location Code</span>
+              <Input value={locationCode} onChange={e => { setLocationCode(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="w-24 shrink-0 text-sm text-slate-700">Room Type</span>
-              <Select value={roomType} onValueChange={v => { setRoomType(v === "_all" ? "" : v); setSearched(false); }}>
-                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_all">— All —</SelectItem>
-                  {ROOM_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <span className="w-32 shrink-0 text-sm text-slate-700">Room Description</span>
+              <Input value={roomDesc} onChange={e => { setRoomDesc(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-24 shrink-0 text-sm text-slate-700">Site</span>
-              <Select value={site} onValueChange={v => { setSite(v === "_all" ? "" : v); setSearched(false); }}>
-                <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_all">— All —</SelectItem>
-                  {SITES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <span className="w-32 shrink-0 text-sm text-slate-700">Capacity</span>
+              <div className="flex flex-1 gap-1">
+                <Select value={capacityOp} onValueChange={setCapacityOp}>
+                  <SelectTrigger className="w-14 shrink-0 text-xs px-1.5 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{opOptions}</SelectContent>
+                </Select>
+                <Input value={capacity} onChange={e => { setCapacity(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" type="number" min="0" />
+              </div>
             </div>
           </div>
         </div>
-        <div className="flex justify-end pt-3">
+
+        {/* Free Room Search Options */}
+        <div className="pt-1">
+          <p className="text-sm font-semibold text-slate-800 mb-2">Free Room Search Options</p>
+          <div className="grid grid-cols-2 gap-x-8">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-sm text-slate-700">Session Code</span>
+                <Select value={sessionCode} onValueChange={v => { setSessionCode(v === "_all" ? "" : v); setSearched(false); }}>
+                  <SelectTrigger className="flex-1 h-8 text-sm"><SelectValue placeholder="" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">— All —</SelectItem>
+                    <SelectItem value="AM">AM</SelectItem>
+                    <SelectItem value="PM">PM</SelectItem>
+                    <SelectItem value="Evening">Evening</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-sm text-slate-700">Start Time</span>
+                <Input type="time" value={startTime} onChange={e => { setStartTime(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-sm text-slate-700">Start Date</span>
+                <Input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-32 shrink-0 text-sm text-slate-700">End Time</span>
+                <Input type="time" value={endTime} onChange={e => { setEndTime(e.target.value); setSearched(false); }} className="flex-1 h-8 text-sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-1">
           <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
