@@ -26,6 +26,8 @@ tags:
     description: Schedule operations
   - name: dashboard
     description: Dashboard summary operations
+  - name: assessments
+    description: Assessment and marking operations
 
 paths:
   /healthz:
@@ -428,6 +430,164 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Ilp"
+
+  /assessments:
+    get:
+      operationId: listAssessments
+      tags: [assessments]
+      summary: List assessments with optional filters
+      parameters:
+        - name: courseId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assessments list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assessment"
+    post:
+      operationId: createAssessment
+      tags: [assessments]
+      summary: Create an assessment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+
+  /assessments/{id}:
+    get:
+      operationId: getAssessment
+      tags: [assessments]
+      summary: Get assessment by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+    patch:
+      operationId: updateAssessment
+      tags: [assessments]
+      summary: Update an assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+    delete:
+      operationId: deleteAssessment
+      tags: [assessments]
+      summary: Delete an assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /assessment-results:
+    get:
+      operationId: listAssessmentResults
+      tags: [assessments]
+      summary: List assessment results
+      parameters:
+        - name: assessmentId
+          in: query
+          schema:
+            type: integer
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Results list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssessmentResult"
+    post:
+      operationId: createAssessmentResult
+      tags: [assessments]
+      summary: Create or upsert an assessment result
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentResultInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentResult"
+
+  /assessment-results/{id}:
+    patch:
+      operationId: updateAssessmentResult
+      tags: [assessments]
+      summary: Update an assessment result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentResultInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentResult"
 
   /auth/user:
     get:
@@ -979,6 +1139,157 @@ components:
       required:
         - studentId
         - title
+
+    Assessment:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        code:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        dueDate:
+          type: ["string", "null"]
+        gradingScheme:
+          type: string
+        minPassMark:
+          type: ["string", "null"]
+        marksOutOf:
+          type: ["integer", "null"]
+        active:
+          type: integer
+        order:
+          type: integer
+        location:
+          type: ["string", "null"]
+        organisation:
+          type: ["string", "null"]
+        mandatory:
+          type: integer
+        allowAegrotats:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - courseId
+        - code
+        - description
+        - type
+        - gradingScheme
+        - active
+        - order
+        - mandatory
+        - allowAegrotats
+        - createdAt
+
+    AssessmentInput:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        code:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        dueDate:
+          type: ["string", "null"]
+        gradingScheme:
+          type: string
+        minPassMark:
+          type: ["string", "null"]
+        marksOutOf:
+          type: ["integer", "null"]
+        active:
+          type: integer
+        order:
+          type: integer
+        location:
+          type: ["string", "null"]
+        organisation:
+          type: ["string", "null"]
+        mandatory:
+          type: integer
+        allowAegrotats:
+          type: integer
+      required:
+        - courseId
+        - code
+        - description
+
+    AssessmentResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        assessmentId:
+          type: integer
+        studentId:
+          type: integer
+        result:
+          type: ["string", "null"]
+        adjustedResult:
+          type: ["string", "null"]
+        attempt:
+          type: integer
+        reasonForZeroMark:
+          type: ["string", "null"]
+        mitigatingCircs:
+          type: ["string", "null"]
+        dateSubmitted:
+          type: ["string", "null"]
+        dateMarked:
+          type: ["string", "null"]
+        confirmed:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - assessmentId
+        - studentId
+        - attempt
+        - confirmed
+        - status
+        - createdAt
+
+    AssessmentResultInput:
+      type: object
+      properties:
+        assessmentId:
+          type: integer
+        studentId:
+          type: integer
+        result:
+          type: ["string", "null"]
+        adjustedResult:
+          type: ["string", "null"]
+        attempt:
+          type: integer
+        reasonForZeroMark:
+          type: ["string", "null"]
+        mitigatingCircs:
+          type: ["string", "null"]
+        dateSubmitted:
+          type: ["string", "null"]
+        dateMarked:
+          type: ["string", "null"]
+        confirmed:
+          type: integer
+        status:
+          type: string
+      required:
+        - assessmentId
+        - studentId
 
     ScheduleEntry:
       type: object

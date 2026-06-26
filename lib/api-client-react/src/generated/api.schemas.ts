@@ -257,6 +257,94 @@ export interface IlpInput {
   status?: IlpInputStatus;
 }
 
+export interface Assessment {
+  id: number;
+  courseId: number;
+  code: string;
+  description: string;
+  type: string;
+  /** @nullable */
+  dueDate?: string | null;
+  gradingScheme: string;
+  /** @nullable */
+  minPassMark?: string | null;
+  /** @nullable */
+  marksOutOf?: number | null;
+  active: number;
+  order: number;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  organisation?: string | null;
+  mandatory: number;
+  allowAegrotats: number;
+  createdAt: string;
+}
+
+export interface AssessmentInput {
+  courseId: number;
+  code: string;
+  description: string;
+  type?: string;
+  /** @nullable */
+  dueDate?: string | null;
+  gradingScheme?: string;
+  /** @nullable */
+  minPassMark?: string | null;
+  /** @nullable */
+  marksOutOf?: number | null;
+  active?: number;
+  order?: number;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  organisation?: string | null;
+  mandatory?: number;
+  allowAegrotats?: number;
+}
+
+export interface AssessmentResult {
+  id: number;
+  assessmentId: number;
+  studentId: number;
+  /** @nullable */
+  result?: string | null;
+  /** @nullable */
+  adjustedResult?: string | null;
+  attempt: number;
+  /** @nullable */
+  reasonForZeroMark?: string | null;
+  /** @nullable */
+  mitigatingCircs?: string | null;
+  /** @nullable */
+  dateSubmitted?: string | null;
+  /** @nullable */
+  dateMarked?: string | null;
+  confirmed: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface AssessmentResultInput {
+  assessmentId: number;
+  studentId: number;
+  /** @nullable */
+  result?: string | null;
+  /** @nullable */
+  adjustedResult?: string | null;
+  attempt?: number;
+  /** @nullable */
+  reasonForZeroMark?: string | null;
+  /** @nullable */
+  mitigatingCircs?: string | null;
+  /** @nullable */
+  dateSubmitted?: string | null;
+  /** @nullable */
+  dateMarked?: string | null;
+  confirmed?: number;
+  status?: string;
+}
+
 export interface ScheduleEntry {
   id: number;
   startTime: string;
@@ -307,6 +395,15 @@ overdue?: boolean;
 };
 
 export type ListIlpsParams = {
+studentId?: number;
+};
+
+export type ListAssessmentsParams = {
+courseId?: number;
+};
+
+export type ListAssessmentResultsParams = {
+assessmentId?: number;
 studentId?: number;
 };
 

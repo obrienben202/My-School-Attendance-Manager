@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './assessment';
+export * from './assessmentInput';
+export * from './assessmentResult';
+export * from './assessmentResultInput';
 export * from './attendanceInput';
 export * from './attendanceInputStatus';
 export * from './attendanceRecord';
@@ -26,6 +30,8 @@ export * from './ilp';
 export * from './ilpInput';
 export * from './ilpInputStatus';
 export * from './ilpStatus';
+export * from './listAssessmentResultsParams';
+export * from './listAssessmentsParams';
 export * from './listAttendanceRecordsParams';
 export * from './listAttendanceRecordsStatus';
 export * from './listIlpsParams';

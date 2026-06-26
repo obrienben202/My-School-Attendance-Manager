@@ -383,6 +383,216 @@ export const CreateIlpBody = zod.object({
 
 
 /**
+ * @summary List assessments with optional filters
+ */
+export const ListAssessmentsQueryParams = zod.object({
+  "courseId": zod.coerce.number().optional()
+})
+
+export const ListAssessmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "courseId": zod.number(),
+  "code": zod.string(),
+  "description": zod.string(),
+  "type": zod.string(),
+  "dueDate": zod.string().nullish(),
+  "gradingScheme": zod.string(),
+  "minPassMark": zod.string().nullish(),
+  "marksOutOf": zod.number().nullish(),
+  "active": zod.number(),
+  "order": zod.number(),
+  "location": zod.string().nullish(),
+  "organisation": zod.string().nullish(),
+  "mandatory": zod.number(),
+  "allowAegrotats": zod.number(),
+  "createdAt": zod.string()
+})
+export const ListAssessmentsResponse = zod.array(ListAssessmentsResponseItem)
+
+
+/**
+ * @summary Create an assessment
+ */
+export const CreateAssessmentBody = zod.object({
+  "courseId": zod.number(),
+  "code": zod.string(),
+  "description": zod.string(),
+  "type": zod.string().optional(),
+  "dueDate": zod.string().nullish(),
+  "gradingScheme": zod.string().optional(),
+  "minPassMark": zod.string().nullish(),
+  "marksOutOf": zod.number().nullish(),
+  "active": zod.number().optional(),
+  "order": zod.number().optional(),
+  "location": zod.string().nullish(),
+  "organisation": zod.string().nullish(),
+  "mandatory": zod.number().optional(),
+  "allowAegrotats": zod.number().optional()
+})
+
+
+/**
+ * @summary Get assessment by ID
+ */
+export const GetAssessmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAssessmentResponse = zod.object({
+  "id": zod.number(),
+  "courseId": zod.number(),
+  "code": zod.string(),
+  "description": zod.string(),
+  "type": zod.string(),
+  "dueDate": zod.string().nullish(),
+  "gradingScheme": zod.string(),
+  "minPassMark": zod.string().nullish(),
+  "marksOutOf": zod.number().nullish(),
+  "active": zod.number(),
+  "order": zod.number(),
+  "location": zod.string().nullish(),
+  "organisation": zod.string().nullish(),
+  "mandatory": zod.number(),
+  "allowAegrotats": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update an assessment
+ */
+export const UpdateAssessmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAssessmentBody = zod.object({
+  "courseId": zod.number(),
+  "code": zod.string(),
+  "description": zod.string(),
+  "type": zod.string().optional(),
+  "dueDate": zod.string().nullish(),
+  "gradingScheme": zod.string().optional(),
+  "minPassMark": zod.string().nullish(),
+  "marksOutOf": zod.number().nullish(),
+  "active": zod.number().optional(),
+  "order": zod.number().optional(),
+  "location": zod.string().nullish(),
+  "organisation": zod.string().nullish(),
+  "mandatory": zod.number().optional(),
+  "allowAegrotats": zod.number().optional()
+})
+
+export const UpdateAssessmentResponse = zod.object({
+  "id": zod.number(),
+  "courseId": zod.number(),
+  "code": zod.string(),
+  "description": zod.string(),
+  "type": zod.string(),
+  "dueDate": zod.string().nullish(),
+  "gradingScheme": zod.string(),
+  "minPassMark": zod.string().nullish(),
+  "marksOutOf": zod.number().nullish(),
+  "active": zod.number(),
+  "order": zod.number(),
+  "location": zod.string().nullish(),
+  "organisation": zod.string().nullish(),
+  "mandatory": zod.number(),
+  "allowAegrotats": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete an assessment
+ */
+export const DeleteAssessmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List assessment results
+ */
+export const ListAssessmentResultsQueryParams = zod.object({
+  "assessmentId": zod.coerce.number().optional(),
+  "studentId": zod.coerce.number().optional()
+})
+
+export const ListAssessmentResultsResponseItem = zod.object({
+  "id": zod.number(),
+  "assessmentId": zod.number(),
+  "studentId": zod.number(),
+  "result": zod.string().nullish(),
+  "adjustedResult": zod.string().nullish(),
+  "attempt": zod.number(),
+  "reasonForZeroMark": zod.string().nullish(),
+  "mitigatingCircs": zod.string().nullish(),
+  "dateSubmitted": zod.string().nullish(),
+  "dateMarked": zod.string().nullish(),
+  "confirmed": zod.number(),
+  "status": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListAssessmentResultsResponse = zod.array(ListAssessmentResultsResponseItem)
+
+
+/**
+ * @summary Create or upsert an assessment result
+ */
+export const CreateAssessmentResultBody = zod.object({
+  "assessmentId": zod.number(),
+  "studentId": zod.number(),
+  "result": zod.string().nullish(),
+  "adjustedResult": zod.string().nullish(),
+  "attempt": zod.number().optional(),
+  "reasonForZeroMark": zod.string().nullish(),
+  "mitigatingCircs": zod.string().nullish(),
+  "dateSubmitted": zod.string().nullish(),
+  "dateMarked": zod.string().nullish(),
+  "confirmed": zod.number().optional(),
+  "status": zod.string().optional()
+})
+
+
+/**
+ * @summary Update an assessment result
+ */
+export const UpdateAssessmentResultParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAssessmentResultBody = zod.object({
+  "assessmentId": zod.number(),
+  "studentId": zod.number(),
+  "result": zod.string().nullish(),
+  "adjustedResult": zod.string().nullish(),
+  "attempt": zod.number().optional(),
+  "reasonForZeroMark": zod.string().nullish(),
+  "mitigatingCircs": zod.string().nullish(),
+  "dateSubmitted": zod.string().nullish(),
+  "dateMarked": zod.string().nullish(),
+  "confirmed": zod.number().optional(),
+  "status": zod.string().optional()
+})
+
+export const UpdateAssessmentResultResponse = zod.object({
+  "id": zod.number(),
+  "assessmentId": zod.number(),
+  "studentId": zod.number(),
+  "result": zod.string().nullish(),
+  "adjustedResult": zod.string().nullish(),
+  "attempt": zod.number(),
+  "reasonForZeroMark": zod.string().nullish(),
+  "mitigatingCircs": zod.string().nullish(),
+  "dateSubmitted": zod.string().nullish(),
+  "dateMarked": zod.string().nullish(),
+  "confirmed": zod.number(),
+  "status": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Get the currently authenticated user
  */
 export const GetCurrentAuthUserHeader = zod.object({

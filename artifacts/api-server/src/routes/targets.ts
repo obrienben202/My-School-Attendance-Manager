@@ -66,7 +66,11 @@ router.post("/targets", async (req, res) => {
   const parsed = CreateTargetBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
-  const [target] = await db.insert(targetsTable).values(parsed.data).returning();
+  const { dueDate, ...rest } = parsed.data;
+  const [target] = await db.insert(targetsTable).values({
+    ...rest,
+    dueDate: dueDate instanceof Date ? dueDate.toISOString().split("T")[0] : (dueDate ?? null),
+  }).returning();
   return res.status(201).json({
     ...target,
     studentName: null,
@@ -84,9 +88,13 @@ router.patch("/targets/:id", async (req, res) => {
   const bodyParsed = UpdateTargetBody.safeParse(req.body);
   if (!bodyParsed.success) return res.status(400).json({ error: "Invalid body" });
 
+  const { dueDate: dueDateRaw, ...updateRest } = bodyParsed.data;
   const [target] = await db
     .update(targetsTable)
-    .set(bodyParsed.data)
+    .set({
+      ...updateRest,
+      dueDate: dueDateRaw instanceof Date ? dueDateRaw.toISOString().split("T")[0] : (dueDateRaw ?? null),
+    })
     .where(eq(targetsTable.id, paramsParsed.data.id))
     .returning();
   if (!target) return res.status(404).json({ error: "Not found" });
