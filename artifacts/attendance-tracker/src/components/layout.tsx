@@ -19,6 +19,9 @@ import {
   ClipboardCheck,
   ConciergeBell,
   TrendingUp,
+  Layers,
+  Star,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +55,18 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       { icon: Archive, label: "Old Markbook", href: "/licence-required?feature=old-markbook" },
       { icon: LifeBuoy, label: "Support", href: "/licence-required?feature=support" },
       { icon: PlusCircle, label: "New ILP", href: "/ilps/new" },
+    ],
+  },
+  {
+    heading: "ILP Admin",
+    items: [
+      { icon: LayoutGrid, label: "ILP Admin", href: "/ilp-admin" },
+      { icon: ClipboardList, label: "Assigned ILPs", href: "/ilp-admin/assigned" },
+      { icon: Users, label: "Manage Learner ILPs", href: "/ilp-admin/learners" },
+      { icon: FileText, label: "Headers", href: "/ilp-admin/headers" },
+      { icon: Layers, label: "Groups", href: "/ilp-admin/groups" },
+      { icon: Star, label: "Reviews", href: "/ilp-admin/reviews" },
+      { icon: ClipboardCheck, label: "Sections", href: "/ilp-admin/sections" },
     ],
   },
   {

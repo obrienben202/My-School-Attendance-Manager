@@ -22,6 +22,13 @@ import AssessmentDetail from "@/pages/assessment-detail";
 import AssignmentsGroups from "@/pages/assignments-groups";
 import AssignmentResults from "@/pages/assignment-results";
 import LicenceRequired from "@/pages/licence-required";
+import IlpAdminHub from "@/pages/ilp-admin/index";
+import IlpAssigned from "@/pages/ilp-admin/assigned";
+import IlpLearners from "@/pages/ilp-admin/learners";
+import IlpHeaders from "@/pages/ilp-admin/headers";
+import IlpGroups from "@/pages/ilp-admin/groups";
+import IlpReviews from "@/pages/ilp-admin/reviews";
+import IlpSections from "@/pages/ilp-admin/sections";
 import EprogressionsHub from "@/pages/eprogressions/index";
 import ProgressLearner from "@/pages/eprogressions/progress-learner";
 import EnrolmentProgressions from "@/pages/eprogressions/enrolment-progressions";
@@ -57,6 +64,13 @@ function Router() {
         <Route path="/assignments-groups" component={AssignmentsGroups} />
         <Route path="/assignment-results/:id" component={AssignmentResults} />
         <Route path="/licence-required" component={LicenceRequired} />
+        <Route path="/ilp-admin" component={IlpAdminHub} />
+        <Route path="/ilp-admin/assigned" component={IlpAssigned} />
+        <Route path="/ilp-admin/learners" component={IlpLearners} />
+        <Route path="/ilp-admin/headers" component={IlpHeaders} />
+        <Route path="/ilp-admin/groups" component={IlpGroups} />
+        <Route path="/ilp-admin/reviews" component={IlpReviews} />
+        <Route path="/ilp-admin/sections" component={IlpSections} />
         <Route path="/eprogressions" component={EprogressionsHub} />
         <Route path="/students/:id/progressions" component={ProgressLearner} />
         <Route path="/courses/:id/progressions" component={EnrolmentProgressions} />
