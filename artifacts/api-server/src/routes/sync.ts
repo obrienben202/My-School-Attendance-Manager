@@ -6,6 +6,7 @@ import { eq, inArray } from "drizzle-orm";
 const router: IRouter = Router();
 
 const ATTENDANCE_SHEET_ID = "1eHSs1LPFM0cgMQQ4YWJQV2d20RSCm7-_xOCAWBfGLPQ";
+const COURSES_SHEET_ID    = "1C_FLnvrEZGpjHKpJ1bHOqt1JeYw07BgtlIDLvQ1aa9M";
 
 function requireAdminOrHod(req: Request, res: Response): boolean {
   const u = req.user as { role?: string } | undefined;
@@ -31,8 +32,13 @@ function parsePercent(val: string): string {
   return String(parseFloat(val.replace("%", "").trim()) || 0);
 }
 
+// Derive a short unique code from the sheet's numeric id: "C001", "C002", …
+function courseCode(sheetId: string): string {
+  const n = parseInt(sheetId, 10);
+  return isNaN(n) ? sheetId.trim() : `C${String(n).padStart(3, "0")}`;
+}
+
 // POST /admin/sync/sheets
-// Syncs students roster, attendance log, and KPI benchmarks from Google Sheets.
 router.post("/admin/sync/sheets", async (req, res) => {
   if (!requireAdminOrHod(req, res)) return;
 
@@ -40,10 +46,59 @@ router.post("/admin/sync/sheets", async (req, res) => {
     const connectors = new ReplitConnectors();
     const summary: Record<string, { inserted: number; updated: number; skipped: number; errors: string[] }> = {};
 
-    // ── 1. Students Roster ────────────────────────────────────────────────────
+    // ── 1. Courses (full replace) ─────────────────────────────────────────────
+    const courseRows = await fetchSheet(connectors, COURSES_SHEET_ID, "Sheet1");
+    if (courseRows.length > 1) {
+      // header: id, code, name, room, staff_name, head_of_deprment, year_group, enrolled_count
+      const dataRows = courseRows.slice(1).filter(r => r[0]?.trim() && r[2]?.trim());
+      let inserted = 0, updated = 0, errors: string[] = [];
+
+      for (const row of dataRows) {
+        const [idRaw, _codeRaw, name, room, staffName, headOfDept, yearGroup, enrolledRaw] = row.map(c => c?.trim() ?? "");
+        const code = courseCode(idRaw);
+        const enrolledCount = parseInt(enrolledRaw, 10) || 0;
+
+        try {
+          const existing = await db.select({ id: coursesTable.id })
+            .from(coursesTable)
+            .where(eq(coursesTable.code, code))
+            .limit(1);
+
+          if (existing.length > 0) {
+            await db.update(coursesTable).set({
+              name,
+              room: room || null,
+              staffName: staffName || null,
+              headOfDepartment: headOfDept || null,
+              yearGroup: yearGroup || null,
+              enrolledCount,
+            }).where(eq(coursesTable.code, code));
+            updated++;
+          } else {
+            await db.insert(coursesTable).values({
+              code,
+              name,
+              room: room || null,
+              staffName: staffName || null,
+              headOfDepartment: headOfDept || null,
+              yearGroup: yearGroup || null,
+              enrolledCount,
+            });
+            inserted++;
+          }
+        } catch (e: any) {
+          errors.push(`Error for course ${code}: ${e.message}`);
+        }
+      }
+      summary["courses"] = { inserted, updated, skipped: 0, errors };
+    } else {
+      summary["courses"] = { inserted: 0, updated: 0, skipped: 0, errors: ["Courses sheet is empty"] };
+    }
+
+    // ── 2. Students Roster ────────────────────────────────────────────────────
     const studentRows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "Students Roster");
     if (studentRows.length > 1) {
-      // Row 0 is header: Student ID, First Name, Last Name, Year Group, Form Group, Classes
+      // header: Student ID, First Name, Last Name, Year Group, Form Group, Classes
       const dataRows = studentRows.slice(1).filter(r => r[0]?.trim());
       let inserted = 0, updated = 0, errors: string[] = [];
 
@@ -66,22 +121,20 @@ router.post("/admin/sync/sheets", async (req, res) => {
             updated++;
           } else {
             await db.insert(studentsTable).values({
-              personCode,
-              forename,
-              surname,
+              personCode, forename, surname,
               yearGroup: yearGroup || null,
               formGroup: formGroup || null,
             });
             inserted++;
           }
 
-          // Handle class enrollments (comma-separated course codes)
+          // Enroll into courses (comma-separated course codes OR C-prefixed ids)
           if (classesRaw) {
-            const codes = classesRaw.split(",").map(c => c.trim()).filter(Boolean);
-            if (codes.length > 0) {
+            const rawCodes = classesRaw.split(",").map(c => c.trim()).filter(Boolean);
+            if (rawCodes.length > 0) {
               const courses = await db.select({ id: coursesTable.id, code: coursesTable.code })
                 .from(coursesTable)
-                .where(inArray(coursesTable.code, codes));
+                .where(inArray(coursesTable.code, rawCodes));
               const courseMap = new Map(courses.map(c => [c.code, c.id]));
 
               const studentRow = await db.select({ id: studentsTable.id })
@@ -90,7 +143,7 @@ router.post("/admin/sync/sheets", async (req, res) => {
                 .limit(1);
 
               if (studentRow[0]) {
-                for (const code of codes) {
+                for (const code of rawCodes) {
                   const courseId = courseMap.get(code);
                   if (courseId) {
                     await db.insert(enrollmentsTable)
@@ -107,48 +160,38 @@ router.post("/admin/sync/sheets", async (req, res) => {
       }
       summary["students"] = { inserted, updated, skipped: errors.length, errors };
     } else {
-      summary["students"] = { inserted: 0, updated: 0, skipped: 0, errors: ["Sheet is empty or only has headers"] };
+      summary["students"] = { inserted: 0, updated: 0, skipped: 0, errors: ["Students sheet is empty or only has headers"] };
     }
 
-    // ── 2. Attendance Log ─────────────────────────────────────────────────────
+    // ── 3. Attendance Log ─────────────────────────────────────────────────────
     const attendanceRows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "Attendance Log");
     if (attendanceRows.length > 1) {
-      // Row 0 header: Timestamp, Date, Student ID, Status, Notes, Marked By
+      // header: Timestamp, Date, Student ID, Status, Notes, Marked By
       const dataRows = attendanceRows.slice(1).filter(r => r[2]?.trim() && r[1]?.trim());
       let inserted = 0, skipped = 0, errors: string[] = [];
 
       for (const row of dataRows) {
         const [_timestamp, dateRaw, personCode, status, notes, markedBy] = row.map(c => c?.trim() ?? "");
-        if (!personCode || !dateRaw || !status) {
-          skipped++;
-          continue;
-        }
+        if (!personCode || !dateRaw || !status) { skipped++; continue; }
 
-        // Parse date - handle various formats
         let isoDate: string;
         try {
           const d = new Date(dateRaw);
           if (isNaN(d.getTime())) { skipped++; continue; }
           isoDate = d.toISOString().split("T")[0];
-        } catch {
-          skipped++;
-          continue;
-        }
+        } catch { skipped++; continue; }
 
         try {
           const student = await db.select({ id: studentsTable.id })
             .from(studentsTable)
             .where(eq(studentsTable.personCode, personCode))
             .limit(1);
-
           if (!student[0]) { skipped++; continue; }
 
-          // Find the course for this attendance record — look up via enrollments
           const enrollments = await db.select({ courseId: enrollmentsTable.courseId })
             .from(enrollmentsTable)
             .where(eq(enrollmentsTable.studentId, student[0].id))
             .limit(1);
-
           if (!enrollments[0]) { skipped++; continue; }
 
           await db.insert(attendanceTable).values({
@@ -166,37 +209,23 @@ router.post("/admin/sync/sheets", async (req, res) => {
       }
       summary["attendance"] = { inserted, updated: 0, skipped, errors };
     } else {
-      summary["attendance"] = { inserted: 0, updated: 0, skipped: 0, errors: ["Sheet is empty or only has headers"] };
+      summary["attendance"] = { inserted: 0, updated: 0, skipped: 0, errors: ["Attendance sheet is empty or only has headers"] };
     }
 
-    // ── 3. KPI Benchmarks ─────────────────────────────────────────────────────
+    // ── 4. KPI Benchmarks ─────────────────────────────────────────────────────
     const kpiRows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "KPIs");
     if (kpiRows.length > 1) {
-      // Find category headings + data rows
       let currentCategory = "";
       let kpiInserted = 0;
       const errors: string[] = [];
-
-      // Clear existing benchmarks before re-syncing
       await db.delete(kpiBenchmarksTable);
 
       for (const row of kpiRows) {
         const [col0, col1, col2] = row.map(c => c?.trim() ?? "");
         if (!col0) continue;
-
-        // Detect category heading rows (e.g. "Attendance Benchmarks", "Punctuality Benchmarks")
-        if (col0.toLowerCase().includes("attendance")) {
-          currentCategory = "attendance";
-          continue;
-        }
-        if (col0.toLowerCase().includes("punctuality")) {
-          currentCategory = "punctuality";
-          continue;
-        }
-        // Skip the sub-header row "Description | Lower % | Higher %"
+        if (col0.toLowerCase().includes("attendance")) { currentCategory = "attendance"; continue; }
+        if (col0.toLowerCase().includes("punctuality")) { currentCategory = "punctuality"; continue; }
         if (col0.toLowerCase() === "description") continue;
-
-        // Data row: label, lower %, upper %
         if (currentCategory && col1 && col2) {
           try {
             await db.insert(kpiBenchmarksTable).values({
@@ -222,7 +251,7 @@ router.post("/admin/sync/sheets", async (req, res) => {
   }
 });
 
-// GET /admin/sync/status — returns counts of synced data + last KPI benchmarks
+// GET /admin/sync/status
 router.get("/admin/sync/status", async (req, res) => {
   if (!requireAdminOrHod(req, res)) return;
 
