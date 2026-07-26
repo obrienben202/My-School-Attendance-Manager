@@ -10,6 +10,7 @@ export const coursesTable = pgTable("courses", {
   staffName: text("staff_name"),
   yearGroup: text("year_group"),
   enrolledCount: integer("enrolled_count").notNull().default(0),
+  headOfDepartment: text("head_of_department"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
