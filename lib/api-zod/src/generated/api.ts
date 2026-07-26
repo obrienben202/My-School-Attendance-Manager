@@ -829,34 +829,45 @@ export const GetCurrentAuthUserResponse = zod.object({
   "email": zod.string().email().nullable(),
   "firstName": zod.string().nullable(),
   "lastName": zod.string().nullable(),
-  "profileImageUrl": zod.string().nullable()
+  "profileImageUrl": zod.string().nullable(),
+  "role": zod.string(),
+  "username": zod.string().nullish(),
+  "department": zod.string().nullish()
 }),zod.null()])
 })
 
 
 /**
- * @summary Start the browser OIDC login flow
+ * @summary Log in with username and password
  */
-export const BeginBrowserLoginQueryParams = zod.object({
-  "returnTo": zod.coerce.string().optional()
+export const LoginWithPasswordBody = zod.object({
+  "username": zod.string(),
+  "password": zod.string()
+})
+
+export const LoginWithPasswordResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 
 /**
- * @summary Complete the browser OIDC login flow
+ * @summary Clear the session and log out
  */
-export const HandleBrowserLoginCallbackQueryParams = zod.object({
-  "code": zod.coerce.string().optional(),
-  "state": zod.coerce.string().optional(),
-  "iss": zod.coerce.string().url().optional()
-})
-
-
-/**
- * @summary Clear the session and begin OIDC logout
- */
-export const LogoutBrowserSessionHeader = zod.object({
+export const LogoutHeader = zod.object({
   "Authorization": zod.string().optional().describe('Opaque session token — Bearer <sid>.')
+})
+
+export const LogoutResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Sync staff users from the Google Sheet
+ */
+export const SyncUsersFromSheetResponse = zod.object({
+  "synced": zod.number(),
+  "errors": zod.array(zod.string())
 })
 
 
