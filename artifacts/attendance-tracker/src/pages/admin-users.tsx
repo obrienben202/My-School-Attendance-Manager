@@ -88,6 +88,7 @@ export default function AdminUsers() {
       return res.json();
     },
     enabled: role === "admin",
+    refetchInterval: 5000,
   });
 
   const updateRoleMutation = useMutation({
