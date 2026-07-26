@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { coursesTable } from "@workspace/db";
+import { coursesTable, studentsTable, enrollmentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   CreateCourseBody,
@@ -29,6 +29,36 @@ router.get("/courses/:id", async (req, res) => {
   const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, parsed.data.id));
   if (!course) return res.status(404).json({ error: "Not found" });
   return res.json(toCourseResponse(course));
+});
+
+// GET /courses/:id/students — returns students actually enrolled in this course
+router.get("/courses/:id/students", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const rows = await db
+    .select({
+      id: studentsTable.id,
+      personCode: studentsTable.personCode,
+      forename: studentsTable.forename,
+      surname: studentsTable.surname,
+      gender: studentsTable.gender,
+      yearGroup: studentsTable.yearGroup,
+      formGroup: studentsTable.formGroup,
+      attendancePercent: studentsTable.attendancePercent,
+      punctualityPercent: studentsTable.punctualityPercent,
+      atRisk: studentsTable.atRisk,
+    })
+    .from(enrollmentsTable)
+    .innerJoin(studentsTable, eq(enrollmentsTable.studentId, studentsTable.id))
+    .where(eq(enrollmentsTable.courseId, id))
+    .orderBy(studentsTable.surname, studentsTable.forename);
+
+  return res.json(rows.map(r => ({
+    ...r,
+    attendancePercent: Number(r.attendancePercent),
+    punctualityPercent: Number(r.punctualityPercent),
+  })));
 });
 
 function toCourseResponse(c: typeof coursesTable.$inferSelect) {

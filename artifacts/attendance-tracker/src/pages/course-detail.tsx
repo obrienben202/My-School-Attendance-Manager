@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { useGetCourse, useListAttendanceRecords, useListStudents, useListAssessments } from "@workspace/api-client-react";
+import { useGetCourse, useListAttendanceRecords, useListAssessments } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp, Printer } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -461,7 +462,16 @@ export default function CourseDetail() {
 
   const { data: course, isLoading } = useGetCourse(id, { query: { enabled: !!id } as any });
   const { data: attendance } = useListAttendanceRecords({ courseId: id }, { query: { enabled: !!id } as any });
-  const { data: allStudents } = useListStudents();
+  const { data: enrolledStudents = [] } = useQuery<StudentType[]>({
+    queryKey: ["course-students", id],
+    queryFn: async () => {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const r = await fetch(`${base}/api/courses/${id}/students`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!id,
+  });
   const { data: courseAssessments } = useListAssessments({ courseId: id }, { query: { enabled: !!id } as any });
 
   if (isLoading) {
@@ -482,8 +492,6 @@ export default function CourseDetail() {
   const presentCount = attendance?.filter(a => a.status === "present").length ?? 0;
   const absentCount = attendance?.filter(a => a.status === "absent").length ?? 0;
   const lateCount = attendance?.filter(a => a.status === "late").length ?? 0;
-
-  const enrolledStudents = (allStudents ?? []).slice(0, course.enrolledCount);
 
   function exportCSV() {
     if (!course) return;
