@@ -921,4 +921,16 @@ export const GetTodayScheduleResponseItem = zod.object({
 })
 export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)
 
+// ── Timetable slot schemas (hand-authored, not generated) ────────────────────
+export const TimetableSlotDay = zod.enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+export const TimetableSlotWeekPattern = zod.enum(["Every week", "Week A only", "Week B only"]);
 
+export const CreateTimetableSlotBody = zod.object({
+  day: TimetableSlotDay,
+  startTime: zod.string().regex(/^\d{2}:\d{2}$/),
+  endTime: zod.string().regex(/^\d{2}:\d{2}$/),
+  room: zod.string().max(50).optional(),
+  weekPattern: TimetableSlotWeekPattern.default("Every week"),
+});
+
+export const UpdateTimetableSlotBody = CreateTimetableSlotBody;

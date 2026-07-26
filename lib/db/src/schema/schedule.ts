@@ -6,10 +6,12 @@ import { coursesTable } from "./courses";
 export const scheduleTable = pgTable("schedule", {
   id: serial("id").primaryKey(),
   courseId: integer("course_id").notNull().references(() => coursesTable.id, { onDelete: "cascade" }),
+  day: text("day"),                   // "Monday" … "Friday"
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   room: text("room"),
   staffName: text("staff_name"),
+  weekPattern: text("week_pattern").notNull().default("Every week"),
   registerMarked: boolean("register_marked").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

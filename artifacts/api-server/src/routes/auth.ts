@@ -47,7 +47,7 @@ function requireAdmin(req: Request, res: Response): boolean {
   return true;
 }
 
-function requireAdminOrHod(req: Request, res: Response): boolean {
+export function requireAdminOrHod(req: Request, res: Response): boolean {
   const u = req.user as { role?: string } | undefined;
   const role = u?.role;
   if (!req.isAuthenticated() || (role !== "admin" && role !== "hod")) {
