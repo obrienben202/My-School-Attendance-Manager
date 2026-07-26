@@ -1,61 +1,63 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { scheduleTable, coursesTable, usersTable, staffTimetableTable } from "@workspace/db";
-import { eq, ilike, or, isNull, isNotNull } from "drizzle-orm";
+import { eq, ilike, or, inArray } from "drizzle-orm";
 
 const router = Router();
 
-// ── Unified slot type returned to the client ──────────────────────────────────
-// type: "course"    → linked to a course in the courses table (schedule rows)
-// type: "personal"  → personal/shared staff timetable entry (staff_timetable_slots rows)
+/** Strip honourifics so "Mr Ben O'Brien" → "ben o'brien" for matching */
+function stripTitle(name: string): string {
+  return name.replace(/^(mr|mrs|ms|miss|dr|prof)\.?\s+/i, "").trim().toLowerCase();
+}
 
 // GET /hod/department-timetable
 router.get("/hod/department-timetable", async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: "Not authenticated" });
+
   const u = req.user as {
     id?: string; role?: string; department?: string;
     firstName?: string; lastName?: string; name?: string;
   } | undefined;
   const role = u?.role;
+
   if (role !== "admin" && role !== "hod") {
     return res.status(403).json({ error: "Admin or Head of Department access required" });
   }
 
-  // ── 1. Course-based slots (schedule → courses) ────────────────────────────
-  let courseRows: typeof scheduleTable.$inferSelect[] & { courseCode: string; courseName: string; staffName: string | null; yearGroup: string | null; headOfDepartment: string | null }[] = [];
+  // ── 1. Determine which department we're scoping to ────────────────────────
+  const myDept = u?.department ?? "";
 
+  // ── 2. Course-based timetable slots (schedule → courses) ──────────────────
   const courseQuery = db
     .select({
-      slotId:          scheduleTable.id,
-      day:             scheduleTable.day,
-      lessonNumber:    scheduleTable.lessonNumber ?? null,
-      startTime:       scheduleTable.startTime,
-      endTime:         scheduleTable.endTime,
-      room:            scheduleTable.room,
-      weekPattern:     scheduleTable.weekPattern,
-      courseId:        coursesTable.id,
-      courseCode:      coursesTable.code,
-      courseName:      coursesTable.name,
-      staffName:       coursesTable.staffName,
-      yearGroup:       coursesTable.yearGroup,
+      slotId:           scheduleTable.id,
+      day:              scheduleTable.day,
+      startTime:        scheduleTable.startTime,
+      endTime:          scheduleTable.endTime,
+      room:             scheduleTable.room,
+      weekPattern:      scheduleTable.weekPattern,
+      courseId:         coursesTable.id,
+      courseCode:       coursesTable.code,
+      courseName:       coursesTable.name,
+      staffName:        coursesTable.staffName,
+      yearGroup:        coursesTable.yearGroup,
       headOfDepartment: coursesTable.headOfDepartment,
     })
     .from(scheduleTable)
     .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id));
 
-  const rawCourseRows = role === "admin"
-    ? await courseQuery.orderBy(scheduleTable.day, scheduleTable.startTime)
-    : await (async () => {
-        const dept     = u?.department ?? "";
-        const fullName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.name || "";
-        if (!dept && !fullName) {
-          return courseQuery.orderBy(scheduleTable.day, scheduleTable.startTime);
-        }
-        const conditions = [];
-        if (dept)     conditions.push(ilike(coursesTable.headOfDepartment, `%${dept}%`));
-        if (fullName) conditions.push(ilike(coursesTable.headOfDepartment, `%${fullName}%`));
-        return courseQuery.where(or(...conditions)).orderBy(scheduleTable.day, scheduleTable.startTime);
-      })();
+  let rawCourseRows;
+  if (role === "admin") {
+    rawCourseRows = await courseQuery.orderBy(scheduleTable.day, scheduleTable.startTime);
+  } else {
+    const fullName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.name || "";
+    const conditions: ReturnType<typeof ilike>[] = [];
+    if (myDept)   conditions.push(ilike(coursesTable.headOfDepartment, `%${myDept}%`));
+    if (fullName) conditions.push(ilike(coursesTable.headOfDepartment, `%${fullName}%`));
+    rawCourseRows = conditions.length
+      ? await courseQuery.where(or(...conditions)).orderBy(scheduleTable.day, scheduleTable.startTime)
+      : await courseQuery.orderBy(scheduleTable.day, scheduleTable.startTime);
+  }
 
   const courseSlots = rawCourseRows.map(r => ({
     type:        "course" as const,
@@ -76,21 +78,22 @@ router.get("/hod/department-timetable", async (req, res) => {
     yearGroup:   r.yearGroup ?? null,
   }));
 
-  // ── 2. Personal / shared staff timetable slots ────────────────────────────
-  // Always include is_hod_shared = true (Morning Meetings etc.)
-  // Plus all personal rows for staff whose name matches an active HoD user in this department.
+  // ── 3. Personal / shared timetable slots ──────────────────────────────────
+  // Find ALL users in the same department (any role) so we include dept staff,
+  // not just HoDs. For admin, include everyone who has personal slots.
+  const deptUsers = role === "admin"
+    ? await db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable)
+    : await db
+        .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+        .from(usersTable)
+        .where(myDept ? ilike(usersTable.department, myDept) : eq(usersTable.role, "hod"));
 
-  // Fetch all HoD users so we know which staff names to include
-  const hodUsers = await db
-    .select({ firstName: usersTable.firstName, lastName: usersTable.lastName, department: usersTable.department })
-    .from(usersTable)
-    .where(eq(usersTable.role, "hod"));
+  // Build a set of stripped name patterns from the DB users
+  const namePatterns = deptUsers
+    .map(u => [u.firstName, u.lastName].filter(Boolean).join(" ").toLowerCase())
+    .filter(Boolean);
 
-  const hodNames = hodUsers.map(u =>
-    [u.firstName, u.lastName].filter(Boolean).join(" ")
-  ).filter(Boolean);
-
-  // Get all personal slots from staff_timetable_slots
+  // Fetch all personal/shared slots
   const allPersonal = await db
     .select()
     .from(staffTimetableTable)
@@ -98,10 +101,16 @@ router.get("/hod/department-timetable", async (req, res) => {
 
   const personalSlots = allPersonal
     .filter(row => {
-      if (row.isHodShared) return true;               // always include shared
-      if (!row.staffName) return false;
-      // include if the staff member is a known HoD
-      return hodNames.some(n => n.toLowerCase() === row.staffName!.toLowerCase());
+      if (row.isHodShared) return true;                  // always show shared HoD entries
+      if (!row.staffName)  return false;
+      const stripped = stripTitle(row.staffName);        // e.g. "ben o'brien"
+      // Match if any dept user's name contains or equals the stripped timetable name
+      return namePatterns.some(n => {
+        const strippedN = stripTitle(n);
+        return strippedN === stripped ||
+               strippedN.includes(stripped) ||
+               stripped.includes(strippedN);
+      });
     })
     .map(row => ({
       type:        "personal" as const,
@@ -114,7 +123,7 @@ router.get("/hod/department-timetable", async (req, res) => {
       weekPattern: "Every week",
       description: row.description,
       groupLabel:  row.groupLabel ?? null,
-      staffName:   row.staffName ?? null,   // null = shared HoD entry
+      staffName:   row.staffName ?? null,
       isHodShared: row.isHodShared,
       courseId:    null as number | null,
       courseCode:  null as string | null,
