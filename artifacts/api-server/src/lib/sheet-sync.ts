@@ -61,6 +61,14 @@ function courseCode(sheetId: string): string {
   return isNaN(n) ? sheetId.trim() : `C${String(n).padStart(3, "0")}`;
 }
 
+/** Normalise known name variants that the spreadsheet stores without apostrophes. */
+function normaliseName(name: string): string {
+  return name
+    .replace(/\bO'?Brien\b/gi, "O'Brien")   // OBrien → O'Brien
+    .replace(/\bO'?Connor\b/gi, "O'Connor") // future-proof similar cases
+    .trim();
+}
+
 /** Derive a study level from the course name and year group. */
 function deriveLevel(name: string, yearGroup: string): string {
   const n = name.toUpperCase();
@@ -112,7 +120,9 @@ export async function runSync(): Promise<SyncSummary> {
       const errors: string[] = [];
 
       for (const row of dataRows) {
-        const [idRaw, , name, room, staffName, headOfDept, yearGroup, enrolledRaw] = row.map(c => c?.trim() ?? "");
+        const [idRaw, , name, room, rawStaff, rawHead, yearGroup, enrolledRaw] = row.map(c => c?.trim() ?? "");
+        const staffName  = rawStaff ? normaliseName(rawStaff) : "";
+        const headOfDept = rawHead  ? normaliseName(rawHead)  : "";
         const code = courseCode(idRaw);
         const enrolledCount = parseInt(enrolledRaw, 10) || 0;
         try {
