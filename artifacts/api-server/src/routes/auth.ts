@@ -17,6 +17,9 @@ const router: IRouter = Router();
 const SHEET_CSV_URL =
   "https://docs.google.com/spreadsheets/d/1NNNADb5EBivGR_SZ8FHzvHr3dpzQZRMXLWgTg09oD24/export?format=csv";
 
+const GAS_AUTH_URL =
+  "https://script.google.com/macros/s/AKfycbzURwLj_tTf7tZX7BIT4b6_NuU6WE64zCoGakr0zmwB1PQ695w-DLV8ksvJM9xsZ81E/exec";
+
 function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
     httpOnly: true,
@@ -65,36 +68,129 @@ router.post("/login", async (req: Request, res: Response) => {
     return;
   }
 
-  const [user] = await db
+  const normalizedUsername = username.trim().toLowerCase();
+
+  // ── Authenticate against the school's Google Apps Script ──────────────────
+  type GasResult = { success: boolean; role?: string; fullName?: string; message?: string };
+  let gasResult: GasResult | null = null;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const gasRes = await fetch(GAS_AUTH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body: new URLSearchParams({ username: normalizedUsername, password }).toString(),
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    clearTimeout(timeoutId);
+
+    if (gasRes.ok) {
+      const text = await gasRes.text();
+      try {
+        gasResult = JSON.parse(text) as GasResult;
+      } catch {
+        // malformed response — fall through to local fallback
+      }
+    }
+  } catch (err) {
+    req.log.warn({ err }, "GAS auth endpoint unreachable — attempting local fallback");
+  }
+
+  // ── If GAS authenticated successfully, create/update the user ─────────────
+  if (gasResult?.success) {
+    const gasRole = mapRole(gasResult.role ?? "staff");
+    const gasFullName = gasResult.fullName ?? normalizedUsername;
+
+    // Upsert the user: new users get the GAS role; existing users keep their
+    // locally-managed role so admins can override it via User Management.
+    const [existing] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.username, normalizedUsername));
+
+    let dbUser: typeof usersTable.$inferSelect;
+
+    if (existing) {
+      // Update name/department from GAS but keep admin-managed role
+      const [updated] = await db
+        .update(usersTable)
+        .set({ firstName: gasFullName, updatedAt: new Date() })
+        .where(eq(usersTable.username, normalizedUsername))
+        .returning();
+      dbUser = updated;
+    } else {
+      // First-time login — create the user with GAS-provided role
+      const [inserted] = await db
+        .insert(usersTable)
+        .values({
+          username: normalizedUsername,
+          role: gasRole,
+          firstName: gasFullName,
+          lastName: null,
+          email: null,
+          profileImageUrl: null,
+          department: null,
+        })
+        .returning();
+      dbUser = inserted;
+    }
+
+    const sid = await createSession({
+      user: {
+        id: dbUser.id,
+        email: dbUser.email,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+        profileImageUrl: dbUser.profileImageUrl,
+        role: dbUser.role,
+        username: dbUser.username,
+        department: dbUser.department,
+      },
+    });
+    setSessionCookie(res, sid);
+    res.json({ ok: true });
+    return;
+  }
+
+  // ── GAS rejected credentials (or was unreachable) — try local bcrypt hash ──
+  // This acts as a fallback when the school portal is down, or for users
+  // seeded directly via the Sync button.
+  if (gasResult !== null && !gasResult.success) {
+    // GAS responded but said credentials are wrong — no point checking locally
+    res.status(401).json({ error: gasResult.message ?? "Invalid username or password" });
+    return;
+  }
+
+  // GAS was unreachable — try the locally-stored bcrypt hash as a fallback
+  const [localUser] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.username, username.trim().toLowerCase()));
+    .where(eq(usersTable.username, normalizedUsername));
 
-  if (!user || !user.passwordHash) {
-    res.status(401).json({ error: "Invalid username or password" });
-    return;
+  if (localUser?.passwordHash) {
+    const valid = await bcrypt.compare(password, localUser.passwordHash);
+    if (valid) {
+      const sid = await createSession({
+        user: {
+          id: localUser.id,
+          email: localUser.email,
+          firstName: localUser.firstName,
+          lastName: localUser.lastName,
+          profileImageUrl: localUser.profileImageUrl,
+          role: localUser.role,
+          username: localUser.username,
+          department: localUser.department,
+        },
+      });
+      setSessionCookie(res, sid);
+      res.json({ ok: true });
+      return;
+    }
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
-    res.status(401).json({ error: "Invalid username or password" });
-    return;
-  }
-
-  const sid = await createSession({
-    user: {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      profileImageUrl: user.profileImageUrl,
-      role: user.role,
-      username: user.username,
-      department: user.department,
-    },
-  });
-  setSessionCookie(res, sid);
-  res.json({ ok: true });
+  res.status(401).json({ error: "Invalid username or password" });
 });
 
 router.post("/logout", async (req: Request, res: Response) => {
