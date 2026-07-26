@@ -72,8 +72,8 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       { icon: CalendarOff, label: "Planned Absence", href: "/planned-absence" },
       { icon: BarChart2, label: "Reports", href: "/reports", roles: ADMIN_HOD_OFFICE },
       { icon: CalendarClock, label: "Schedules", href: "/schedules", roles: ADMIN_HOD_OFFICE },
-      { icon: Archive, label: "Old Markbook", href: "/licence-required?feature=old-markbook", roles: ADMIN_ONLY },
-      { icon: LifeBuoy, label: "Support", href: "/licence-required?feature=support", roles: ADMIN_ONLY },
+      { icon: Archive, label: "Old Markbook", href: "/licence-required?feature=old-markbook", roles: ADMIN_HOD },
+      { icon: LifeBuoy, label: "Support", href: "/licence-required?feature=support", roles: ADMIN_HOD },
       { icon: PlusCircle, label: "New ILP", href: "/ilps/new", roles: ADMIN_HOD_STAFF },
     ],
   },
@@ -128,7 +128,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
   },
   {
     heading: "Administration",
-    roles: ADMIN_ONLY,
+    roles: ADMIN_HOD,
     items: [
       { icon: ShieldPlus, label: "User Management", href: "/admin/users" },
     ],

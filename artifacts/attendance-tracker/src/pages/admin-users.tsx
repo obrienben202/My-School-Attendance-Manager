@@ -129,11 +129,14 @@ export default function AdminUsers() {
     },
   });
 
-  if (role !== "admin") {
+  const isAdmin = role === "admin";
+  const canView = role === "admin" || role === "hod";
+
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-slate-400">
         <ShieldAlert className="w-12 h-12" />
-        <p className="text-base font-medium">Admin access required</p>
+        <p className="text-base font-medium">Admin or Head of Department access required</p>
       </div>
     );
   }
@@ -154,22 +157,26 @@ export default function AdminUsers() {
             <h1 className="text-xl font-bold text-slate-800">User Management</h1>
             <p className="text-sm text-slate-500">Manage staff accounts and role assignments</p>
           </div>
-          <Button
-            onClick={handleSync}
-            disabled={syncing}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing…" : "Sync from Google Sheet"}
-          </Button>
+          {isAdmin && (
+            <Button
+              onClick={handleSync}
+              disabled={syncing}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing…" : "Sync from Google Sheet"}
+            </Button>
+          )}
         </div>
       </div>
 
       <div className="px-6 py-6">
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 text-sm text-blue-800">
-          <strong>Tip:</strong> Click <strong>Sync from Google Sheet</strong> to pull in new staff, update passwords, or change roles from the spreadsheet. Changes take effect immediately.
+          {isAdmin
+            ? <><strong>Tip:</strong> Click <strong>Sync from Google Sheet</strong> to pull in new staff, update passwords, or change roles from the spreadsheet. Changes take effect immediately.</>
+            : <><strong>Note:</strong> You have view-only access to this page. Contact an administrator to make changes.</>}
         </div>
 
         {isLoading ? (
@@ -215,34 +222,40 @@ export default function AdminUsers() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Select
-                          value={u.role}
-                          onValueChange={(val) =>
-                            updateRoleMutation.mutate({ id: u.id, newRole: val })
-                          }
-                          disabled={isSelf}
-                        >
-                          <SelectTrigger className="w-48 h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="hod">Head of Department</SelectItem>
-                            <SelectItem value="staff">Staff</SelectItem>
-                            <SelectItem value="office">Office Staff</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {isAdmin ? (
+                          <Select
+                            value={u.role}
+                            onValueChange={(val) =>
+                              updateRoleMutation.mutate({ id: u.id, newRole: val })
+                            }
+                            disabled={isSelf}
+                          >
+                            <SelectTrigger className="w-48 h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="hod">Head of Department</SelectItem>
+                              <SelectItem value="staff">Staff</SelectItem>
+                              <SelectItem value="office">Office Staff</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">View only</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          disabled={isSelf}
-                          onClick={() => setDeleteTarget(u)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            disabled={isSelf}
+                            onClick={() => setDeleteTarget(u)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );
