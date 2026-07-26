@@ -47,6 +47,16 @@ function requireAdmin(req: Request, res: Response): boolean {
   return true;
 }
 
+function requireAdminOrHod(req: Request, res: Response): boolean {
+  const u = req.user as { role?: string } | undefined;
+  const role = u?.role;
+  if (!req.isAuthenticated() || (role !== "admin" && role !== "hod")) {
+    res.status(403).json({ error: "Admin or Head of Department access required" });
+    return false;
+  }
+  return true;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 router.get("/auth/user", (req: Request, res: Response) => {
@@ -276,7 +286,7 @@ router.post("/admin/sync-users", async (req: Request, res: Response) => {
 // ── Admin: User Management ────────────────────────────────────────────────────
 
 router.get("/admin/users", async (req: Request, res: Response) => {
-  if (!requireAdmin(req, res)) return;
+  if (!requireAdminOrHod(req, res)) return;
   const users = await db
     .select()
     .from(usersTable)
