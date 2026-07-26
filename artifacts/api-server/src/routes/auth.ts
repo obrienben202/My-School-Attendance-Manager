@@ -60,6 +60,7 @@ function requireAdminOrHod(req: Request, res: Response): boolean {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 router.get("/auth/user", (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
   res.json(
     GetCurrentAuthUserResponse.parse({
       user: req.isAuthenticated() ? req.user : null,
