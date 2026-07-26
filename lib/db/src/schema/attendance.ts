@@ -11,6 +11,7 @@ export const attendanceTable = pgTable("attendance", {
   date: date("date").notNull(),
   status: text("status").notNull(), // present, absent, late, authorised
   notes: text("notes"),
+  markedBy: text("marked_by"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

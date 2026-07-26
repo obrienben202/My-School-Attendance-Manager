@@ -13,6 +13,7 @@ export const studentsTable = pgTable("students", {
   dateOfBirth: text("date_of_birth"),
   postCode: text("post_code"),
   yearGroup: text("year_group"),
+  formGroup: text("form_group"),
   attendancePercent: numeric("attendance_percent", { precision: 5, scale: 2 }).notNull().default("100"),
   punctualityPercent: numeric("punctuality_percent", { precision: 5, scale: 2 }).notNull().default("100"),
   atRisk: boolean("at_risk").notNull().default(false),
