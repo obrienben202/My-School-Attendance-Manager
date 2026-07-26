@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "5BlCd2cVfDEmi3TYHJ-Fh"
+uri = "file://staff-guide/index.html"
+type = "unspecified"
+title = "Staff Portal — User Guide"
