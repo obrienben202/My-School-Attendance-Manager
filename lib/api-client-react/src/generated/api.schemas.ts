@@ -15,6 +15,11 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
+  role: string;
+  /** @nullable */
+  username?: string | null;
+  /** @nullable */
+  department?: string | null;
 }
 
 export interface AuthUserEnvelope {
@@ -526,13 +531,21 @@ status?: string;
 search?: string;
 };
 
-export type BeginBrowserLoginParams = {
-returnTo?: string;
+export type LoginWithPasswordBody = {
+  username: string;
+  password: string;
 };
 
-export type HandleBrowserLoginCallbackParams = {
-code?: string;
-state?: string;
-iss?: string;
+export type LoginWithPassword200 = {
+  ok: boolean;
+};
+
+export type Logout200 = {
+  ok: boolean;
+};
+
+export type SyncUsersFromSheet200 = {
+  synced: number;
+  errors: string[];
 };
 

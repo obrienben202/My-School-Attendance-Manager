@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useRole, type Role } from "@/hooks/use-role";
@@ -136,8 +137,37 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { user, isLoading, isAuthenticated, login, logout } = useAuth();
+  const { user, isLoading, isAuthenticated, logout, refetch } = useAuth();
   const role = useRole();
+
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ username: loginUsername.trim(), password: loginPassword }),
+      });
+      if (res.ok) {
+        refetch();
+      } else {
+        const data = await res.json() as { error?: string };
+        setLoginError(data.error ?? "Invalid username or password");
+      }
+    } catch {
+      setLoginError("Could not connect to the server. Please try again.");
+    } finally {
+      setLoginLoading(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -149,20 +179,55 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-10 flex flex-col items-center gap-6 max-w-sm w-full">
-          <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-white text-xl">AT</div>
-          <div className="text-center">
-            <h1 className="text-xl font-bold text-slate-800">Attendance Tracker</h1>
-            <p className="text-sm text-slate-500 mt-1">Sign in to access the staff portal</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-900">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-10 flex flex-col items-center gap-6 max-w-sm w-full">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-14 h-14 bg-blue-500 rounded-xl flex items-center justify-center font-bold text-white text-2xl shadow-lg">AT</div>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-white">Staff Portal</h1>
+              <p className="text-sm text-slate-400 mt-1">Sign in with your school username</p>
+            </div>
           </div>
-          <button
-            onClick={login}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors w-full justify-center"
-          >
-            <LogIn className="w-4 h-4" />
-            Log in
-          </button>
+          <form onSubmit={handleLogin} className="w-full flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Username</label>
+              <input
+                type="text"
+                autoComplete="username"
+                autoFocus
+                value={loginUsername}
+                onChange={(e) => setLoginUsername(e.target.value)}
+                placeholder="e.g. maths"
+                className="bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loginLoading}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Password</label>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="Your password"
+                className="bg-slate-700 border border-slate-600 text-white placeholder-slate-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loginLoading}
+              />
+            </div>
+            {loginError && (
+              <p className="text-red-400 text-xs text-center bg-red-900/30 border border-red-800/50 rounded-lg px-3 py-2">
+                {loginError}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={loginLoading || !loginUsername || !loginPassword}
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-lg transition-colors mt-1"
+            >
+              <LogIn className="w-4 h-4" />
+              {loginLoading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
         </div>
       </div>
     );

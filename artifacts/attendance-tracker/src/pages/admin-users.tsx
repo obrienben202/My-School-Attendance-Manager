@@ -21,16 +21,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2, ShieldAlert, Users } from "lucide-react";
+import { Trash2, ShieldAlert, Users, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type StaffUser = {
   id: string;
+  username: string | null;
   email: string | null;
   firstName: string | null;
   lastName: string | null;
   profileImageUrl: string | null;
   role: string;
+  department: string | null;
   createdAt: string;
 };
 
@@ -55,6 +57,28 @@ export default function AdminUsers() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<StaffUser | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/admin/sync-users", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json() as { synced?: number; errors?: string[]; error?: string };
+      if (!res.ok) {
+        toast({ title: data.error ?? "Sync failed", variant: "destructive" });
+      } else {
+        toast({ title: `Synced ${data.synced ?? 0} users from Google Sheet` });
+        queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      }
+    } catch {
+      toast({ title: "Could not connect to sync endpoint", variant: "destructive" });
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const { data: users = [], isLoading } = useQuery<StaffUser[]>({
     queryKey: ["admin-users"],
@@ -126,16 +150,26 @@ export default function AdminUsers() {
           <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
             <Users className="w-5 h-5 text-red-600" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-slate-800">User Management</h1>
             <p className="text-sm text-slate-500">Manage staff accounts and role assignments</p>
           </div>
+          <Button
+            onClick={handleSync}
+            disabled={syncing}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing…" : "Sync from Google Sheet"}
+          </Button>
         </div>
       </div>
 
       <div className="px-6 py-6">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6 text-sm text-amber-800">
-          <strong>Note:</strong> New users are automatically added when they log in for the first time with their Replit account. Assign their role below.
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 text-sm text-blue-800">
+          <strong>Tip:</strong> Click <strong>Sync from Google Sheet</strong> to pull in new staff, update passwords, or change roles from the spreadsheet. Changes take effect immediately.
         </div>
 
         {isLoading ? (
@@ -148,7 +182,8 @@ export default function AdminUsers() {
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-left">
                   <th className="px-4 py-3 font-semibold text-slate-600">Name</th>
-                  <th className="px-4 py-3 font-semibold text-slate-600">Email</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600">Username</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600">Department</th>
                   <th className="px-4 py-3 font-semibold text-slate-600">Current Role</th>
                   <th className="px-4 py-3 font-semibold text-slate-600">Change Role</th>
                   <th className="px-4 py-3 font-semibold text-slate-600 text-right">Actions</th>
@@ -170,7 +205,8 @@ export default function AdminUsers() {
                           <span className="ml-2 text-xs text-slate-400">(you)</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-slate-500">{u.email ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-500 font-mono text-xs">{u.username ?? "—"}</td>
+                      <td className="px-4 py-3 text-slate-500">{u.department ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${ROLE_COLORS[u.role] ?? "bg-slate-100 text-slate-600"}`}

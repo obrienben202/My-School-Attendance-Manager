@@ -793,55 +793,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthUserEnvelope'
   /login:
-    get:
+    post:
       tags: [Auth]
-      operationId: beginBrowserLogin
-      summary: Start the browser OIDC login flow
-      parameters:
-        - name: returnTo
-          in: query
-          required: false
-          schema:
-            type: string
+      operationId: loginWithPassword
+      summary: Log in with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
       responses:
-        '302':
-          description: Redirect to the OIDC authorization endpoint.
-  /callback:
-    get:
-      tags: [Auth]
-      operationId: handleBrowserLoginCallback
-      summary: Complete the browser OIDC login flow
-      parameters:
-        - name: code
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: state
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: iss
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uri
-      responses:
-        '302':
-          description: Redirect to the returnTo path on success or /api/login on failure.
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          description: Invalid credentials
   /logout:
-    get:
+    post:
       tags: [Auth]
-      operationId: logoutBrowserSession
-      summary: Clear the session and begin OIDC logout
+      operationId: logout
+      summary: Clear the session and log out
       parameters:
         - $ref: '#/components/parameters/AuthorizationSessionHeader'
         - $ref: '#/components/parameters/SessionCookie'
       responses:
-        '302':
-          description: Redirect to the OIDC provider logout URL.
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+  /admin/sync-users:
+    post:
+      tags: [Auth]
+      operationId: syncUsersFromSheet
+      summary: Sync staff users from the Google Sheet
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [synced, errors]
+                properties:
+                  synced:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: string
   /mobile-auth/token-exchange:
     post:
       tags: [Auth]
@@ -927,7 +946,7 @@ components:
   schemas:
     AuthUser:
       type: object
-      required: [id, email, firstName, lastName, profileImageUrl]
+      required: [id, email, firstName, lastName, profileImageUrl, role]
       properties:
         id:
           type: string
@@ -939,6 +958,12 @@ components:
         lastName:
           type: [string, 'null']
         profileImageUrl:
+          type: [string, 'null']
+        role:
+          type: string
+        username:
+          type: [string, 'null']
+        department:
           type: [string, 'null']
     AuthUserEnvelope:
       type: object

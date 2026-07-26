@@ -28,7 +28,6 @@ import type {
   AttendanceRecord,
   AttendanceUpdate,
   AuthUserEnvelope,
-  BeginBrowserLoginParams,
   ConciergeApplication,
   ConciergeApplicationInput,
   Course,
@@ -37,7 +36,6 @@ import type {
   Eprogression,
   EprogressionInput,
   ErrorEnvelope,
-  HandleBrowserLoginCallbackParams,
   HealthStatus,
   Ilp,
   IlpInput,
@@ -49,6 +47,9 @@ import type {
   ListIlpsParams,
   ListStudentsParams,
   ListTargetsParams,
+  LoginWithPassword200,
+  LoginWithPasswordBody,
+  Logout200,
   LogoutSuccess,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
@@ -56,6 +57,7 @@ import type {
   Student,
   StudentInput,
   StudentUpdate,
+  SyncUsersFromSheet200,
   Target,
   TargetInput,
   TargetUpdate
@@ -2932,175 +2934,78 @@ export function useGetCurrentAuthUser<TData = Awaited<ReturnType<typeof getCurre
 
 
 
-export const getBeginBrowserLoginUrl = (params?: BeginBrowserLoginParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getLoginWithPasswordUrl = () => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/login?${stringifiedParams}` : `/api/login`
+  return `/api/login`
 }
 
 /**
- * @summary Start the browser OIDC login flow
+ * @summary Log in with username and password
  */
-export const beginBrowserLogin = async (params?: BeginBrowserLoginParams, options?: RequestInit): Promise<unknown> => {
+export const loginWithPassword = async (loginWithPasswordBody: LoginWithPasswordBody, options?: RequestInit): Promise<LoginWithPassword200> => {
 
-  return customFetch<unknown>(getBeginBrowserLoginUrl(params),
+  return customFetch<LoginWithPassword200>(getLoginWithPasswordUrl(),
   {
     ...options,
-    method: 'GET'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      loginWithPasswordBody,)
   }
 );}
 
 
 
 
+export const getLoginWithPasswordMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginWithPassword>>, TError,{data: BodyType<LoginWithPasswordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof loginWithPassword>>, TError,{data: BodyType<LoginWithPasswordBody>}, TContext> => {
 
-export const getBeginBrowserLoginQueryKey = (params?: BeginBrowserLoginParams,) => {
-    return [
-    `/api/login`, ...(params ? [params] : [])
-    ] as const;
+const mutationKey = ['loginWithPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginWithPassword>>, {data: BodyType<LoginWithPasswordBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  loginWithPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginWithPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof loginWithPassword>>>
+    export type LoginWithPasswordMutationBody = BodyType<LoginWithPasswordBody>
+    export type LoginWithPasswordMutationError = ErrorType<void>
+
+    /**
+ * @summary Log in with username and password
+ */
+export const useLoginWithPassword = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginWithPassword>>, TError,{data: BodyType<LoginWithPasswordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof loginWithPassword>>,
+        TError,
+        {data: BodyType<LoginWithPasswordBody>},
+        TContext
+      > => {
+      return useMutation(getLoginWithPasswordMutationOptions(options));
     }
 
-
-export const getBeginBrowserLoginQueryOptions = <TData = Awaited<ReturnType<typeof beginBrowserLogin>>, TError = ErrorType<void>>(params?: BeginBrowserLoginParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof beginBrowserLogin>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getBeginBrowserLoginQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof beginBrowserLogin>>> = ({ signal }) => beginBrowserLogin(params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof beginBrowserLogin>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type BeginBrowserLoginQueryResult = NonNullable<Awaited<ReturnType<typeof beginBrowserLogin>>>
-export type BeginBrowserLoginQueryError = ErrorType<void>
-
-
-/**
- * @summary Start the browser OIDC login flow
- */
-
-export function useBeginBrowserLogin<TData = Awaited<ReturnType<typeof beginBrowserLogin>>, TError = ErrorType<void>>(
- params?: BeginBrowserLoginParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof beginBrowserLogin>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getBeginBrowserLoginQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-
-
-
-
-
-
-export const getHandleBrowserLoginCallbackUrl = (params?: HandleBrowserLoginCallbackParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/callback?${stringifiedParams}` : `/api/callback`
-}
-
-/**
- * @summary Complete the browser OIDC login flow
- */
-export const handleBrowserLoginCallback = async (params?: HandleBrowserLoginCallbackParams, options?: RequestInit): Promise<unknown> => {
-
-  return customFetch<unknown>(getHandleBrowserLoginCallbackUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getHandleBrowserLoginCallbackQueryKey = (params?: HandleBrowserLoginCallbackParams,) => {
-    return [
-    `/api/callback`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getHandleBrowserLoginCallbackQueryOptions = <TData = Awaited<ReturnType<typeof handleBrowserLoginCallback>>, TError = ErrorType<void>>(params?: HandleBrowserLoginCallbackParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof handleBrowserLoginCallback>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getHandleBrowserLoginCallbackQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof handleBrowserLoginCallback>>> = ({ signal }) => handleBrowserLoginCallback(params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof handleBrowserLoginCallback>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type HandleBrowserLoginCallbackQueryResult = NonNullable<Awaited<ReturnType<typeof handleBrowserLoginCallback>>>
-export type HandleBrowserLoginCallbackQueryError = ErrorType<void>
-
-
-/**
- * @summary Complete the browser OIDC login flow
- */
-
-export function useHandleBrowserLoginCallback<TData = Awaited<ReturnType<typeof handleBrowserLoginCallback>>, TError = ErrorType<void>>(
- params?: HandleBrowserLoginCallbackParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof handleBrowserLoginCallback>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getHandleBrowserLoginCallbackQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-
-
-
-
-
-
-export const getLogoutBrowserSessionUrl = () => {
+export const getLogoutUrl = () => {
 
 
 
@@ -3109,14 +3014,14 @@ export const getLogoutBrowserSessionUrl = () => {
 }
 
 /**
- * @summary Clear the session and begin OIDC logout
+ * @summary Clear the session and log out
  */
-export const logoutBrowserSession = async ( options?: RequestInit): Promise<unknown> => {
+export const logout = async ( options?: RequestInit): Promise<Logout200> => {
 
-  return customFetch<unknown>(getLogoutBrowserSessionUrl(),
+  return customFetch<Logout200>(getLogoutUrl(),
   {
     ...options,
-    method: 'GET'
+    method: 'POST'
 
 
   }
@@ -3125,57 +3030,120 @@ export const logoutBrowserSession = async ( options?: RequestInit): Promise<unkn
 
 
 
+export const getLogoutMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext> => {
 
-export const getLogoutBrowserSessionQueryKey = () => {
-    return [
-    `/api/logout`
-    ] as const;
+const mutationKey = ['logout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logout>>, void> = () => {
+
+
+          return  logout(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogoutMutationResult = NonNullable<Awaited<ReturnType<typeof logout>>>
+
+    export type LogoutMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Clear the session and log out
+ */
+export const useLogout = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logout>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLogoutMutationOptions(options));
     }
 
-
-export const getLogoutBrowserSessionQueryOptions = <TData = Awaited<ReturnType<typeof logoutBrowserSession>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof logoutBrowserSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getLogoutBrowserSessionQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof logoutBrowserSession>>> = ({ signal }) => logoutBrowserSession({ signal, ...requestOptions });
+export const getSyncUsersFromSheetUrl = () => {
 
 
 
 
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof logoutBrowserSession>>, TError, TData> & { queryKey: QueryKey }
+  return `/api/admin/sync-users`
 }
-
-export type LogoutBrowserSessionQueryResult = NonNullable<Awaited<ReturnType<typeof logoutBrowserSession>>>
-export type LogoutBrowserSessionQueryError = ErrorType<void>
-
 
 /**
- * @summary Clear the session and begin OIDC logout
+ * @summary Sync staff users from the Google Sheet
  */
+export const syncUsersFromSheet = async ( options?: RequestInit): Promise<SyncUsersFromSheet200> => {
 
-export function useLogoutBrowserSession<TData = Awaited<ReturnType<typeof logoutBrowserSession>>, TError = ErrorType<void>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof logoutBrowserSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  return customFetch<SyncUsersFromSheet200>(getSyncUsersFromSheetUrl(),
+  {
+    ...options,
+    method: 'POST'
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getLogoutBrowserSessionQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
+  }
+);}
 
 
 
 
+export const getSyncUsersFromSheetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncUsersFromSheet>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncUsersFromSheet>>, TError,void, TContext> => {
+
+const mutationKey = ['syncUsersFromSheet'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncUsersFromSheet>>, void> = () => {
+
+
+          return  syncUsersFromSheet(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncUsersFromSheetMutationResult = NonNullable<Awaited<ReturnType<typeof syncUsersFromSheet>>>
+
+    export type SyncUsersFromSheetMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Sync staff users from the Google Sheet
+ */
+export const useSyncUsersFromSheet = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncUsersFromSheet>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncUsersFromSheet>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncUsersFromSheetMutationOptions(options));
+    }
 
 export const getExchangeMobileAuthorizationCodeUrl = () => {
 
