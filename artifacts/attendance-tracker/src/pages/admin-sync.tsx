@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useRole } from "@/hooks/use-role";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, Database, Users, BookOpen, ClipboardList, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import {
+  RefreshCw,
+  Database,
+  Users,
+  BookOpen,
+  ClipboardList,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Loader2,
+} from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -28,16 +37,6 @@ type SyncSummaryEntry = {
   updated: number;
   skipped: number;
   errors: string[];
-};
-
-type SyncResult = {
-  ok: boolean;
-  error?: string;
-  summary?: {
-    students: SyncSummaryEntry;
-    attendance: SyncSummaryEntry;
-    kpis: SyncSummaryEntry;
-  };
 };
 
 type SyncStatus = {
@@ -49,20 +48,24 @@ type SyncStatus = {
     lowerPercent: string;
     upperPercent: string;
   }>;
+  lastRanAt: string | null;
+  lastSummary: Record<string, SyncSummaryEntry> | null;
+  lastError: string | null;
+  running: boolean;
 };
 
 export default function AdminSync() {
   const role = useRole();
   const { toast } = useToast();
-  const [lastResult, setLastResult] = useState<SyncResult | null>(null);
 
-  const { data: status, refetch: refetchStatus } = useQuery<SyncStatus>({
+  const { data: status, refetch: refetchStatus, isFetching } = useQuery<SyncStatus>({
     queryKey: ["sync-status"],
     queryFn: async () => {
-      const r = await fetch(`${BASE}/api/admin/sync/status`, { credentials: "include" });
+      const r = await fetch(`${BASE}/api/admin/sync/status`, { credentials: "include", cache: "no-store" });
       if (!r.ok) throw new Error("Failed to load status");
       return r.json();
     },
+    refetchInterval: 60_000, // refresh every minute so the page stays current
   });
 
   const syncMutation = useMutation({
@@ -71,17 +74,12 @@ export default function AdminSync() {
         method: "POST",
         credentials: "include",
       });
-      return r.json() as Promise<SyncResult>;
+      return r.json();
     },
     onSuccess: (data) => {
-      setLastResult(data);
       refetchStatus();
       if (data.ok) {
-        const s = data.summary!;
-        toast({
-          title: "Sync complete",
-          description: `Students: +${s.students.inserted} new, ${s.students.updated} updated · Attendance: +${s.attendance.inserted} records · KPIs: ${s.kpis.inserted} benchmarks`,
-        });
+        toast({ title: "Sync triggered", description: "Sheets pulled and database updated." });
       } else {
         toast({ title: "Sync failed", description: data.error, variant: "destructive" });
       }
@@ -104,39 +102,99 @@ export default function AdminSync() {
 
   const labelColour = (label: string) => {
     switch (label.toLowerCase()) {
-      case "exceptional": return "bg-green-500/20 text-green-400 border-green-500/30";
-      case "good": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-      case "satisfactory": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "exceptional":    return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "good":           return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      case "satisfactory":   return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
       case "unsatisfactory": return "bg-red-500/20 text-red-400 border-red-500/30";
-      default: return "bg-muted text-muted-foreground";
+      default:               return "bg-muted text-muted-foreground";
     }
+  };
+
+  const formatTime = (iso: string | null) => {
+    if (!iso) return "Never";
+    return new Date(iso).toLocaleString("en-GB", {
+      day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
   };
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">Data Sync</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Import students, attendance records, and KPI benchmarks from Google Sheets.
+            Automatically syncs from Google Sheets every 15 minutes. Changes in the spreadsheets appear here without anyone needing to do anything.
           </p>
         </div>
         <Button
+          variant="outline"
+          size="sm"
           onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending}
-          className="gap-2"
+          disabled={syncMutation.isPending || status?.running}
+          className="gap-2 shrink-0"
         >
-          <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
-          {syncMutation.isPending ? "Syncing…" : "Sync Now"}
+          {syncMutation.isPending || status?.running
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : <RefreshCw className="h-4 w-4" />}
+          Force sync
         </Button>
       </div>
+
+      {/* Last sync status bar */}
+      <Card className={status?.lastError ? "border-red-500/30" : "border-green-500/20"}>
+        <CardContent className="py-4 flex items-center gap-4">
+          {status?.running ? (
+            <Loader2 className="h-5 w-5 text-blue-400 animate-spin shrink-0" />
+          ) : status?.lastError ? (
+            <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">
+              {status?.running
+                ? "Sync in progress…"
+                : status?.lastError
+                ? `Last sync failed: ${status.lastError}`
+                : "Last sync completed successfully"}
+            </p>
+            {status?.lastRanAt && !status.running && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                <Clock className="h-3 w-3" />
+                {formatTime(status.lastRanAt)} · next run in ~15 min
+              </p>
+            )}
+            {!status?.lastRanAt && !status?.running && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                First sync runs 30 seconds after server starts
+              </p>
+            )}
+          </div>
+          {/* Mini summary badges from last run */}
+          {status?.lastSummary && !status.running && (
+            <div className="flex gap-2 flex-wrap justify-end">
+              {(["courses", "students", "attendance", "kpis"] as const).map(key => {
+                const s = status.lastSummary![key];
+                if (!s) return null;
+                const total = s.inserted + s.updated;
+                return (
+                  <Badge key={key} variant="outline" className="text-xs capitalize">
+                    {key}: {total > 0 ? `${total} changes` : "no changes"}
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Current counts */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 flex items-center gap-3">
-            <Users className="h-8 w-8 text-blue-400" />
+            <Users className="h-8 w-8 text-blue-400 shrink-0" />
             <div>
               <p className="text-2xl font-bold">{status?.counts.students ?? "—"}</p>
               <p className="text-xs text-muted-foreground">Students</p>
@@ -145,7 +203,7 @@ export default function AdminSync() {
         </Card>
         <Card>
           <CardContent className="pt-6 flex items-center gap-3">
-            <BookOpen className="h-8 w-8 text-purple-400" />
+            <BookOpen className="h-8 w-8 text-purple-400 shrink-0" />
             <div>
               <p className="text-2xl font-bold">{status?.counts.courses ?? "—"}</p>
               <p className="text-xs text-muted-foreground">Courses</p>
@@ -154,7 +212,7 @@ export default function AdminSync() {
         </Card>
         <Card>
           <CardContent className="pt-6 flex items-center gap-3">
-            <ClipboardList className="h-8 w-8 text-green-400" />
+            <ClipboardList className="h-8 w-8 text-green-400 shrink-0" />
             <div>
               <p className="text-2xl font-bold">{status?.counts.attendance ?? "—"}</p>
               <p className="text-xs text-muted-foreground">Attendance Records</p>
@@ -162,46 +220,6 @@ export default function AdminSync() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Last sync result */}
-      {lastResult && (
-        <Card className={lastResult.ok ? "border-green-500/30" : "border-red-500/30"}>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              {lastResult.ok
-                ? <CheckCircle2 className="h-4 w-4 text-green-400" />
-                : <AlertCircle className="h-4 w-4 text-red-400" />}
-              Last Sync Result
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {lastResult.ok && lastResult.summary ? (
-              <div className="space-y-3">
-                {(["students", "attendance", "kpis"] as const).map(key => {
-                  const s = lastResult.summary![key];
-                  return (
-                    <div key={key} className="flex items-start gap-4">
-                      <span className="w-24 text-sm font-medium capitalize text-muted-foreground">{key}</span>
-                      <div className="flex gap-3 flex-wrap">
-                        {s.inserted > 0 && <Badge variant="outline" className="text-green-400 border-green-500/30">+{s.inserted} new</Badge>}
-                        {s.updated > 0 && <Badge variant="outline" className="text-blue-400 border-blue-500/30">{s.updated} updated</Badge>}
-                        {s.skipped > 0 && <Badge variant="outline" className="text-yellow-400 border-yellow-500/30">{s.skipped} skipped</Badge>}
-                        {s.inserted === 0 && s.updated === 0 && s.skipped === 0 && s.errors.length === 0 &&
-                          <Badge variant="outline" className="text-muted-foreground">no changes</Badge>}
-                        {s.errors.length > 0 && (
-                          <span className="text-xs text-red-400">{s.errors[0]}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-red-400">{lastResult.error}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* KPI Benchmarks */}
       <div className="grid grid-cols-2 gap-4">
@@ -216,10 +234,9 @@ export default function AdminSync() {
             </CardHeader>
             <CardContent>
               {rows.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                  <Info className="h-4 w-4" />
-                  Run a sync to populate benchmarks
-                </div>
+                <p className="text-sm text-muted-foreground py-4">
+                  Waiting for first sync…
+                </p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -247,19 +264,19 @@ export default function AdminSync() {
         ))}
       </div>
 
-      {/* Info note */}
+      {/* What syncs */}
       <Card className="border-dashed">
         <CardContent className="pt-4">
           <div className="flex gap-3 text-sm text-muted-foreground">
             <Database className="h-4 w-4 mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium text-foreground mb-1">What gets synced</p>
+              <p className="font-medium text-foreground mb-1">What gets synced automatically</p>
               <ul className="space-y-1 list-disc list-inside">
-                <li><strong>Students Roster</strong> — upserts by Student ID; creates/updates name, year group, form group, and course enrollments</li>
-                <li><strong>Attendance Log</strong> — imports new records; skips rows where the student or course isn't yet in the system</li>
-                <li><strong>KPIs</strong> — replaces all attendance and punctuality benchmarks with the current sheet values</li>
+                <li><strong>Courses</strong> — adds new courses and updates existing ones as the spreadsheet changes</li>
+                <li><strong>Students</strong> — upserts by Student ID (name, year group, form group); no class enrolments yet — those are added per year group when ready</li>
+                <li><strong>Attendance Log</strong> — imports new records once students are enrolled in a course</li>
+                <li><strong>KPI Benchmarks</strong> — replaces attendance and punctuality thresholds each run</li>
               </ul>
-              <p className="mt-2">Share the Courses spreadsheet link and I'll wire that up too.</p>
             </div>
           </div>
         </CardContent>
