@@ -10,3 +10,4 @@ export * from "./auth";
 export * from "./assessments";
 export * from "./concierge";
 export * from "./eprogressions";
+export * from "./staff-timetable";
