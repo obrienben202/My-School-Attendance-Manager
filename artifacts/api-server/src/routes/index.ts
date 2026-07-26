@@ -12,6 +12,7 @@ import assessmentsRouter from "./assessments";
 import conciergeRouter from "./concierge";
 import eprogressionsRouter from "./eprogressions";
 import syncRouter from "./sync";
+import hodRouter from "./hod";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(assessmentsRouter);
 router.use(conciergeRouter);
 router.use(eprogressionsRouter);
 router.use(syncRouter);
+router.use(hodRouter);
 
 export default router;

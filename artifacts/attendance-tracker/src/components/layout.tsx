@@ -31,6 +31,7 @@ import {
   CalendarClock,
   ShieldPlus,
   Database,
+  LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -131,6 +132,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
     heading: "Administration",
     roles: ADMIN_HOD,
     items: [
+      { icon: LayoutDashboard, label: "Department Timetable", href: "/hod/timetable", roles: ADMIN_HOD },
       { icon: ShieldPlus, label: "User Management", href: "/admin/users" },
       { icon: Database, label: "Data Sync", href: "/admin/sync" },
     ],
