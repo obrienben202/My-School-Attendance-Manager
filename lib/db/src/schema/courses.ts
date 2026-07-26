@@ -11,6 +11,12 @@ export const coursesTable = pgTable("courses", {
   yearGroup: text("year_group"),
   enrolledCount: integer("enrolled_count").notNull().default(0),
   headOfDepartment: text("head_of_department"),
+  // Extended fields — synced from sheet or derived from course name
+  level: text("level"),
+  faculty: text("faculty"),
+  academicYear: text("academic_year").default("2024/25"),
+  courseHours: integer("course_hours").default(180),
+  status: text("status").default("Active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

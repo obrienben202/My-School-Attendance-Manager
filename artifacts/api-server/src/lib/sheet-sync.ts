@@ -61,6 +61,35 @@ function courseCode(sheetId: string): string {
   return isNaN(n) ? sheetId.trim() : `C${String(n).padStart(3, "0")}`;
 }
 
+/** Derive a study level from the course name and year group. */
+function deriveLevel(name: string, yearGroup: string): string {
+  const n = name.toUpperCase();
+  if (n.includes("GCSE") && !n.includes("NON GCSE")) return "GCSE";
+  if (n.includes("A LEVEL") || n.includes("A-LEVEL"))  return "A Level";
+  if (n.includes("BTEC"))                               return "BTEC";
+  if (n.includes("NON GCSE"))                           return "Level 2";
+  if (n.includes("DIGITAL TECHNOLOGY") || n.includes("COMPUTER SCIENCE")) return "Level 3";
+  if (["Year 7", "Year 8", "Year 9"].includes(yearGroup))   return "Level 2";
+  if (["Year 10", "Year 11"].includes(yearGroup))            return "Level 3";
+  return "Level 2";
+}
+
+/** Derive a faculty/department from the course name. */
+function deriveFaculty(name: string): string {
+  const n = name.toUpperCase();
+  if (n.includes("ICT") || n.includes("DIGITAL") || n.includes("COMPUTER") ||
+      (n.includes(" IT ") || n.includes(" IT-") || n.endsWith(" IT"))) return "IT";
+  if (n.includes("MATHS") || n.includes("MATHEMATICS")) return "Mathematics";
+  if (n.includes("ENGLISH"))                            return "English";
+  if (n.includes("HISTORY"))                            return "History";
+  if (n.includes("SCIENCE"))                            return "Science";
+  if (n.includes("DRAMA"))                              return "Arts & Drama";
+  if (n.includes("MUSIC"))                              return "Music";
+  if (n.includes("PE") || n.includes("SPORT"))         return "PE & Sport";
+  if (n.includes("FRENCH") || n.includes("WELSH") || n.includes("SPANISH")) return "Modern Languages";
+  return "General Studies";
+}
+
 // ── main sync ──────────────────────────────────────────────────────────────────
 
 export async function runSync(): Promise<SyncSummary> {
@@ -89,16 +118,20 @@ export async function runSync(): Promise<SyncSummary> {
         try {
           const existing = await db.select({ id: coursesTable.id })
             .from(coursesTable).where(eq(coursesTable.code, code)).limit(1);
+          const level   = deriveLevel(name, yearGroup);
+          const faculty = deriveFaculty(name);
           if (existing.length > 0) {
             await db.update(coursesTable).set({
               name, room: room || null, staffName: staffName || null,
               headOfDepartment: headOfDept || null, yearGroup: yearGroup || null, enrolledCount,
+              level, faculty,
             }).where(eq(coursesTable.code, code));
             updated++;
           } else {
             await db.insert(coursesTable).values({
               code, name, room: room || null, staffName: staffName || null,
               headOfDepartment: headOfDept || null, yearGroup: yearGroup || null, enrolledCount,
+              level, faculty,
             });
             inserted++;
           }

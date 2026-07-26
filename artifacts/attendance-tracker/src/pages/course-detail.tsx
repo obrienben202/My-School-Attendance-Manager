@@ -54,7 +54,12 @@ const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:0
 
 // ── Report / Print helpers ────────────────────────────────────────────────────
 
-type CourseType = { id: number; code: string; name: string; room?: string | null; staffName?: string | null; enrolledCount: number };
+type CourseType = {
+  id: number; code: string; name: string; room?: string | null;
+  staffName?: string | null; enrolledCount: number;
+  level?: string | null; faculty?: string | null;
+  academicYear?: string | null; courseHours?: number | null; status?: string | null;
+};
 type AttType = { studentName?: string | null; date: string; status: string; studentId?: number };
 type StudentType = { id: number; forename: string; surname: string; personCode?: string | null; gender?: string | null; yearGroup?: string | null; attendancePercent: number };
 type AssessType = { code: string; description: string; type: string; dueDate?: string | null; gradingScheme: string; minPassMark?: string | null; mandatory: number | boolean };
@@ -107,9 +112,9 @@ function printCurriculumWindow(
 <table class="tbl2" style="width:auto;min-width:400px">
   <tbody>
     <tr><td style="font-weight:500">Course Code</td><td>${course.code}</td><td style="font-weight:500">Course Leader</td><td>${course.staffName ?? "—"}</td></tr>
-    <tr><td style="font-weight:500">Level</td><td>${level}</td><td style="font-weight:500">Academic Year</td><td>2024/25</td></tr>
-    <tr><td style="font-weight:500">Faculty</td><td>${faculty}</td><td style="font-weight:500">Course Hours</td><td>180</td></tr>
-    <tr><td style="font-weight:500">Room</td><td>${course.room ?? "—"}</td><td style="font-weight:500">Status</td><td>Active</td></tr>
+    <tr><td style="font-weight:500">Level</td><td>${level}</td><td style="font-weight:500">Academic Year</td><td>${(course as CourseType).academicYear ?? "2024/25"}</td></tr>
+    <tr><td style="font-weight:500">Faculty</td><td>${faculty}</td><td style="font-weight:500">Course Hours</td><td>${(course as CourseType).courseHours ?? 180}</td></tr>
+    <tr><td style="font-weight:500">Room</td><td>${course.room ?? "—"}</td><td style="font-weight:500">Status</td><td>${(course as CourseType).status ?? "Active"}</td></tr>
   </tbody>
 </table>
 <div class="section-title">Timetable</div>
@@ -562,14 +567,17 @@ export default function CourseDetail() {
     return <div className="p-12 text-center text-muted-foreground">Course not found.</div>;
   }
 
-  const faculty = FACULTIES[id % FACULTIES.length];
-  const level = LEVELS[id % LEVELS.length];
+  const faculty = (course as CourseType).faculty ?? "—";
+  const level   = (course as CourseType).level   ?? "—";
+  const academicYear  = (course as CourseType).academicYear  ?? "2024/25";
+  const courseHours   = (course as CourseType).courseHours   ?? 180;
+  const courseStatus  = (course as CourseType).status        ?? "Active";
   const centuryId = `CTY-${String(id).padStart(4, "0")}`;
-  // Keep legacy startTime/endTime/dayOfWeek for the print helpers
-  const startTime = START_TIMES[id % START_TIMES.length];
-  const [startH] = startTime.split(":").map(Number);
-  const endTime = `${String(startH + 1).padStart(2, "0")}:00`;
-  const dayOfWeek = DAYS[id % DAYS.length];
+  // Derive a representative time for legacy print helpers (uses first timetable slot if available)
+  const firstSlot = timetableSlots[0];
+  const dayOfWeek  = firstSlot?.day      ?? DAYS[id % DAYS.length];
+  const startTime  = firstSlot?.startTime ?? START_TIMES[id % START_TIMES.length];
+  const endTime    = firstSlot?.endTime   ?? (() => { const [h] = (firstSlot?.startTime ?? START_TIMES[id % START_TIMES.length]).split(":").map(Number); return `${String(h + 1).padStart(2, "0")}:00`; })();
 
   const presentCount = attendance?.filter(a => a.status === "present").length ?? 0;
   const absentCount = attendance?.filter(a => a.status === "absent").length ?? 0;
@@ -620,7 +628,7 @@ export default function CourseDetail() {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-base font-bold text-slate-800">{course.name}</h1>
-              <p className="text-xs text-slate-500 mt-0.5">Code: {course.code} &nbsp;|&nbsp; {level} &nbsp;|&nbsp; {faculty} &nbsp;|&nbsp; Status: Active</p>
+              <p className="text-xs text-slate-500 mt-0.5">Code: {course.code} &nbsp;|&nbsp; {level} &nbsp;|&nbsp; {faculty} &nbsp;|&nbsp; Status: {courseStatus}</p>
             </div>
             <div className="flex gap-2 shrink-0 ml-4">
               <button
@@ -685,7 +693,7 @@ export default function CourseDetail() {
                     <InfoRow label="Course Code" value={course.code} />
                     <InfoRow label="Course Name" value={course.name} />
                     <InfoRow label="Occurrence" value="Current Year" />
-                    <InfoRow label="Academic Year" value="2024/25" />
+                    <InfoRow label="Academic Year" value={academicYear} />
                     <InfoRow label="Level" value={level} />
                     <InfoRow label="Faculty / Department" value={faculty} />
                   </div>
@@ -694,8 +702,8 @@ export default function CourseDetail() {
                     <InfoRow label="Owning Organisation" value={faculty} />
                     <InfoRow label="Start Date" value="01/08/2024" />
                     <InfoRow label="End Date" value="31/07/2025" />
-                    <InfoRow label="Status" value="Live / Published (ACTIVE)" />
-                    <InfoRow label="Course Hours" value="180" />
+                    <InfoRow label="Status" value={`Live / Published (${courseStatus.toUpperCase()})`} />
+                    <InfoRow label="Course Hours" value={String(courseHours)} />
                   </div>
                 </div>
               </Section>
