@@ -511,6 +511,7 @@ export default function CourseDetail() {
       return r.json();
     },
     enabled: !!id,
+    refetchInterval: 5000,
   });
   const { data: courseAssessments } = useListAssessments({ courseId: id }, { query: { enabled: !!id } as any });
 

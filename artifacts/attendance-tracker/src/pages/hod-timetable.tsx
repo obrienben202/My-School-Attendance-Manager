@@ -68,6 +68,7 @@ export default function HodTimetable() {
       if (!r.ok) return [];
       return r.json();
     },
+    refetchInterval: 5000,
   });
 
   // Unique staff members (for the filter and colour map)
