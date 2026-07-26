@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   CalendarClock,
   ShieldPlus,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -131,6 +132,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
     roles: ADMIN_HOD,
     items: [
       { icon: ShieldPlus, label: "User Management", href: "/admin/users" },
+      { icon: Database, label: "Data Sync", href: "/admin/sync" },
     ],
   },
 ];

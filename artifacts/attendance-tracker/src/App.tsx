@@ -49,6 +49,7 @@ import ConciergeIndex from "@/pages/concierge/index";
 import ConciergeApplicants from "@/pages/concierge/applicants";
 import ConciergeApplications from "@/pages/concierge/applications";
 import AdminUsers from "@/pages/admin-users";
+import AdminSync from "@/pages/admin-sync";
 import ApplicationDetail from "@/pages/concierge/application-detail";
 import ConciergeInterviews from "@/pages/concierge/interviews";
 import EnrolmentsList from "@/pages/concierge/enrolments-list";
@@ -110,6 +111,7 @@ function Router() {
         <Route path="/concierge/enrolments/new" component={EnrolmentsWizard} />
         <Route path="/concierge/enrolments/:id" component={EnrolmentOverview} />
         <Route path="/admin/users" component={AdminUsers} />
+        <Route path="/admin/sync" component={AdminSync} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
