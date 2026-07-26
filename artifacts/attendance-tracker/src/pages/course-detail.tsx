@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useGetCourse, useListAttendanceRecords, useListAssessments } from "@workspace/api-client-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp, Printer } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp, Printer, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useRole } from "@/hooks/use-role";
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -453,12 +454,41 @@ function CourseReportDialog({
   );
 }
 
+type TimetableSlot = {
+  id: number;
+  courseId: number;
+  day: string | null;
+  startTime: string;
+  endTime: string;
+  room: string | null;
+  weekPattern: string;
+};
+
+type SlotFormState = {
+  day: string;
+  startTime: string;
+  endTime: string;
+  room: string;
+  weekPattern: string;
+};
+
+const EMPTY_SLOT: SlotFormState = { day: "Monday", startTime: "09:00", endTime: "10:00", room: "", weekPattern: "Every week" };
+const WEEK_PATTERNS = ["Every week", "Week A only", "Week B only"];
+
 export default function CourseDetail() {
   const params = useParams();
   const [, navigate] = useLocation();
   const id = parseInt(params.id || "0", 10);
   const [activeLink, setActiveLink] = useState("Enrolled Learners");
   const [reportOpen, setReportOpen] = useState<string | null>(null);
+  const role = useRole();
+  const canEditTimetable = role === "admin" || role === "hod";
+  const qc = useQueryClient();
+
+  // Slot form state
+  const [addingSlot, setAddingSlot] = useState(false);
+  const [editingSlotId, setEditingSlotId] = useState<number | null>(null);
+  const [slotForm, setSlotForm] = useState<SlotFormState>(EMPTY_SLOT);
 
   const { data: course, isLoading } = useGetCourse(id, { query: { enabled: !!id } as any });
   const { data: attendance } = useListAttendanceRecords({ courseId: id }, { query: { enabled: !!id } as any });
@@ -472,7 +502,57 @@ export default function CourseDetail() {
     },
     enabled: !!id,
   });
+  const { data: timetableSlots = [] } = useQuery<TimetableSlot[]>({
+    queryKey: ["course-slots", id],
+    queryFn: async () => {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const r = await fetch(`${base}/api/courses/${id}/slots`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!id,
+  });
   const { data: courseAssessments } = useListAssessments({ courseId: id }, { query: { enabled: !!id } as any });
+
+  const invalidateSlots = () => qc.invalidateQueries({ queryKey: ["course-slots", id] });
+
+  const createSlot = useMutation({
+    mutationFn: async (body: SlotFormState) => {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const r = await fetch(`${base}/api/courses/${id}/slots`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error("Failed to create slot");
+      return r.json();
+    },
+    onSuccess: () => { invalidateSlots(); setAddingSlot(false); setSlotForm(EMPTY_SLOT); },
+  });
+
+  const updateSlot = useMutation({
+    mutationFn: async ({ slotId, body }: { slotId: number; body: SlotFormState }) => {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const r = await fetch(`${base}/api/courses/${id}/slots/${slotId}`, {
+        method: "PUT", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error("Failed to update slot");
+      return r.json();
+    },
+    onSuccess: () => { invalidateSlots(); setEditingSlotId(null); setSlotForm(EMPTY_SLOT); },
+  });
+
+  const deleteSlot = useMutation({
+    mutationFn: async (slotId: number) => {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      await fetch(`${base}/api/courses/${id}/slots/${slotId}`, {
+        method: "DELETE", credentials: "include",
+      });
+    },
+    onSuccess: invalidateSlots,
+  });
 
   if (isLoading) {
     return <div className="space-y-4 p-6"><Skeleton className="h-8 w-64" /><Skeleton className="h-48 w-full" /></div>;
@@ -484,6 +564,7 @@ export default function CourseDetail() {
   const faculty = FACULTIES[id % FACULTIES.length];
   const level = LEVELS[id % LEVELS.length];
   const centuryId = `CTY-${String(id).padStart(4, "0")}`;
+  // Keep legacy startTime/endTime/dayOfWeek for the print helpers
   const startTime = START_TIMES[id % START_TIMES.length];
   const [startH] = startTime.split(":").map(Number);
   const endTime = `${String(startH + 1).padStart(2, "0")}:00`;
@@ -651,19 +732,151 @@ export default function CourseDetail() {
               </Section>
 
               {activeLink === "Timetable Slots" && (
-                <Section title="Timetable Slots">
-                  <table className="w-full text-xs">
-                    <thead><tr className="border-b border-slate-100"><th className="text-left font-semibold text-slate-600 pb-2 pr-6">Day</th><th className="text-left font-semibold text-slate-600 pb-2 pr-6">Start Time</th><th className="text-left font-semibold text-slate-600 pb-2 pr-6">End Time</th><th className="text-left font-semibold text-slate-600 pb-2 pr-6">Room</th><th className="text-left font-semibold text-slate-600 pb-2">Week Pattern</th></tr></thead>
-                    <tbody>
-                      <tr className="hover:bg-slate-50">
-                        <td className="py-1.5 pr-6 text-slate-700">{dayOfWeek}</td>
-                        <td className="py-1.5 pr-6 text-slate-700">{startTime}</td>
-                        <td className="py-1.5 pr-6 text-slate-700">{endTime}</td>
-                        <td className="py-1.5 pr-6 text-slate-700">{course.room ?? "—"}</td>
-                        <td className="py-1.5 text-slate-500">1–49, 51–52</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <Section title={`Timetable Slots (${timetableSlots.length})`}>
+                  <div className="space-y-3">
+                    {/* Slot table */}
+                    {timetableSlots.length > 0 && (
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-100">
+                            <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Day</th>
+                            <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Start</th>
+                            <th className="text-left font-semibold text-slate-600 pb-2 pr-4">End</th>
+                            <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Room</th>
+                            <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Week Pattern</th>
+                            {canEditTimetable && <th className="pb-2 w-16" />}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {timetableSlots.map(slot => (
+                            editingSlotId === slot.id ? (
+                              <tr key={slot.id} className="bg-teal-50">
+                                <td className="py-1.5 pr-2">
+                                  <select value={slotForm.day} onChange={e => setSlotForm(f => ({ ...f, day: e.target.value }))}
+                                    className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full">
+                                    {DAYS.map(d => <option key={d}>{d}</option>)}
+                                  </select>
+                                </td>
+                                <td className="py-1.5 pr-2">
+                                  <input type="time" value={slotForm.startTime} onChange={e => setSlotForm(f => ({ ...f, startTime: e.target.value }))}
+                                    className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full" />
+                                </td>
+                                <td className="py-1.5 pr-2">
+                                  <input type="time" value={slotForm.endTime} onChange={e => setSlotForm(f => ({ ...f, endTime: e.target.value }))}
+                                    className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full" />
+                                </td>
+                                <td className="py-1.5 pr-2">
+                                  <input value={slotForm.room} onChange={e => setSlotForm(f => ({ ...f, room: e.target.value }))}
+                                    placeholder="Room" className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full" />
+                                </td>
+                                <td className="py-1.5 pr-2">
+                                  <select value={slotForm.weekPattern} onChange={e => setSlotForm(f => ({ ...f, weekPattern: e.target.value }))}
+                                    className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full">
+                                    {WEEK_PATTERNS.map(p => <option key={p}>{p}</option>)}
+                                  </select>
+                                </td>
+                                <td className="py-1.5">
+                                  <div className="flex gap-1 justify-end">
+                                    <button onClick={() => updateSlot.mutate({ slotId: slot.id, body: slotForm })}
+                                      disabled={updateSlot.isPending}
+                                      className="p-1 rounded text-teal-700 hover:bg-teal-100" title="Save">
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={() => { setEditingSlotId(null); setSlotForm(EMPTY_SLOT); }}
+                                      className="p-1 rounded text-slate-500 hover:bg-slate-100" title="Cancel">
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              <tr key={slot.id} className="hover:bg-slate-50">
+                                <td className="py-1.5 pr-4 text-slate-700">{slot.day ?? "—"}</td>
+                                <td className="py-1.5 pr-4 text-slate-700">{slot.startTime}</td>
+                                <td className="py-1.5 pr-4 text-slate-700">{slot.endTime}</td>
+                                <td className="py-1.5 pr-4 text-slate-700">{slot.room ?? "—"}</td>
+                                <td className="py-1.5 pr-4 text-slate-500">{slot.weekPattern}</td>
+                                {canEditTimetable && (
+                                  <td className="py-1.5">
+                                    <div className="flex gap-1 justify-end">
+                                      <button onClick={() => { setEditingSlotId(slot.id); setAddingSlot(false); setSlotForm({ day: slot.day ?? "Monday", startTime: slot.startTime, endTime: slot.endTime, room: slot.room ?? "", weekPattern: slot.weekPattern }); }}
+                                        className="p-1 rounded text-slate-500 hover:bg-slate-100 hover:text-teal-700" title="Edit">
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => { if (confirm("Remove this timetable slot?")) deleteSlot.mutate(slot.id); }}
+                                        className="p-1 rounded text-slate-500 hover:bg-red-50 hover:text-red-600" title="Delete">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            )
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {timetableSlots.length === 0 && !addingSlot && (
+                      <p className="text-xs text-slate-400">No timetable slots set for this course yet.</p>
+                    )}
+
+                    {/* Add slot form */}
+                    {canEditTimetable && addingSlot && (
+                      <div className="border border-teal-200 rounded bg-teal-50 p-3">
+                        <p className="text-[11px] font-semibold text-teal-700 uppercase tracking-wide mb-2">New Slot</p>
+                        <div className="grid grid-cols-5 gap-2">
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Day</label>
+                            <select value={slotForm.day} onChange={e => setSlotForm(f => ({ ...f, day: e.target.value }))}
+                              className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full bg-white">
+                              {DAYS.map(d => <option key={d}>{d}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Start time</label>
+                            <input type="time" value={slotForm.startTime} onChange={e => setSlotForm(f => ({ ...f, startTime: e.target.value }))}
+                              className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">End time</label>
+                            <input type="time" value={slotForm.endTime} onChange={e => setSlotForm(f => ({ ...f, endTime: e.target.value }))}
+                              className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Room</label>
+                            <input value={slotForm.room} onChange={e => setSlotForm(f => ({ ...f, room: e.target.value }))}
+                              placeholder="e.g. B12" className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-500 block mb-0.5">Week pattern</label>
+                            <select value={slotForm.weekPattern} onChange={e => setSlotForm(f => ({ ...f, weekPattern: e.target.value }))}
+                              className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full bg-white">
+                              {WEEK_PATTERNS.map(p => <option key={p}>{p}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <button onClick={() => createSlot.mutate(slotForm)} disabled={createSlot.isPending}
+                            className="flex items-center gap-1.5 text-xs bg-teal-700 text-white rounded px-3 py-1.5 hover:bg-teal-800 disabled:opacity-50">
+                            <Check className="w-3 h-3" /> {createSlot.isPending ? "Saving…" : "Save slot"}
+                          </button>
+                          <button onClick={() => { setAddingSlot(false); setSlotForm(EMPTY_SLOT); }}
+                            className="text-xs border border-slate-300 rounded px-3 py-1.5 hover:bg-slate-50">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add slot button */}
+                    {canEditTimetable && !addingSlot && editingSlotId === null && (
+                      <button onClick={() => { setAddingSlot(true); setSlotForm(EMPTY_SLOT); }}
+                        className="flex items-center gap-1.5 text-xs text-teal-700 border border-teal-300 rounded px-3 py-1.5 hover:bg-teal-50 mt-1">
+                        <Plus className="w-3 h-3" /> Add timetable slot
+                      </button>
+                    )}
+                  </div>
                 </Section>
               )}
 
