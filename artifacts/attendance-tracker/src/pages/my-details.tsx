@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useListCourses } from "@workspace/api-client-react";
 import {
@@ -8,6 +9,20 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
+interface PersonalSlot {
+  id: number;
+  staffName: string | null;
+  day: string;
+  lessonNumber: number | null;
+  startTime: string | null;
+  endTime: string | null;
+  description: string;
+  groupLabel: string | null;
+  room: string | null;
+  isHodShared: boolean;
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,75 +49,70 @@ function Row({ label, value }: { label: string; value?: string | null }) {
 
 // ─── Timetable constants ────────────────────────────────────────────────────────
 const TT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-const TT_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
-const TT_LESSONS = ["Lesson 1", "Lesson 2", "Lesson 3", "Lesson 4", "Lesson 5", "Lesson 6"];
 const TT_PERIODS = ["09:00–10:00", "10:00–11:00", "11:15–12:15", "13:00–14:00", "14:00–15:00", "15:00–16:00"];
 
-// Build a cell-map: lesson-index → day-index → course
-type TtCourse = { id: number; code: string; name: string; room?: string | null; staffName?: string | null };
-function buildTtGrid(courses: TtCourse[]): Record<string, TtCourse> {
-  const map: Record<string, TtCourse> = {};
-  courses.forEach((c, i) => { map[`${Math.floor(i / 5)}-${i % 5}`] = c; });
-  return map;
+// Time-axis grid: 08:30 → 15:30 = 420 mins
+const GRID_START = 8.5 * 60;   // 510 mins
+const GRID_SPAN  = 7 * 60;     // 420 mins
+
+function toMins(t: string | null | undefined): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+function gridLeft(t: string | null | undefined): string {
+  return `${Math.max(0, (toMins(t) - GRID_START) / GRID_SPAN * 100).toFixed(2)}%`;
+}
+function gridWidth(start: string | null | undefined, end: string | null | undefined): string {
+  const w = (toMins(end) - toMins(start)) / GRID_SPAN * 100;
+  return `${Math.max(1, w).toFixed(2)}%`;
 }
 
-// Colors for course blocks (cycling)
-const BLOCK_COLORS = [
-  "bg-rose-300 border-rose-400 text-rose-900",
-  "bg-sky-300 border-sky-400 text-sky-900",
-  "bg-violet-300 border-violet-400 text-violet-900",
-  "bg-amber-300 border-amber-400 text-amber-900",
-  "bg-emerald-300 border-emerald-400 text-emerald-900",
-];
+const HOUR_LABELS = ["09:00","10:00","11:00","12:00","13:00","14:00","15:00"];
 
-function printStaffTimetable(fullName: string, courses: TtCourse[]) {
-  const grid = buildTtGrid(courses);
+// Non-teaching keywords → neutral grey styling
+const NON_TEACHING = /admin|cover|time.?out|free lesson|one.?to.?one|meeting/i;
+
+function slotColor(slot: PersonalSlot): string {
+  if (slot.isHodShared) return "bg-amber-100 border-amber-400 text-amber-900";
+  if (NON_TEACHING.test(slot.description)) return "bg-slate-100 border-slate-400 text-slate-700";
+  const palette = [
+    "bg-teal-200 border-teal-500 text-teal-900",
+    "bg-indigo-200 border-indigo-500 text-indigo-900",
+    "bg-rose-200 border-rose-500 text-rose-900",
+    "bg-violet-200 border-violet-500 text-violet-900",
+    "bg-sky-200 border-sky-500 text-sky-900",
+    "bg-emerald-200 border-emerald-500 text-emerald-900",
+  ];
+  return palette[(slot.lessonNumber ?? slot.id) % palette.length];
+}
+
+function printPersonalTimetable(fullName: string, slots: PersonalSlot[]) {
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
   const dayHeaders = TT_DAYS.map(d =>
-    `<th style="border:1px solid #bbb;padding:6px 4px;text-align:center;background:#f0f0f0;font-size:11px;min-width:100px;">${d}</th>`
+    `<th style="border:1px solid #bbb;padding:6px 8px;text-align:left;background:#f0f0f0;font-size:11px;">${d}</th>`
   ).join("");
-  const lessonRow = (label: string, period: string, idx: number) => {
-    const cells = TT_DAYS.map((_, d) => {
-      const c = grid[`${idx}-${d}`];
-      return c
-        ? `<td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;background:#f9d0d0;">
-            <strong>${c.code}</strong><br/>${c.name}${c.room ? `<br/><span style="color:#555">${c.room}</span>` : ""}
-           </td>`
-        : `<td style="border:1px solid #bbb;padding:4px 6px;"></td>`;
-    }).join("");
-    return `<tr>
-      <td style="border:1px solid #bbb;padding:5px 6px;font-weight:bold;font-size:11px;background:#fafafa;white-space:nowrap;">${label}</td>
-      <td style="border:1px solid #bbb;padding:5px 6px;font-size:10px;background:#fafafa;color:#666;">${period}</td>
-      ${cells}
-    </tr>`;
-  };
-  const breakRow = (label: string) =>
-    `<tr><td colspan="${TT_DAYS.length + 2}" style="border:1px solid #bbb;padding:4px;text-align:center;font-style:italic;font-size:11px;color:#555;background:#f9f9f9;">${label}</td></tr>`;
-
+  const rows = slots.map(s =>
+    `<tr>
+      <td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;white-space:nowrap;">${s.day}</td>
+      <td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;font-family:monospace;">${s.startTime ?? ""}–${s.endTime ?? ""}</td>
+      <td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;"><strong>${s.description}</strong>${s.groupLabel ? ` — ${s.groupLabel}` : ""}</td>
+      <td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;color:#555;">${s.room ?? ""}</td>
+    </tr>`
+  ).join("");
   const html = `
-<h1 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;">Timetable</h1>
-<p style="font-size:11px;color:#555;text-align:center;margin-bottom:12px;">Staff: ${fullName} &nbsp;|&nbsp; Generated: ${today} &nbsp;|&nbsp; Academic Year 2024/25</p>
+<h1 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;">Staff Timetable</h1>
+<p style="font-size:11px;color:#555;text-align:center;margin-bottom:12px;">${fullName} &nbsp;|&nbsp; Generated: ${today} &nbsp;|&nbsp; Academic Year 2024/25</p>
 <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;">
-  <thead>
-    <tr>
-      <th style="border:1px solid #bbb;padding:6px 4px;width:70px;background:#f0f0f0;font-size:11px;"></th>
-      <th style="border:1px solid #bbb;padding:6px 4px;width:90px;background:#f0f0f0;font-size:11px;">Time</th>
-      ${dayHeaders}
-    </tr>
-  </thead>
-  <tbody>
-    ${lessonRow("Lesson 1", TT_PERIODS[0], 0)}
-    ${lessonRow("Lesson 2", TT_PERIODS[1], 1)}
-    ${breakRow("Break")}
-    ${lessonRow("Lesson 3", TT_PERIODS[2], 2)}
-    ${lessonRow("Lesson 4", TT_PERIODS[3], 3)}
-    ${breakRow("Lunch")}
-    ${lessonRow("Lesson 5", TT_PERIODS[4], 4)}
-    ${lessonRow("Lesson 6", TT_PERIODS[5], 5)}
-  </tbody>
+  <thead><tr>
+    <th style="border:1px solid #bbb;padding:6px 8px;background:#f0f0f0;font-size:11px;">Day</th>
+    <th style="border:1px solid #bbb;padding:6px 8px;background:#f0f0f0;font-size:11px;">Time</th>
+    <th style="border:1px solid #bbb;padding:6px 8px;background:#f0f0f0;font-size:11px;">Session</th>
+    <th style="border:1px solid #bbb;padding:6px 8px;background:#f0f0f0;font-size:11px;">Room</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
 </table>`;
-
-  const w = window.open("", "_blank", "width=950,height=700");
+  const w = window.open("", "_blank", "width=820,height=700");
   if (!w) return;
   w.document.write(`<!DOCTYPE html><html><head><title>Staff Timetable</title>
 <style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#222;}@media print{body{margin:10px;}}</style>
@@ -148,6 +158,18 @@ export default function MyDetails() {
 
   // Filter courses loosely attributed to this user (demo — in real EBS, filtered by staffId)
   const myCourses = courses.slice(0, 5);
+
+  // ── Personal timetable from staff_timetable_slots ────────────────────────
+  const { data: mySlots = [] } = useQuery<PersonalSlot[]>({
+    queryKey: ["my-timetable"],
+    queryFn: async () => {
+      const r = await fetch("/api/staff/my-timetable", { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: activeModal === "My Timetable",
+    refetchInterval: activeModal === "My Timetable" ? 5000 : false,
+  });
 
   return (
     <div className="-mx-6 -mt-6 min-h-screen bg-slate-50">
@@ -344,76 +366,114 @@ export default function MyDetails() {
       {/* ── My Timetable Dialog ── */}
       <Dialog open={activeModal === "My Timetable"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
         <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden p-0">
-          <div className="bg-teal-800 text-white px-5 py-3 flex items-start justify-between">
+
+          {/* Header bar */}
+          <div className="bg-teal-800 text-white px-5 py-3 flex items-start justify-between shrink-0">
             <div>
               <DialogHeader>
                 <DialogTitle className="text-white text-base font-bold">My Timetable</DialogTitle>
               </DialogHeader>
               <p className="text-teal-200 text-xs mt-0.5">
-                {EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; {EMPLOYMENT.department} &nbsp;|&nbsp; Academic Year 2024/25 &nbsp;|&nbsp; Session: 1718 &nbsp;|&nbsp; Weeks: 10
+                {EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; {user?.department ?? EMPLOYMENT.department} &nbsp;|&nbsp; Academic Year 2024/25 &nbsp;|&nbsp; Session: 1718 &nbsp;|&nbsp; Weeks: 10
               </p>
             </div>
             <button
-              onClick={() => printStaffTimetable(`${EMPLOYMENT.title} ${fullName}`, myCourses)}
+              onClick={() => printPersonalTimetable(`${EMPLOYMENT.title} ${fullName}`, mySlots)}
               className="ml-4 flex items-center gap-1.5 bg-white text-teal-800 text-xs font-semibold px-3 py-1.5 rounded hover:bg-teal-50 shrink-0"
             >
               <Printer size={13} /> Print
             </button>
           </div>
 
-          {/* Calendar-style weekly grid */}
-          <div className="flex-1 overflow-auto p-4 bg-slate-50">
-            <p className="text-xs text-slate-500 mb-3">Select a session block to view course details. Showing week view — Mon to Fri.</p>
-            <div className="overflow-x-auto">
-              {/* Time axis header */}
-              <div className="flex" style={{ minWidth: 900 }}>
-                <div className="w-20 shrink-0" />
-                {TT_TIMES.map(t => (
-                  <div key={t} className="flex-1 text-center text-[10px] font-mono text-slate-500 pb-1 border-b border-slate-200">{t}</div>
-                ))}
+          {/* Time-axis calendar body */}
+          <div className="flex-1 overflow-auto bg-slate-50 p-4">
+            <p className="text-xs text-slate-500 mb-3">Showing week view — Mon to Fri.</p>
+
+            {mySlots.length === 0 ? (
+              <div className="flex items-center justify-center h-40 text-sm text-slate-400">
+                No personal timetable found for your account.
               </div>
-              {/* Day rows */}
-              {TT_DAYS.map((day, di) => {
-                const dayLessons = TT_LESSONS.map((_, li) => {
-                  const grid = buildTtGrid(myCourses);
-                  return grid[`${li}-${di}`] ?? null;
-                });
-                return (
-                  <div key={day} className="flex border-b border-slate-200" style={{ minWidth: 900, minHeight: 80 }}>
-                    <div className="w-20 shrink-0 flex items-center justify-center border-r border-slate-200 bg-slate-100">
-                      <span className="text-[11px] font-bold text-slate-600 [writing-mode:vertical-lr] rotate-180">{day}</span>
-                    </div>
-                    <div className="flex-1 grid grid-cols-7 divide-x divide-slate-100">
-                      {TT_TIMES.map((_, ti) => {
-                        // Map time slot to lesson index (slots 0-1 = lessons 0-1, slot 2 = break, slots 3-4 = lessons 2-3, slot 5 = lunch, slot 6 = lesson 4)
-                        const lessonIdx = ti === 2 ? -1 : ti === 5 ? -2 : ti < 2 ? ti : ti < 5 ? ti - 1 : ti - 2;
-                        const isBreak = ti === 2;
-                        const isLunch = ti === 5;
-                        const course = lessonIdx >= 0 ? dayLessons[lessonIdx] ?? null : null;
-                        const colorCls = course ? BLOCK_COLORS[course.id % BLOCK_COLORS.length] : "";
-                        return (
-                          <div
-                            key={ti}
-                            className={`relative p-1 min-h-[76px] ${isBreak || isLunch ? "bg-slate-100" : "bg-white hover:bg-slate-50"}`}
-                          >
-                            {isBreak && <span className="text-[9px] text-slate-400 font-medium">Break</span>}
-                            {isLunch && <span className="text-[9px] text-slate-400 font-medium">Lunch</span>}
-                            {course && !isBreak && !isLunch && (
-                              <div className={`rounded border p-1 text-[9px] leading-tight ${colorCls}`}>
-                                <div className="font-bold">{course.code}</div>
-                                <div className="opacity-90 mt-0.5">{course.name}</div>
-                                {course.room && <div className="opacity-75 mt-0.5">{course.room}</div>}
-                                {course.staffName && <div className="opacity-75">{course.staffName}</div>}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+            ) : (
+              <div style={{ minWidth: 820 }}>
+                {/* ── Time-axis header ── */}
+                <div className="flex mb-0.5">
+                  <div className="shrink-0" style={{ width: 72 }} />
+                  <div className="relative flex-1 h-5">
+                    {HOUR_LABELS.map(lbl => (
+                      <span
+                        key={lbl}
+                        className="absolute text-[10px] font-mono text-slate-400 -translate-x-1/2"
+                        style={{ left: gridLeft(lbl) }}
+                      >
+                        {lbl}
+                      </span>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+
+                {/* ── Day rows ── */}
+                {TT_DAYS.map(day => {
+                  const daySlots = mySlots.filter(s => s.day === day);
+                  return (
+                    <div key={day} className="flex border-b border-slate-200 last:border-0" style={{ minHeight: 72 }}>
+                      {/* Day label */}
+                      <div
+                        className="shrink-0 flex items-center justify-center bg-slate-100 border-r border-slate-200 text-[11px] font-bold text-slate-600"
+                        style={{ width: 72 }}
+                      >
+                        {day.slice(0, 3)}
+                      </div>
+
+                      {/* Time grid */}
+                      <div className="relative flex-1 bg-white" style={{ minHeight: 72 }}>
+                        {/* Hour grid lines */}
+                        {HOUR_LABELS.map(lbl => (
+                          <div
+                            key={lbl}
+                            className="absolute top-0 bottom-0 border-l border-slate-100"
+                            style={{ left: gridLeft(lbl) }}
+                          />
+                        ))}
+
+                        {/* Break band */}
+                        <div
+                          className="absolute top-0 bottom-0 bg-slate-50 border-x border-slate-200 flex items-center justify-center"
+                          style={{ left: gridLeft("10:30"), width: gridWidth("10:30","10:50") }}
+                        >
+                          <span className="text-[9px] text-slate-400 font-medium [writing-mode:vertical-lr]">Break</span>
+                        </div>
+
+                        {/* Lunch band */}
+                        <div
+                          className="absolute top-0 bottom-0 bg-slate-50 border-x border-slate-200 flex items-center justify-center"
+                          style={{ left: gridLeft("12:50"), width: gridWidth("12:50","13:30") }}
+                        >
+                          <span className="text-[9px] text-slate-400 font-medium [writing-mode:vertical-lr]">Lunch</span>
+                        </div>
+
+                        {/* Lesson blocks */}
+                        {daySlots.map(slot => (
+                          <div
+                            key={slot.id}
+                            title={`${slot.description}${slot.groupLabel ? ` — ${slot.groupLabel}` : ""}${slot.room ? ` | ${slot.room}` : ""}`}
+                            className={`absolute top-1 bottom-1 rounded border text-[9px] leading-tight px-1 py-0.5 overflow-hidden cursor-default ${slotColor(slot)}`}
+                            style={{
+                              left: gridLeft(slot.startTime ?? undefined),
+                              width: gridWidth(slot.startTime ?? undefined, slot.endTime ?? undefined),
+                            }}
+                          >
+                            <div className="font-bold truncate">{slot.description}</div>
+                            {slot.groupLabel && <div className="opacity-80 truncate">{slot.groupLabel}</div>}
+                            {slot.room && <div className="opacity-70 truncate">{slot.room}</div>}
+                            {slot.isHodShared && <div className="opacity-70 italic">All HoD</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

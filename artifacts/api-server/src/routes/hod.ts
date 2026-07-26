@@ -134,4 +134,31 @@ router.get("/hod/department-timetable", async (req, res) => {
   return res.json([...courseSlots, ...personalSlots]);
 });
 
+// GET /staff/my-timetable — personal timetable for the logged-in user
+router.get("/staff/my-timetable", async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Not authenticated" });
+
+  const u = req.user as {
+    firstName?: string; lastName?: string; name?: string; role?: string;
+  } | undefined;
+
+  const fullName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.name || "";
+  const isHodOrAdmin = u?.role === "hod" || u?.role === "admin";
+
+  const allSlots = await db
+    .select()
+    .from(staffTimetableTable)
+    .orderBy(staffTimetableTable.day, staffTimetableTable.lessonNumber);
+
+  const mySlots = allSlots.filter(row => {
+    if (row.isHodShared) return isHodOrAdmin;        // shared HoD entries for hod/admin only
+    if (!row.staffName || !fullName) return false;
+    const a = stripTitle(row.staffName);
+    const b = stripTitle(fullName);
+    return a === b || a.includes(b) || b.includes(a);
+  });
+
+  return res.json(mySlots);
+});
+
 export default router;
