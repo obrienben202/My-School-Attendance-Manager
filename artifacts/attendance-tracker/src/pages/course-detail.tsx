@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useGetCourse, useListAttendanceRecords, useListAssessments } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp, Printer, Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp, Printer, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRole } from "@/hooks/use-role";
 
@@ -473,6 +473,7 @@ export default function CourseDetail() {
   const params = useParams();
   const [, navigate] = useLocation();
   const id = parseInt(params.id || "0", 10);
+  const staffContext = new URLSearchParams(window.location.search).get("staff");
   const [activeLink, setActiveLink] = useState("Enrolled Learners");
   const [reportOpen, setReportOpen] = useState<string | null>(null);
   const role = useRole();
@@ -603,6 +604,14 @@ export default function CourseDetail() {
       <div className="flex-1 flex flex-col min-w-0 overflow-auto">
         {/* Header bar */}
         <div className="bg-white border-b border-slate-200 px-5 py-3">
+          {staffContext && (
+            <button
+              onClick={() => navigate(`/staff/${encodeURIComponent(staffContext)}`)}
+              className="mb-2 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-sky-700"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to Staff Details
+            </button>
+          )}
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-base font-bold text-slate-800">{course.name}</h1>

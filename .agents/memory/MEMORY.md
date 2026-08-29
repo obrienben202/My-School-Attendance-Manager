@@ -1,0 +1,1 @@
+- [Safe development schema sync](safe-development-schema-sync.md) — never force a Drizzle push that offers to truncate populated course data; review and apply only non-destructive changes.

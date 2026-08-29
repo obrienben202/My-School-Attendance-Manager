@@ -52,6 +52,7 @@ export default function RegisterDetail() {
   const params = useParams();
   const [, navigate] = useLocation();
   const id = parseInt(params.id || "0", 10);
+  const staffContext = new URLSearchParams(window.location.search).get("staff");
   const { data: courses, isLoading: isCoursesLoading } = useListCourses();
   const { data: students, isLoading: isStudentsLoading } = useListStudents();
 
@@ -184,6 +185,14 @@ export default function RegisterDetail() {
       <div className="flex-1 flex flex-col min-w-0 overflow-auto">
         {/* Header bar */}
         <div className="bg-white border-b border-slate-200 px-5 py-3">
+          {staffContext && (
+            <button
+              onClick={() => navigate(`/staff/${encodeURIComponent(staffContext)}/register-history`)}
+              className="mb-2 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-sky-700"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Back to Register History
+            </button>
+          )}
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-base font-bold text-slate-800">Mark Register</h1>
@@ -312,7 +321,7 @@ export default function RegisterDetail() {
                 <InfoRow
                   label="Lecturer"
                   value={course.staffName}
-                  onClick={course.staffName ? () => navigate("/staff/0") : undefined}
+                  onClick={course.staffName && staffContext ? () => navigate(`/staff/${encodeURIComponent(staffContext)}`) : undefined}
                 />
                 <InfoRow label="Subject / Module" value={course.name} />
                 <InfoRow label="Course Code" value={course.code} />

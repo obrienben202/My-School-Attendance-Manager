@@ -53,6 +53,11 @@ import type {
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
   ScheduleEntry,
+  StaffRecord,
+  StaffRegisterHistoryResponse,
+  StaffSource,
+  StaffTimetableResponse,
+  StaffUnavailableRecordsResponse,
   Student,
   StudentInput,
   StudentUpdate,
@@ -3279,6 +3284,468 @@ export function useGetTodaySchedule<TData = Awaited<ReturnType<typeof getTodaySc
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetTodayScheduleQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListStaffUrl = () => {
+
+
+
+
+  return `/api/staff`
+}
+
+/**
+ * @summary List staff records
+ */
+export const listStaff = async ( options?: RequestInit): Promise<StaffSource[]> => {
+
+  return customFetch<StaffSource[]>(getListStaffUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListStaffQueryKey = () => {
+    return [
+    `/api/staff`
+    ] as const;
+    }
+
+
+export const getListStaffQueryOptions = <TData = Awaited<ReturnType<typeof listStaff>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListStaffQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listStaff>>> = ({ signal }) => listStaff({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListStaffQueryResult = NonNullable<Awaited<ReturnType<typeof listStaff>>>
+export type ListStaffQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List staff records
+ */
+
+export function useListStaff<TData = Awaited<ReturnType<typeof listStaff>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListStaffQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetStaffUrl = (id: string,) => {
+
+
+
+
+  return `/api/staff/${id}`
+}
+
+/**
+ * @summary Get a staff record and assigned courses
+ */
+export const getStaff = async (id: string, options?: RequestInit): Promise<StaffRecord> => {
+
+  return customFetch<StaffRecord>(getGetStaffUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStaffQueryKey = (id: string,) => {
+    return [
+    `/api/staff/${id}`
+    ] as const;
+    }
+
+
+export const getGetStaffQueryOptions = <TData = Awaited<ReturnType<typeof getStaff>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStaffQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStaff>>> = ({ signal }) => getStaff(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStaffQueryResult = NonNullable<Awaited<ReturnType<typeof getStaff>>>
+export type GetStaffQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a staff record and assigned courses
+ */
+
+export function useGetStaff<TData = Awaited<ReturnType<typeof getStaff>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStaffQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetStaffTimetableUrl = (id: string,) => {
+
+
+
+
+  return `/api/staff/${id}/timetable`
+}
+
+/**
+ * @summary Get a staff member's timetable
+ */
+export const getStaffTimetable = async (id: string, options?: RequestInit): Promise<StaffTimetableResponse> => {
+
+  return customFetch<StaffTimetableResponse>(getGetStaffTimetableUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStaffTimetableQueryKey = (id: string,) => {
+    return [
+    `/api/staff/${id}/timetable`
+    ] as const;
+    }
+
+
+export const getGetStaffTimetableQueryOptions = <TData = Awaited<ReturnType<typeof getStaffTimetable>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaffTimetable>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStaffTimetableQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStaffTimetable>>> = ({ signal }) => getStaffTimetable(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStaffTimetable>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStaffTimetableQueryResult = NonNullable<Awaited<ReturnType<typeof getStaffTimetable>>>
+export type GetStaffTimetableQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a staff member's timetable
+ */
+
+export function useGetStaffTimetable<TData = Awaited<ReturnType<typeof getStaffTimetable>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaffTimetable>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStaffTimetableQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetStaffRegisterHistoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/staff/${id}/register-history`
+}
+
+/**
+ * @summary Get register history scoped to a staff member
+ */
+export const getStaffRegisterHistory = async (id: string, options?: RequestInit): Promise<StaffRegisterHistoryResponse> => {
+
+  return customFetch<StaffRegisterHistoryResponse>(getGetStaffRegisterHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStaffRegisterHistoryQueryKey = (id: string,) => {
+    return [
+    `/api/staff/${id}/register-history`
+    ] as const;
+    }
+
+
+export const getGetStaffRegisterHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getStaffRegisterHistory>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaffRegisterHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStaffRegisterHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStaffRegisterHistory>>> = ({ signal }) => getStaffRegisterHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStaffRegisterHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStaffRegisterHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getStaffRegisterHistory>>>
+export type GetStaffRegisterHistoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get register history scoped to a staff member
+ */
+
+export function useGetStaffRegisterHistory<TData = Awaited<ReturnType<typeof getStaffRegisterHistory>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaffRegisterHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStaffRegisterHistoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetStaffRoomBookingsUrl = (id: string,) => {
+
+
+
+
+  return `/api/staff/${id}/room-bookings`
+}
+
+/**
+ * @summary Get room bookings for a staff member
+ */
+export const getStaffRoomBookings = async (id: string, options?: RequestInit): Promise<StaffUnavailableRecordsResponse> => {
+
+  return customFetch<StaffUnavailableRecordsResponse>(getGetStaffRoomBookingsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStaffRoomBookingsQueryKey = (id: string,) => {
+    return [
+    `/api/staff/${id}/room-bookings`
+    ] as const;
+    }
+
+
+export const getGetStaffRoomBookingsQueryOptions = <TData = Awaited<ReturnType<typeof getStaffRoomBookings>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaffRoomBookings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStaffRoomBookingsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStaffRoomBookings>>> = ({ signal }) => getStaffRoomBookings(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStaffRoomBookings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStaffRoomBookingsQueryResult = NonNullable<Awaited<ReturnType<typeof getStaffRoomBookings>>>
+export type GetStaffRoomBookingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get room bookings for a staff member
+ */
+
+export function useGetStaffRoomBookings<TData = Awaited<ReturnType<typeof getStaffRoomBookings>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaffRoomBookings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStaffRoomBookingsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetStaffCorrespondenceUrl = (id: string,) => {
+
+
+
+
+  return `/api/staff/${id}/correspondence`
+}
+
+/**
+ * @summary Get correspondence for a staff member
+ */
+export const getStaffCorrespondence = async (id: string, options?: RequestInit): Promise<StaffUnavailableRecordsResponse> => {
+
+  return customFetch<StaffUnavailableRecordsResponse>(getGetStaffCorrespondenceUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStaffCorrespondenceQueryKey = (id: string,) => {
+    return [
+    `/api/staff/${id}/correspondence`
+    ] as const;
+    }
+
+
+export const getGetStaffCorrespondenceQueryOptions = <TData = Awaited<ReturnType<typeof getStaffCorrespondence>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaffCorrespondence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStaffCorrespondenceQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStaffCorrespondence>>> = ({ signal }) => getStaffCorrespondence(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStaffCorrespondence>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStaffCorrespondenceQueryResult = NonNullable<Awaited<ReturnType<typeof getStaffCorrespondence>>>
+export type GetStaffCorrespondenceQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get correspondence for a staff member
+ */
+
+export function useGetStaffCorrespondence<TData = Awaited<ReturnType<typeof getStaffCorrespondence>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStaffCorrespondence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStaffCorrespondenceQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

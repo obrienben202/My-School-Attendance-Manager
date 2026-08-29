@@ -32,6 +32,8 @@ tags:
     description: Concierge applicant and application operations
   - name: eprogressions
     description: eProgression submission and pending queue
+  - name: staff
+    description: Staff records and staff-scoped read-only views
 
 paths:
   /healthz:
@@ -909,6 +911,134 @@ paths:
                 items:
                   $ref: "#/components/schemas/ScheduleEntry"
 
+  /staff:
+    get:
+      operationId: listStaff
+      tags: [staff]
+      summary: List staff records
+      responses:
+        "200":
+          description: Staff records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffSource"
+
+  /staff/{id}:
+    get:
+      operationId: getStaff
+      tags: [staff]
+      summary: Get a staff record and assigned courses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Staff record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRecord"
+        "404":
+          description: Staff member not found
+
+  /staff/{id}/timetable:
+    get:
+      operationId: getStaffTimetable
+      tags: [staff]
+      summary: Get a staff member's timetable
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Staff timetable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffTimetableResponse"
+        "401":
+          description: Authentication required
+        "404":
+          description: Staff member not found
+
+  /staff/{id}/register-history:
+    get:
+      operationId: getStaffRegisterHistory
+      tags: [staff]
+      summary: Get register history scoped to a staff member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Staff register history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRegisterHistoryResponse"
+        "401":
+          description: Authentication required
+        "404":
+          description: Staff member not found
+
+  /staff/{id}/room-bookings:
+    get:
+      operationId: getStaffRoomBookings
+      tags: [staff]
+      summary: Get room bookings for a staff member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Room bookings or explicit unavailable-source state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffUnavailableRecordsResponse"
+        "401":
+          description: Authentication required
+        "404":
+          description: Staff member not found
+
+  /staff/{id}/correspondence:
+    get:
+      operationId: getStaffCorrespondence
+      tags: [staff]
+      summary: Get correspondence for a staff member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Correspondence or explicit unavailable-source state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffUnavailableRecordsResponse"
+        "401":
+          description: Authentication required
+        "404":
+          description: Staff member not found
+
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -1500,6 +1630,117 @@ components:
         - courseCode
         - courseName
         - registerMarked
+
+    StaffSource:
+      type: object
+      required: [id, fullName]
+      properties:
+        id: { type: string }
+        fullName: { type: string }
+        firstName: { type: ["string", "null"] }
+        lastName: { type: ["string", "null"] }
+        staffCode: { type: ["string", "null"] }
+        personCode: { type: ["string", "null"] }
+        title: { type: ["string", "null"] }
+        email: { type: ["string", "null"], format: email }
+        phone: { type: ["string", "null"] }
+        organisation: { type: ["string", "null"] }
+        position: { type: ["string", "null"] }
+        role: { type: ["string", "null"] }
+
+    StaffRecord:
+      allOf:
+        - $ref: "#/components/schemas/StaffSource"
+        - type: object
+          required: [courses]
+          properties:
+            courses:
+              type: array
+              items:
+                $ref: "#/components/schemas/StaffCourse"
+
+    StaffCourse:
+      type: object
+      required: [id, code, name, enrolledCount, isActive]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        room: { type: ["string", "null"] }
+        staffName: { type: ["string", "null"] }
+        yearGroup: { type: ["string", "null"] }
+        enrolledCount: { type: integer }
+        isActive: { type: boolean }
+
+    StaffTimetableResponse:
+      type: object
+      required: [staffId, staffName, records]
+      properties:
+        staffId: { type: string }
+        staffName: { type: string }
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffTimetableRecord"
+
+    StaffTimetableRecord:
+      type: object
+      required: [id, source, day, startTime, endTime]
+      properties:
+        id: { type: string }
+        source: { type: string, enum: [course, staff] }
+        courseId: { type: ["integer", "null"] }
+        courseCode: { type: ["string", "null"] }
+        courseName: { type: ["string", "null"] }
+        day: { type: ["string", "null"] }
+        startTime: { type: string }
+        endTime: { type: string }
+        room: { type: ["string", "null"] }
+        weekPattern: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        groupLabel: { type: ["string", "null"] }
+        registerMarked: { type: ["boolean", "null"] }
+
+    StaffRegisterHistoryResponse:
+      type: object
+      required: [staffId, staffName, records]
+      properties:
+        staffId: { type: string }
+        staffName: { type: string }
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffRegisterHistoryRecord"
+
+    StaffRegisterHistoryRecord:
+      type: object
+      required: [id, courseId, courseCode, courseName, scheduleCount, markedScheduleCount, attendanceRecords, present, absent, late, authorised]
+      properties:
+        id: { type: integer }
+        courseId: { type: integer }
+        courseCode: { type: string }
+        courseName: { type: string }
+        room: { type: ["string", "null"] }
+        scheduleCount: { type: integer }
+        markedScheduleCount: { type: integer }
+        attendanceRecords: { type: integer }
+        present: { type: integer }
+        absent: { type: integer }
+        late: { type: integer }
+        authorised: { type: integer }
+        lastAttendanceDate: { type: ["string", "null"], format: date }
+
+    StaffUnavailableRecordsResponse:
+      type: object
+      required: [staffId, staffName, sourceAvailable, records, message]
+      properties:
+        staffId: { type: string }
+        staffName: { type: string }
+        sourceAvailable: { type: boolean }
+        records:
+          type: array
+          items: {}
+        message: { type: string }
 
     Eprogression:
       type: object

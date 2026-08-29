@@ -358,6 +358,120 @@ export interface ScheduleEntry {
   registerMarked: boolean;
 }
 
+export interface StaffSource {
+  id: string;
+  fullName: string;
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+  /** @nullable */
+  staffCode?: string | null;
+  /** @nullable */
+  personCode?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  organisation?: string | null;
+  /** @nullable */
+  position?: string | null;
+  /** @nullable */
+  role?: string | null;
+}
+
+export interface StaffCourse {
+  id: number;
+  code: string;
+  name: string;
+  /** @nullable */
+  room?: string | null;
+  /** @nullable */
+  staffName?: string | null;
+  /** @nullable */
+  yearGroup?: string | null;
+  enrolledCount: number;
+  isActive: boolean;
+}
+
+export type StaffRecord = StaffSource & {
+  courses: StaffCourse[];
+};
+
+export type StaffTimetableRecordSource = typeof StaffTimetableRecordSource[keyof typeof StaffTimetableRecordSource];
+
+
+export const StaffTimetableRecordSource = {
+  course: 'course',
+  staff: 'staff',
+} as const;
+
+export interface StaffTimetableRecord {
+  id: string;
+  source: StaffTimetableRecordSource;
+  /** @nullable */
+  courseId?: number | null;
+  /** @nullable */
+  courseCode?: string | null;
+  /** @nullable */
+  courseName?: string | null;
+  /** @nullable */
+  day: string | null;
+  startTime: string;
+  endTime: string;
+  /** @nullable */
+  room?: string | null;
+  /** @nullable */
+  weekPattern?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  groupLabel?: string | null;
+  /** @nullable */
+  registerMarked?: boolean | null;
+}
+
+export interface StaffTimetableResponse {
+  staffId: string;
+  staffName: string;
+  records: StaffTimetableRecord[];
+}
+
+export interface StaffRegisterHistoryRecord {
+  id: number;
+  courseId: number;
+  courseCode: string;
+  courseName: string;
+  /** @nullable */
+  room?: string | null;
+  scheduleCount: number;
+  markedScheduleCount: number;
+  attendanceRecords: number;
+  present: number;
+  absent: number;
+  late: number;
+  authorised: number;
+  /** @nullable */
+  lastAttendanceDate?: string | null;
+}
+
+export interface StaffRegisterHistoryResponse {
+  staffId: string;
+  staffName: string;
+  records: StaffRegisterHistoryRecord[];
+}
+
+export interface StaffUnavailableRecordsResponse {
+  staffId: string;
+  staffName: string;
+  sourceAvailable: boolean;
+  records: unknown[];
+  message: string;
+}
+
 export interface Eprogression {
   id: number;
   type: string;

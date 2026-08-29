@@ -912,3 +912,145 @@ export const GetTodayScheduleResponseItem = zod.object({
   "registerMarked": zod.boolean()
 })
 export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)
+
+
+/**
+ * @summary List staff records
+ */
+export const ListStaffResponseItem = zod.object({
+  "id": zod.string(),
+  "fullName": zod.string(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "staffCode": zod.string().nullish(),
+  "personCode": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "email": zod.string().email().nullish(),
+  "phone": zod.string().nullish(),
+  "organisation": zod.string().nullish(),
+  "position": zod.string().nullish(),
+  "role": zod.string().nullish()
+})
+export const ListStaffResponse = zod.array(ListStaffResponseItem)
+
+
+/**
+ * @summary Get a staff record and assigned courses
+ */
+export const GetStaffParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetStaffResponse = zod.object({
+  "id": zod.string(),
+  "fullName": zod.string(),
+  "firstName": zod.string().nullish(),
+  "lastName": zod.string().nullish(),
+  "staffCode": zod.string().nullish(),
+  "personCode": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "email": zod.string().email().nullish(),
+  "phone": zod.string().nullish(),
+  "organisation": zod.string().nullish(),
+  "position": zod.string().nullish(),
+  "role": zod.string().nullish()
+}).and(zod.object({
+  "courses": zod.array(zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "room": zod.string().nullish(),
+  "staffName": zod.string().nullish(),
+  "yearGroup": zod.string().nullish(),
+  "enrolledCount": zod.number(),
+  "isActive": zod.boolean()
+}))
+}))
+
+
+/**
+ * @summary Get a staff member's timetable
+ */
+export const GetStaffTimetableParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetStaffTimetableResponse = zod.object({
+  "staffId": zod.string(),
+  "staffName": zod.string(),
+  "records": zod.array(zod.object({
+  "id": zod.string(),
+  "source": zod.enum(['course', 'staff']),
+  "courseId": zod.number().nullish(),
+  "courseCode": zod.string().nullish(),
+  "courseName": zod.string().nullish(),
+  "day": zod.string().nullable(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "room": zod.string().nullish(),
+  "weekPattern": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "groupLabel": zod.string().nullish(),
+  "registerMarked": zod.boolean().nullish()
+}))
+})
+
+
+/**
+ * @summary Get register history scoped to a staff member
+ */
+export const GetStaffRegisterHistoryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetStaffRegisterHistoryResponse = zod.object({
+  "staffId": zod.string(),
+  "staffName": zod.string(),
+  "records": zod.array(zod.object({
+  "id": zod.number(),
+  "courseId": zod.number(),
+  "courseCode": zod.string(),
+  "courseName": zod.string(),
+  "room": zod.string().nullish(),
+  "scheduleCount": zod.number(),
+  "markedScheduleCount": zod.number(),
+  "attendanceRecords": zod.number(),
+  "present": zod.number(),
+  "absent": zod.number(),
+  "late": zod.number(),
+  "authorised": zod.number(),
+  "lastAttendanceDate": zod.coerce.date().nullish()
+}))
+})
+
+
+/**
+ * @summary Get room bookings for a staff member
+ */
+export const GetStaffRoomBookingsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetStaffRoomBookingsResponse = zod.object({
+  "staffId": zod.string(),
+  "staffName": zod.string(),
+  "sourceAvailable": zod.boolean(),
+  "records": zod.array(zod.unknown()),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Get correspondence for a staff member
+ */
+export const GetStaffCorrespondenceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetStaffCorrespondenceResponse = zod.object({
+  "staffId": zod.string(),
+  "staffName": zod.string(),
+  "sourceAvailable": zod.boolean(),
+  "records": zod.array(zod.unknown()),
+  "message": zod.string()
+})

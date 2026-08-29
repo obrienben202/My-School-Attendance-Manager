@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useGetDashboardSummary, useGetTodaySchedule, useListTargets, useListCourses, useListStudents } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetTodaySchedule, useListTargets, useListCourses, useListStudents, useListStaff } from "@workspace/api-client-react";
+import type { StaffSource } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -721,10 +722,7 @@ const ROOM_TYPES = ["Classroom", "Laboratory", "Sports Hall", "IT Suite", "Music
 const SITES = ["Main Campus", "North Block", "South Annexe", "Sports Centre"];
 
 type RoomRow = { id: number; code: string; description: string; roomType: string; site: string };
-type StaffRow = { id: number; code: string; personCode: number; forename: string; middleNames: string; surname: string; title: string; organisation: string; };
-
-const POSITIONS = ["Teacher", "Head of Department", "Senior Teacher", "Assistant Principal", "Subject Leader", "Form Tutor"];
-const DEPARTMENTS = ["Business & Administration", "Mathematics", "English", "Science", "Arts", "Computing", "PE", "MFL"];
+type StaffRow = StaffSource;
 
 const SAMPLE_STAFF = [
   "Adams, Claire", "Bailey, James", "Carter, Helen", "Davies, Mark",
@@ -1109,7 +1107,7 @@ function StaffSearchResults({ results }: { results: StaffRow[] }) {
 
   const filtered = filter
     ? results.filter(r =>
-        `${r.code} ${r.surname} ${r.forename} ${r.organisation}`.toLowerCase().includes(filter.toLowerCase())
+        `${r.staffCode ?? ""} ${r.personCode ?? ""} ${r.fullName} ${r.organisation ?? ""}`.toLowerCase().includes(filter.toLowerCase())
       )
     : results;
 
@@ -1155,16 +1153,16 @@ function StaffSearchResults({ results }: { results: StaffRow[] }) {
             <tr key={r.id} className="hover:bg-slate-50">
               <td className="px-3 py-2">
                 <button onClick={() => navigate(`/staff/${r.id}`)} className="text-sky-700 hover:underline font-medium text-xs">
-                  {r.code}
+                  {r.staffCode ?? "Not provided"}
                 </button>
               </td>
-              <td className="px-3 py-2 text-slate-600 text-xs">{r.personCode}</td>
+              <td className="px-3 py-2 text-slate-600 text-xs">{r.personCode ?? "Not provided"}</td>
               <td className="px-3 py-2 text-xs">
                 <button onClick={() => navigate(`/staff/${r.id}`)} className="text-slate-800 hover:text-sky-700 hover:underline">
-                  {r.surname}, {r.forename}
+                  {r.fullName}
                 </button>
               </td>
-              <td className="px-3 py-2 text-slate-600 text-xs">{r.organisation}</td>
+              <td className="px-3 py-2 text-slate-600 text-xs">{r.organisation ?? "Not provided"}</td>
             </tr>
           ))}
         </tbody>
@@ -1192,7 +1190,7 @@ function StaffSearchResults({ results }: { results: StaffRow[] }) {
 }
 
 function StaffSearchTab() {
-  const { data: courses } = useListCourses();
+  const { data: allStaff = [], isLoading, isError, error, refetch } = useListStaff();
   const [staffCode, setStaffCode] = useState("");
   const [personCodeOp, setPersonCodeOp] = useState("=");
   const [personCode, setPersonCode] = useState("");
@@ -1208,29 +1206,14 @@ function StaffSearchTab() {
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<StaffRow[]>([]);
 
-  const allStaff: StaffRow[] = [...new Set((courses ?? []).map(c => c.staffName).filter(Boolean) as string[])]
-    .map((name, idx) => {
-      const parts = name.split(" ");
-      const fn = parts.slice(0, -1).join(" ") || name;
-      const sn = parts.length > 1 ? parts[parts.length - 1] : "";
-      return {
-        id: idx,
-        code: String(8000 + idx),
-        personCode: 8100 + idx,
-        forename: fn,
-        middleNames: "",
-        surname: sn,
-        title: TITLES[idx % TITLES.length],
-        organisation: DEPARTMENTS[idx % DEPARTMENTS.length],
-      };
-    });
-
   function handleSearch() {
     const filtered = allStaff.filter(s => {
-      if (staffCode && !s.code.includes(staffCode)) return false;
-      if (forename && !s.forename.toLowerCase().includes(forename.toLowerCase())) return false;
-      if (surname && !s.surname.toLowerCase().includes(surname.toLowerCase())) return false;
-      if (organisationCode && !s.organisation.toLowerCase().includes(organisationCode.toLowerCase())) return false;
+      if (staffCode && !(s.staffCode ?? "").toLowerCase().includes(staffCode.toLowerCase())) return false;
+      if (personCode && !(s.personCode ?? "").includes(personCode)) return false;
+      if (forename && !(s.firstName ?? s.fullName).toLowerCase().includes(forename.toLowerCase())) return false;
+      if (middleNames && !s.fullName.toLowerCase().includes(middleNames.toLowerCase())) return false;
+      if (surname && !(s.lastName ?? s.fullName).toLowerCase().includes(surname.toLowerCase())) return false;
+      if (organisationCode && !(s.organisation ?? "").toLowerCase().includes(organisationCode.toLowerCase())) return false;
       if (title && s.title !== title) return false;
       return true;
     });
@@ -1333,10 +1316,17 @@ function StaffSearchTab() {
         </div>
 
         <div className="flex justify-end pt-1">
-          <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+          <Button onClick={handleSearch} disabled={isLoading || isError} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
         </div>
+        {isLoading && <div className="mt-4 space-y-2"><Skeleton className="h-9 w-full" /><Skeleton className="h-16 w-full" /></div>}
+        {isError && (
+          <div className="mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p>Staff records could not be loaded. {error instanceof Error ? error.message : ""}</p>
+            <button onClick={() => refetch()} className="mt-2 font-medium underline">Try again</button>
+          </div>
+        )}
         {searched && (
           <div className="mt-4">
             <StaffSearchResults results={results} />

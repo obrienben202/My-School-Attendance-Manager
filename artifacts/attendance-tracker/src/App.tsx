@@ -14,6 +14,7 @@ import RegisterDetail from "@/pages/register-detail";
 import ExamDetail from "@/pages/exam-detail";
 import RoomDetail from "@/pages/room-detail";
 import StaffDetail from "@/pages/staff-detail";
+import { StaffCorrespondence, StaffRegisterHistory, StaffRoomBookings, StaffTimetable } from "@/pages/staff-workflow";
 import Attendance from "@/pages/attendance";
 import Targets from "@/pages/targets";
 import Ilps from "@/pages/ilps";
@@ -71,6 +72,10 @@ function Router() {
         <Route path="/registers/:id" component={RegisterDetail} />
         <Route path="/exams/:id" component={ExamDetail} />
         <Route path="/rooms/:id" component={RoomDetail} />
+        <Route path="/staff/:id/room-bookings" component={StaffRoomBookings} />
+        <Route path="/staff/:id/timetable" component={StaffTimetable} />
+        <Route path="/staff/:id/register-history" component={StaffRegisterHistory} />
+        <Route path="/staff/:id/correspondence" component={StaffCorrespondence} />
         <Route path="/staff/:id" component={StaffDetail} />
         <Route path="/attendance" component={Attendance} />
         <Route path="/targets" component={Targets} />

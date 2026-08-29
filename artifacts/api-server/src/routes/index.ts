@@ -13,6 +13,7 @@ import conciergeRouter from "./concierge";
 import eprogressionsRouter from "./eprogressions";
 import syncRouter from "./sync";
 import hodRouter from "./hod";
+import staffRouter from "./staff";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(conciergeRouter);
 router.use(eprogressionsRouter);
 router.use(syncRouter);
 router.use(hodRouter);
+router.use(staffRouter);
 
 export default router;
