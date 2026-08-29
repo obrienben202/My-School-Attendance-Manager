@@ -962,6 +962,7 @@ export const GetTodayScheduleResponseItem = zod.object({
   "room": zod.string().nullish(),
   "staffName": zod.string().nullish(),
   "day": zod.string().nullish(),
+  "occurrenceDate": zod.coerce.date(),
   "registerMarked": zod.boolean()
 })
 export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)

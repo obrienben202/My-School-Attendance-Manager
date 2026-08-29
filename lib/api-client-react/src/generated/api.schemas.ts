@@ -419,6 +419,7 @@ export interface ScheduleEntry {
   staffName?: string | null;
   /** @nullable */
   day?: string | null;
+  occurrenceDate: string;
   registerMarked: boolean;
 }
 

@@ -146,7 +146,7 @@ function StaffWorkflow({ kind }: { kind: WorkflowKind }) {
                 <table className="w-full min-w-[960px] text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
-                      {["Date", "Course", "Lesson", "Room", "Records", "P", "A", "L", "Auth."].map(label => (
+                      {["Date", "Course", "Lesson", "Room", "Records", "P", "A", "L", "Auth.", "Action"].map(label => (
                         <th key={label} className="px-3 py-2 text-left text-xs font-semibold text-slate-600">{label}</th>
                       ))}
                     </tr>
@@ -172,6 +172,14 @@ function StaffWorkflow({ kind }: { kind: WorkflowKind }) {
                         <td className="px-3 py-2 text-red-700">{session.absent}</td>
                         <td className="px-3 py-2 text-amber-700">{session.late}</td>
                         <td className="px-3 py-2 text-blue-700">{session.authorised}</td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => navigate(`/registers/${session.scheduleId}?date=${encodeURIComponent(session.sessionDate)}&staff=${encodeURIComponent(id)}`)}
+                            className="whitespace-nowrap rounded border border-sky-200 px-2 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50"
+                          >
+                            Open register
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -1736,6 +1736,9 @@ components:
           type: ["string", "null"]
         day:
           type: ["string", "null"]
+        occurrenceDate:
+          type: string
+          format: date
         registerMarked:
           type: boolean
       required:
@@ -1745,6 +1748,7 @@ components:
         - endTime
         - courseCode
         - courseName
+        - occurrenceDate
         - registerMarked
 
     StaffSource:

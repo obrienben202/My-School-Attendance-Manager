@@ -56,7 +56,13 @@ router.use("/attendance", (req, res, next) => {
 });
 
 router.get("/attendance", async (req, res) => {
-  const parsed = ListAttendanceRecordsQueryParams.safeParse(req.query);
+  const queryDate = typeof req.query.date === "string"
+    ? new Date(`${req.query.date}T00:00:00`)
+    : req.query.date;
+  const parsed = ListAttendanceRecordsQueryParams.safeParse({
+    ...req.query,
+    date: queryDate,
+  });
   if (!parsed.success) return res.status(400).json({ error: "Invalid query params" });
 
   const { studentId, courseId, scheduleId, date, status } = parsed.data;

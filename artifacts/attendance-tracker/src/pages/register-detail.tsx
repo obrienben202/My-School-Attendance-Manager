@@ -6,6 +6,7 @@ import {
   useListAttendanceRecords,
   useListCourses,
   useSubmitAttendanceRegister,
+  type AttendanceRecord,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ type RegisterStudent = {
   surname: string;
   atRisk: boolean;
 };
+const EMPTY_ATTENDANCE: AttendanceRecord[] = [];
 
 const STATUS_TO_API: Partial<Record<StatusCode, ApiStatus>> = {
   P: "present",
@@ -90,15 +92,6 @@ export default function RegisterDetail() {
   const staffContext = new URLSearchParams(window.location.search).get("staff");
   const { data: courses, isLoading: isCoursesLoading } = useListCourses();
   const { data: schedule = [], isLoading: isScheduleLoading } = useGetTodaySchedule();
-  const {
-    data: attendance = [],
-    isLoading: isAttendanceLoading,
-    refetch: refetchAttendance,
-  } = useListAttendanceRecords(
-    { scheduleId: id },
-    { query: { enabled: id > 0 } as any },
-  );
-  const submitAttendance = useSubmitAttendanceRegister();
 
   const [saved, setSaved] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -116,10 +109,20 @@ export default function RegisterDetail() {
   const [isPersisting, setIsPersisting] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
 
-  const sessionDate = useMemo(() => getLocalDate(), []);
   const scheduleEntry = schedule.find((entry) => entry.id === id);
   const scheduleIndex = schedule.findIndex((entry) => entry.id === id);
+  const requestedDate = new URLSearchParams(window.location.search).get("date");
+  const sessionDate = requestedDate || scheduleEntry?.occurrenceDate || getLocalDate();
   const course = courses?.find((c) => c.id === scheduleEntry?.courseId);
+  const {
+    data: attendance = EMPTY_ATTENDANCE,
+    isLoading: isAttendanceLoading,
+    refetch: refetchAttendance,
+  } = useListAttendanceRecords(
+    { scheduleId: id, date: sessionDate },
+    { query: { enabled: id > 0 && !!scheduleEntry } as any },
+  );
+  const submitAttendance = useSubmitAttendanceRegister();
   const {
     data: registerStudents = [],
     isLoading: isRosterLoading,
@@ -153,6 +156,12 @@ export default function RegisterDetail() {
   const sessionPin = useMemo(() => String((id * 7 + 1337) % 9000 + 1000), [id]);
 
   const isLocked = submitted && !editing;
+
+  function registerPath(scheduleId: number, occurrenceDate: string) {
+    const query = new URLSearchParams({ date: occurrenceDate });
+    if (staffContext) query.set("staff", staffContext);
+    return `/registers/${scheduleId}?${query.toString()}`;
+  }
 
   useEffect(() => {
     if (isAttendanceLoading) return;
@@ -255,11 +264,17 @@ export default function RegisterDetail() {
     { label: "View Full Course", action: () => navigate(`/courses/${course?.id ?? id}`) },
     {
       label: "Previous Session",
-      action: () => scheduleIndex > 0 && navigate(`/registers/${schedule[scheduleIndex - 1].id}`),
+      action: () => scheduleIndex > 0 && navigate(registerPath(
+        schedule[scheduleIndex - 1].id,
+        schedule[scheduleIndex - 1].occurrenceDate,
+      )),
     },
     {
       label: "Next Session",
-      action: () => scheduleIndex >= 0 && scheduleIndex < schedule.length - 1 && navigate(`/registers/${schedule[scheduleIndex + 1].id}`),
+      action: () => scheduleIndex >= 0 && scheduleIndex < schedule.length - 1 && navigate(registerPath(
+        schedule[scheduleIndex + 1].id,
+        schedule[scheduleIndex + 1].occurrenceDate,
+      )),
     },
     { label: "Lesson Plan", action: () => setActiveLink("Lesson Plan") },
     { label: "Register Audit", action: () => setActiveLink("Register Audit") },

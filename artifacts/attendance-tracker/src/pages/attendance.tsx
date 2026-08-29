@@ -33,39 +33,37 @@ export default function ERegisters() {
   const { data: courses = [], isLoading } = useListCourses();
   const { data: schedule = [], isLoading: isScheduleLoading } = useGetTodaySchedule();
   const { data: attendance = [], isLoading: isAttendanceLoading } = useListAttendanceRecords();
-  const sessionDate = useMemo(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  }, []);
 
   const registers = useMemo(() => {
     return schedule.map((entry) => {
       const course = courses.find((c) => c.id === entry.courseId);
       const sessionAttendance = attendance.filter(
-        (record) => record.scheduleId === entry.id && record.date === sessionDate,
+        (record) => record.scheduleId === entry.id && record.date === entry.occurrenceDate,
       );
       const status: RegisterStatus = sessionAttendance.length > 0
         ? "Submitted"
-        : entry.registerMarked
-          ? "Marked"
-          : "Open";
+        : "Open";
 
       return {
         id: entry.id,
         description: `${entry.courseCode} — ${entry.courseName}`,
         courseCode: entry.courseCode,
         courseName: entry.courseName,
-        date: sessionDate,
+        date: entry.occurrenceDate,
         day: entry.day ?? "Not provided",
         startTime: entry.startTime,
         endTime: entry.endTime,
         room: entry.room ?? course?.room ?? "Not provided",
         staff: entry.staffName ?? course?.staffName ?? "TBC",
-        status,
+        status: status as RegisterStatus,
         enrolled: course?.enrolledCount ?? 0,
       };
     });
-  }, [schedule, courses, attendance, sessionDate]);
+  }, [schedule, courses, attendance]);
+
+  function registerPath(id: number, occurrenceDate: string) {
+    return `/registers/${id}?date=${encodeURIComponent(occurrenceDate)}`;
+  }
 
   const filtered = useMemo(() => {
     let list = registers;
@@ -207,7 +205,7 @@ export default function ERegisters() {
                     <td className="px-4 py-2.5">
                       <button
                         className="font-medium text-blue-700 hover:underline text-left text-sm"
-                        onClick={() => navigate(`/registers/${r.id}`)}
+                        onClick={() => navigate(registerPath(r.id, r.date))}
                       >
                         {r.description}
                       </button>
@@ -233,7 +231,7 @@ export default function ERegisters() {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1"
-                          onClick={() => navigate(`/registers/${r.id}`)}
+                           onClick={() => navigate(registerPath(r.id, r.date))}
                         >
                           <Edit size={12} /> Edit Attendance
                         </Button>
@@ -241,7 +239,7 @@ export default function ERegisters() {
                         <Button
                           size="sm"
                           className="h-7 text-xs bg-teal-700 hover:bg-teal-800 gap-1"
-                          onClick={() => navigate(`/registers/${r.id}`)}
+                           onClick={() => navigate(registerPath(r.id, r.date))}
                         >
                           <PenSquare size={12} /> Mark Register
                         </Button>
@@ -256,7 +254,7 @@ export default function ERegisters() {
       </div>
 
       <p className="mt-3 text-xs text-gray-400">
-        Only eRegisters with today's date or a date in the past are displayed. Registers are automatically assigned based on your timetable.
+        Each eRegister is assigned to its most recent timetable occurrence. Registers are automatically assigned based on your timetable.
       </p>
     </div>
   );
