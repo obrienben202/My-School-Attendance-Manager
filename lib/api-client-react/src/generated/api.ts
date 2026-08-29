@@ -53,6 +53,8 @@ import type {
   LogoutSuccess,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
+  PlannedAbsence,
+  PlannedAbsenceInput,
   ScheduleEntry,
   StaffRecord,
   StaffRegisterHistoryResponse,
@@ -388,6 +390,154 @@ export const useCreateStudent = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateStudentMutationOptions(options));
+    }
+
+export const getListPlannedAbsencesUrl = () => {
+
+
+
+
+  return `/api/planned-absences`
+}
+
+/**
+ * @summary List the authenticated user's planned absence requests
+ */
+export const listPlannedAbsences = async ( options?: RequestInit): Promise<PlannedAbsence[]> => {
+
+  return customFetch<PlannedAbsence[]>(getListPlannedAbsencesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPlannedAbsencesQueryKey = () => {
+    return [
+    `/api/planned-absences`
+    ] as const;
+    }
+
+
+export const getListPlannedAbsencesQueryOptions = <TData = Awaited<ReturnType<typeof listPlannedAbsences>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlannedAbsences>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPlannedAbsencesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlannedAbsences>>> = ({ signal }) => listPlannedAbsences({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPlannedAbsences>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPlannedAbsencesQueryResult = NonNullable<Awaited<ReturnType<typeof listPlannedAbsences>>>
+export type ListPlannedAbsencesQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List the authenticated user's planned absence requests
+ */
+
+export function useListPlannedAbsences<TData = Awaited<ReturnType<typeof listPlannedAbsences>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlannedAbsences>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPlannedAbsencesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreatePlannedAbsenceUrl = () => {
+
+
+
+
+  return `/api/planned-absences`
+}
+
+/**
+ * @summary Create a planned absence request for a learner
+ */
+export const createPlannedAbsence = async (plannedAbsenceInput: PlannedAbsenceInput, options?: RequestInit): Promise<PlannedAbsence> => {
+
+  return customFetch<PlannedAbsence>(getCreatePlannedAbsenceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      plannedAbsenceInput,)
+  }
+);}
+
+
+
+
+export const getCreatePlannedAbsenceMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlannedAbsence>>, TError,{data: BodyType<PlannedAbsenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPlannedAbsence>>, TError,{data: BodyType<PlannedAbsenceInput>}, TContext> => {
+
+const mutationKey = ['createPlannedAbsence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPlannedAbsence>>, {data: BodyType<PlannedAbsenceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPlannedAbsence(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePlannedAbsenceMutationResult = NonNullable<Awaited<ReturnType<typeof createPlannedAbsence>>>
+    export type CreatePlannedAbsenceMutationBody = BodyType<PlannedAbsenceInput>
+    export type CreatePlannedAbsenceMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Create a planned absence request for a learner
+ */
+export const useCreatePlannedAbsence = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlannedAbsence>>, TError,{data: BodyType<PlannedAbsenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPlannedAbsence>>,
+        TError,
+        {data: BodyType<PlannedAbsenceInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePlannedAbsenceMutationOptions(options));
     }
 
 export const getGetStudentUrl = (id: number,) => {

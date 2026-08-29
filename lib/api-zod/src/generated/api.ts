@@ -15,8 +15,6 @@ import * as zod from 'zod';
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
 })
-
-
 /**
  * @summary Get dashboard summary stats
  */
@@ -77,6 +75,47 @@ export const CreateStudentBody = zod.object({
   "yearGroup": zod.string().optional(),
   "atRisk": zod.boolean().optional(),
   "confirmedLearner": zod.boolean().optional()
+})
+
+
+/**
+ * @summary List the authenticated user's planned absence requests
+ */
+export const ListPlannedAbsencesResponseItem = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "learnerName": zod.string(),
+  "personCode": zod.string(),
+  "fromDate": zod.coerce.date(),
+  "toDate": zod.coerce.date(),
+  "reason": zod.string(),
+  "partDay": zod.boolean(),
+  "startTime": zod.string().nullish(),
+  "endTime": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "status": zod.enum(['pending']),
+  "submittedBy": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListPlannedAbsencesResponse = zod.array(ListPlannedAbsencesResponseItem)
+
+
+/**
+ * @summary Create a planned absence request for a learner
+ */
+
+export const createPlannedAbsenceBodyPartDayDefault = false;
+
+export const CreatePlannedAbsenceBody = zod.object({
+  "studentId": zod.number(),
+  "fromDate": zod.coerce.date(),
+  "toDate": zod.coerce.date(),
+  "reason": zod.string().min(1),
+  "partDay": zod.boolean().default(createPlannedAbsenceBodyPartDayDefault),
+  "startTime": zod.string().optional(),
+  "endTime": zod.string().optional(),
+  "notes": zod.string().optional()
 })
 
 
@@ -1112,8 +1151,6 @@ export const GetStaffRoomBookingsResponse = zod.object({
   "records": zod.array(zod.unknown()),
   "message": zod.string()
 })
-
-
 /**
  * @summary Get correspondence for a staff member
  */

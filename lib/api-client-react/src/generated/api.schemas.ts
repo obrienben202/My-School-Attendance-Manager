@@ -252,6 +252,46 @@ export interface AttendanceRegisterInput {
   marks: AttendanceRegisterMark[];
 }
 
+export type PlannedAbsenceStatus = typeof PlannedAbsenceStatus[keyof typeof PlannedAbsenceStatus];
+
+
+export const PlannedAbsenceStatus = {
+  pending: 'pending',
+} as const;
+
+export interface PlannedAbsence {
+  id: number;
+  studentId: number;
+  learnerName: string;
+  personCode: string;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+  partDay: boolean;
+  /** @nullable */
+  startTime?: string | null;
+  /** @nullable */
+  endTime?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  status: PlannedAbsenceStatus;
+  submittedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlannedAbsenceInput {
+  studentId: number;
+  fromDate: string;
+  toDate: string;
+  /** @minLength 1 */
+  reason: string;
+  partDay?: boolean;
+  startTime?: string;
+  endTime?: string;
+  notes?: string;
+}
+
 export interface Target {
   id: number;
   studentId: number;

@@ -34,6 +34,8 @@ tags:
     description: eProgression submission and pending queue
   - name: staff
     description: Staff records and staff-scoped read-only views
+  - name: planned-absences
+    description: Authenticated planned absence requests
 
 paths:
   /healthz:
@@ -119,6 +121,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Student"
+
+  /planned-absences:
+    get:
+      operationId: listPlannedAbsences
+      tags: [planned-absences]
+      summary: List the authenticated user's planned absence requests
+      responses:
+        "200":
+          description: Planned absence requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlannedAbsence"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createPlannedAbsence
+      tags: [planned-absences]
+      summary: Create a planned absence request for a learner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlannedAbsenceInput"
+      responses:
+        "201":
+          description: Planned absence request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlannedAbsence"
+        "400":
+          description: Invalid request or date range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /students/{id}:
     get:
@@ -1459,6 +1511,83 @@ components:
         status:
           type: string
           enum: [present, absent, late, authorised, excluded, distance_learning]
+        notes:
+          type: string
+
+    PlannedAbsence:
+      type: object
+      required:
+        - id
+        - studentId
+        - learnerName
+        - personCode
+        - fromDate
+        - toDate
+        - reason
+        - partDay
+        - status
+        - submittedBy
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        learnerName:
+          type: string
+        personCode:
+          type: string
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        reason:
+          type: string
+        partDay:
+          type: boolean
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending]
+        submittedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PlannedAbsenceInput:
+      type: object
+      required: [studentId, fromDate, toDate, reason]
+      properties:
+        studentId:
+          type: integer
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        reason:
+          type: string
+          minLength: 1
+        partDay:
+          type: boolean
+          default: false
+        startTime:
+          type: string
+        endTime:
+          type: string
         notes:
           type: string
 

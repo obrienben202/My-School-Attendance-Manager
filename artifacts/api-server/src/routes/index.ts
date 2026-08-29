@@ -14,6 +14,7 @@ import eprogressionsRouter from "./eprogressions";
 import syncRouter from "./sync";
 import hodRouter from "./hod";
 import staffRouter from "./staff";
+import plannedAbsencesRouter from "./planned-absences";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(eprogressionsRouter);
 router.use(syncRouter);
 router.use(hodRouter);
 router.use(staffRouter);
+router.use(plannedAbsencesRouter);
 
 export default router;

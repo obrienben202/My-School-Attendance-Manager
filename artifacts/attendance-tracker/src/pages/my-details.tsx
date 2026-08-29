@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
-import { useListCourses } from "@workspace/api-client-react";
+import { useListCourses, useListPlannedAbsences } from "@workspace/api-client-react";
 import {
   UserCircle, Mail, Phone, MapPin, Building2, BadgeCheck,
   Calendar, BookOpen, ClipboardList, Info, ExternalLink,
   ShieldCheck, Lock, Printer,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -45,6 +45,10 @@ function Row({ label, value }: { label: string; value?: string | null }) {
       <span className="text-sm text-gray-800">{value || "—"}</span>
     </div>
   );
+}
+
+function formatAbsenceDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB");
 }
 
 // ─── Timetable constants ────────────────────────────────────────────────────────
@@ -147,8 +151,11 @@ const EMPLOYMENT = {
 
 export default function MyDetails() {
   const { user } = useAuth();
-  const { data: courses = [] } = useListCourses({ query: { enabled: true } as any });
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [, navigate] = useLocation();
+  const { data: courses = [] } = useListCourses({ query: { enabled: true } as any });
+  const { data: plannedAbsences = [], isLoading: absencesLoading, isError: absencesError } =
+    useListPlannedAbsences({ query: { enabled: activeModal === "Planned Absences" } as any });
 
   const firstName = user?.firstName ?? "Staff";
   const lastName = user?.lastName ?? "Member";
@@ -590,27 +597,39 @@ export default function MyDetails() {
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-slate-500">Approved leave and planned absences on record.</p>
-              <button className="text-xs text-teal-700 border border-teal-200 rounded px-2 py-1 hover:bg-teal-50">+ Request Absence</button>
+              <p className="text-xs text-slate-500">Your submitted planned absence requests.</p>
+              <button
+                className="text-xs text-teal-700 border border-teal-200 rounded px-2 py-1 hover:bg-teal-50"
+                onClick={() => {
+                  setActiveModal(null);
+                  navigate("/planned-absence?create=1");
+                }}
+              >
+                + Request Absence
+              </button>
             </div>
             <table className="w-full text-xs border-collapse">
               <thead><tr className="bg-teal-800 text-white">
-                {["Start Date", "End Date", "Reason", "Status", "Approved By"].map(h => (
+                {["Learner", "Start Date", "End Date", "Reason", "Status"].map(h => (
                   <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
                 ))}
               </tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {[
-                  { start: "15/07/2025", end: "25/07/2025", reason: "Annual Leave", status: "Approved", by: "Head of Dept" },
-                  { start: "28/10/2024", end: "01/11/2024", reason: "Annual Leave", status: "Approved", by: "Head of Dept" },
-                  { start: "14/02/2025", end: "14/02/2025", reason: "Medical Appointment", status: "Approved", by: "Line Manager" },
-                ].map(a => (
-                  <tr key={a.start} className="hover:bg-slate-50">
-                    <td className="px-3 py-1.5 text-slate-700">{a.start}</td>
-                    <td className="px-3 py-1.5 text-slate-700">{a.end}</td>
-                    <td className="px-3 py-1.5 text-slate-800 font-medium">{a.reason}</td>
-                    <td className="px-3 py-1.5"><span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border text-green-700 bg-green-50 border-green-200">{a.status}</span></td>
-                    <td className="px-3 py-1.5 text-slate-600">{a.by}</td>
+                {absencesLoading ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Loading requests…</td></tr>
+                ) : absencesError ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-red-600">Requests could not be loaded. Close and try again.</td></tr>
+                ) : plannedAbsences.length === 0 ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">No planned absence requests submitted.</td></tr>
+                ) : plannedAbsences.map(a => (
+                  <tr key={a.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-1.5 text-slate-800 font-medium">{a.learnerName}</td>
+                    <td className="px-3 py-1.5 text-slate-700">{formatAbsenceDate(a.fromDate)}</td>
+                    <td className="px-3 py-1.5 text-slate-700">{formatAbsenceDate(a.toDate)}</td>
+                    <td className="px-3 py-1.5 text-slate-800">{a.reason}</td>
+                    <td className="px-3 py-1.5">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border text-amber-700 bg-amber-50 border-amber-200">Pending</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
