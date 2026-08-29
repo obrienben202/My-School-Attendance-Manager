@@ -223,7 +223,7 @@ export const ListAttendanceRecordsQueryParams = zod.object({
   "courseId": zod.coerce.number().optional(),
   "scheduleId": zod.coerce.number().optional(),
   "date": zod.date().optional(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised']).optional()
+  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']).optional()
 })
 
 export const ListAttendanceRecordsResponseItem = zod.object({
@@ -232,7 +232,7 @@ export const ListAttendanceRecordsResponseItem = zod.object({
   "courseId": zod.number(),
   "scheduleId": zod.number().nullable(),
   "date": zod.coerce.date(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised']),
+  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
   "notes": zod.string().nullish(),
   "studentName": zod.string().nullish(),
   "courseName": zod.string().nullish(),
@@ -249,9 +249,37 @@ export const CreateAttendanceRecordBody = zod.object({
   "courseId": zod.number(),
   "scheduleId": zod.number(),
   "date": zod.coerce.date(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised']),
+  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
   "notes": zod.string().optional()
 })
+
+
+/**
+ * @summary Atomically submit all marks for a lesson register
+ */
+export const SubmitAttendanceRegisterBody = zod.object({
+  "scheduleId": zod.number(),
+  "date": zod.coerce.date(),
+  "marks": zod.array(zod.object({
+  "studentId": zod.number(),
+  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
+  "notes": zod.string().optional()
+}))
+})
+
+export const SubmitAttendanceRegisterResponseItem = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "courseId": zod.number(),
+  "scheduleId": zod.number().nullable(),
+  "date": zod.coerce.date(),
+  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
+  "notes": zod.string().nullish(),
+  "studentName": zod.string().nullish(),
+  "courseName": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const SubmitAttendanceRegisterResponse = zod.array(SubmitAttendanceRegisterResponseItem)
 
 
 /**
@@ -262,7 +290,7 @@ export const UpdateAttendanceRecordParams = zod.object({
 })
 
 export const UpdateAttendanceRecordBody = zod.object({
-  "status": zod.enum(['present', 'absent', 'late', 'authorised']).optional(),
+  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']).optional(),
   "notes": zod.string().optional(),
   "scheduleId": zod.number().optional()
 })
@@ -273,11 +301,19 @@ export const UpdateAttendanceRecordResponse = zod.object({
   "courseId": zod.number(),
   "scheduleId": zod.number().nullable(),
   "date": zod.coerce.date(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised']),
+  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
   "notes": zod.string().nullish(),
   "studentName": zod.string().nullish(),
   "courseName": zod.string().nullish(),
   "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete an attendance record
+ */
+export const DeleteAttendanceRecordParams = zod.object({
+  "id": zod.coerce.number()
 })
 
 
@@ -918,12 +954,14 @@ export const LogoutMobileSessionResponse = zod.object({
  */
 export const GetTodayScheduleResponseItem = zod.object({
   "id": zod.number(),
+  "courseId": zod.number(),
   "startTime": zod.string(),
   "endTime": zod.string(),
   "courseCode": zod.string(),
   "courseName": zod.string(),
   "room": zod.string().nullish(),
   "staffName": zod.string().nullish(),
+  "day": zod.string().nullish(),
   "registerMarked": zod.boolean()
 })
 export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)

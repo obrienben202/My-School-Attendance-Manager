@@ -254,7 +254,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [present, absent, late, authorised]
+            enum: [present, absent, late, authorised, excluded, distance_learning]
       responses:
         "200":
           description: Attendance records
@@ -282,6 +282,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/AttendanceRecord"
 
+  /attendance/register:
+    post:
+      operationId: submitAttendanceRegister
+      tags: [attendance]
+      summary: Atomically submit all marks for a lesson register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceRegisterInput"
+      responses:
+        "200":
+          description: Authoritative saved register marks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRecord"
+
   /attendance/{id}:
     patch:
       operationId: updateAttendanceRecord
@@ -306,6 +327,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AttendanceRecord"
+    delete:
+      operationId: deleteAttendanceRecord
+      tags: [attendance]
+      summary: Delete an attendance record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   /targets:
     get:
@@ -1348,7 +1382,7 @@ components:
           format: date
         status:
           type: string
-          enum: [present, absent, late, authorised]
+          enum: [present, absent, late, authorised, excluded, distance_learning]
         notes:
           type: ["string", "null"]
         studentName:
@@ -1381,7 +1415,7 @@ components:
           format: date
         status:
           type: string
-          enum: [present, absent, late, authorised]
+          enum: [present, absent, late, authorised, excluded, distance_learning]
         notes:
           type: string
       required:
@@ -1396,11 +1430,37 @@ components:
       properties:
         status:
           type: string
-          enum: [present, absent, late, authorised]
+          enum: [present, absent, late, authorised, excluded, distance_learning]
         notes:
           type: string
         scheduleId:
           type: integer
+
+    AttendanceRegisterInput:
+      type: object
+      required: [scheduleId, date, marks]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        marks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttendanceRegisterMark"
+
+    AttendanceRegisterMark:
+      type: object
+      required: [studentId, status]
+      properties:
+        studentId:
+          type: integer
+        status:
+          type: string
+          enum: [present, absent, late, authorised, excluded, distance_learning]
+        notes:
+          type: string
 
     Target:
       type: object
@@ -1660,6 +1720,8 @@ components:
       properties:
         id:
           type: integer
+        courseId:
+          type: integer
         startTime:
           type: string
         endTime:
@@ -1672,10 +1734,13 @@ components:
           type: ["string", "null"]
         staffName:
           type: ["string", "null"]
+        day:
+          type: ["string", "null"]
         registerMarked:
           type: boolean
       required:
         - id
+        - courseId
         - startTime
         - endTime
         - courseCode

@@ -8,6 +8,7 @@
 
 export interface ScheduleEntry {
   id: number;
+  courseId: number;
   startTime: string;
   endTime: string;
   courseCode: string;
@@ -16,5 +17,7 @@ export interface ScheduleEntry {
   room?: string | null;
   /** @nullable */
   staffName?: string | null;
+  /** @nullable */
+  day?: string | null;
   registerMarked: boolean;
 }

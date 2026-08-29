@@ -26,6 +26,7 @@ import type {
   AssessmentResultInput,
   AttendanceInput,
   AttendanceRecord,
+  AttendanceRegisterInput,
   AttendanceUpdate,
   AuthUserEnvelope,
   ConciergeApplication,
@@ -994,6 +995,77 @@ export const useCreateAttendanceRecord = <TError = ErrorType<unknown>,
       return useMutation(getCreateAttendanceRecordMutationOptions(options));
     }
 
+export const getSubmitAttendanceRegisterUrl = () => {
+
+
+
+
+  return `/api/attendance/register`
+}
+
+/**
+ * @summary Atomically submit all marks for a lesson register
+ */
+export const submitAttendanceRegister = async (attendanceRegisterInput: AttendanceRegisterInput, options?: RequestInit): Promise<AttendanceRecord[]> => {
+
+  return customFetch<AttendanceRecord[]>(getSubmitAttendanceRegisterUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      attendanceRegisterInput,)
+  }
+);}
+
+
+
+
+export const getSubmitAttendanceRegisterMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterInput>}, TContext> => {
+
+const mutationKey = ['submitAttendanceRegister'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitAttendanceRegister>>, {data: BodyType<AttendanceRegisterInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitAttendanceRegister(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitAttendanceRegisterMutationResult = NonNullable<Awaited<ReturnType<typeof submitAttendanceRegister>>>
+    export type SubmitAttendanceRegisterMutationBody = BodyType<AttendanceRegisterInput>
+    export type SubmitAttendanceRegisterMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Atomically submit all marks for a lesson register
+ */
+export const useSubmitAttendanceRegister = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitAttendanceRegister>>,
+        TError,
+        {data: BodyType<AttendanceRegisterInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitAttendanceRegisterMutationOptions(options));
+    }
+
 export const getUpdateAttendanceRecordUrl = (id: number,) => {
 
 
@@ -1064,6 +1136,76 @@ export const useUpdateAttendanceRecord = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateAttendanceRecordMutationOptions(options));
+    }
+
+export const getDeleteAttendanceRecordUrl = (id: number,) => {
+
+
+
+
+  return `/api/attendance/${id}`
+}
+
+/**
+ * @summary Delete an attendance record
+ */
+export const deleteAttendanceRecord = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteAttendanceRecordUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteAttendanceRecordMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAttendanceRecord>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAttendanceRecord>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteAttendanceRecord'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAttendanceRecord>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAttendanceRecord(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAttendanceRecordMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAttendanceRecord>>>
+
+    export type DeleteAttendanceRecordMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an attendance record
+ */
+export const useDeleteAttendanceRecord = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAttendanceRecord>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAttendanceRecord>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteAttendanceRecordMutationOptions(options));
     }
 
 export const getListTargetsUrl = (params?: ListTargetsParams,) => {

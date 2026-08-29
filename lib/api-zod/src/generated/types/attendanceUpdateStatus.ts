@@ -14,4 +14,6 @@ export const AttendanceUpdateStatus = {
   absent: 'absent',
   late: 'late',
   authorised: 'authorised',
+  excluded: 'excluded',
+  distance_learning: 'distance_learning',
 } as const;

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { useListCourses } from "@workspace/api-client-react";
+import { useGetTodaySchedule, useListAttendanceRecords, useListCourses } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +12,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, ChevronUp, ChevronDown, PenSquare, Edit } from "lucide-react";
-
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
 
 type RegisterStatus = "Open" | "Marked" | "Submitted";
 type SortField = "description" | "date" | "day" | "time" | "room" | "status";
@@ -34,40 +31,41 @@ export default function ERegisters() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const { data: courses = [], isLoading } = useListCourses();
-
-  // Generate a register session per course (deterministic from course ID)
-  const registers = useMemo(() => {
+  const { data: schedule = [], isLoading: isScheduleLoading } = useGetTodaySchedule();
+  const { data: attendance = [], isLoading: isAttendanceLoading } = useListAttendanceRecords();
+  const sessionDate = useMemo(() => {
     const today = new Date();
-    return courses.map((c) => {
-      const dayIdx = c.id % DAYS.length;
-      const timeIdx = c.id % START_TIMES.length;
-      const startTime = START_TIMES[timeIdx];
-      const [startH] = startTime.split(":").map(Number);
-      const endTime = `${String(startH + 1).padStart(2, "0")}:00`;
-      // Assign a date: today or recent past to simulate due registers
-      const offset = c.id % 7;
-      const d = new Date(today);
-      d.setDate(d.getDate() - offset);
-      const dateStr = d.toISOString().split("T")[0];
-      // Pseudo-status based on offset
-      const status: RegisterStatus = offset === 0 ? "Open" : offset <= 2 ? "Marked" : "Submitted";
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const registers = useMemo(() => {
+    return schedule.map((entry) => {
+      const course = courses.find((c) => c.id === entry.courseId);
+      const sessionAttendance = attendance.filter(
+        (record) => record.scheduleId === entry.id && record.date === sessionDate,
+      );
+      const status: RegisterStatus = sessionAttendance.length > 0
+        ? "Submitted"
+        : entry.registerMarked
+          ? "Marked"
+          : "Open";
 
       return {
-        id: c.id,
-        description: `${c.code} — ${c.name}`,
-        courseCode: c.code,
-        courseName: c.name,
-        date: dateStr,
-        day: DAYS[dayIdx],
-        startTime,
-        endTime,
-        room: c.room ?? `Rm ${(c.id % 20) + 1}`,
-        staff: c.staffName ?? "TBC",
+        id: entry.id,
+        description: `${entry.courseCode} — ${entry.courseName}`,
+        courseCode: entry.courseCode,
+        courseName: entry.courseName,
+        date: sessionDate,
+        day: entry.day ?? "Not provided",
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        room: entry.room ?? course?.room ?? "Not provided",
+        staff: entry.staffName ?? course?.staffName ?? "TBC",
         status,
-        enrolled: c.enrolledCount,
+        enrolled: course?.enrolledCount ?? 0,
       };
     });
-  }, [courses]);
+  }, [schedule, courses, attendance, sessionDate]);
 
   const filtered = useMemo(() => {
     let list = registers;
@@ -162,7 +160,7 @@ export default function ERegisters() {
 
       {/* Registers table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {isLoading ? (
+        {isLoading || isScheduleLoading || isAttendanceLoading ? (
           <div className="p-6 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-8 w-full" />

@@ -9,6 +9,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { normaliseStaffName, staffNameKey, staffNamesMatch } from "../lib/staff-identity";
+import { isStaffAssignedToSchedule } from "../lib/attendance-authorization";
 
 const router = Router();
 
@@ -116,8 +117,7 @@ function staffResponse(source: StaffSource, assignedCourses: CourseSource[]) {
   };
 }
 
-async function scopedSchedule(source: StaffSource, assignedCourses: CourseSource[]) {
-  const courseIds = new Set(assignedCourses.map(course => course.id));
+async function scopedSchedule(source: StaffSource) {
   const rows = await db
     .select({
       id: scheduleTable.id,
@@ -138,11 +138,7 @@ async function scopedSchedule(source: StaffSource, assignedCourses: CourseSource
     .where(eq(coursesTable.isActive, true))
     .orderBy(scheduleTable.day, scheduleTable.startTime);
 
-  return rows.filter(row =>
-    courseIds.has(row.courseId) ||
-    matchesStaff(row.courseStaffName, source.fullName) ||
-    matchesStaff(row.scheduleStaffName, source.fullName)
-  );
+  return rows.filter(row => isStaffAssignedToSchedule(source.fullName, row));
 }
 
 async function scopedStaffTimetable(source: StaffSource) {
@@ -173,7 +169,7 @@ router.get("/staff/:id/timetable", async (req, res) => {
   if (!record) return res.status(404).json({ error: "Staff member not found" });
 
   const [courseRows, personalRows] = await Promise.all([
-    scopedSchedule(record.source, record.assignedCourses),
+    scopedSchedule(record.source),
     scopedStaffTimetable(record.source),
   ]);
   const timetable = [
@@ -221,7 +217,7 @@ router.get("/staff/:id/register-history", async (req, res) => {
   const record = await loadStaffRecord(req.params.id);
   if (!record) return res.status(404).json({ error: "Staff member not found" });
 
-  const scheduleRows = await scopedSchedule(record.source, record.assignedCourses);
+  const scheduleRows = await scopedSchedule(record.source);
   const coursesById = new Map(
     record.assignedCourses.map(course => [course.id, {
       id: course.id,

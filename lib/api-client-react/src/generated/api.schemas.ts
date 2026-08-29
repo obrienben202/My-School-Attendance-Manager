@@ -168,6 +168,8 @@ export const AttendanceRecordStatus = {
   absent: 'absent',
   late: 'late',
   authorised: 'authorised',
+  excluded: 'excluded',
+  distance_learning: 'distance_learning',
 } as const;
 
 export interface AttendanceRecord {
@@ -195,6 +197,8 @@ export const AttendanceInputStatus = {
   absent: 'absent',
   late: 'late',
   authorised: 'authorised',
+  excluded: 'excluded',
+  distance_learning: 'distance_learning',
 } as const;
 
 export interface AttendanceInput {
@@ -214,12 +218,38 @@ export const AttendanceUpdateStatus = {
   absent: 'absent',
   late: 'late',
   authorised: 'authorised',
+  excluded: 'excluded',
+  distance_learning: 'distance_learning',
 } as const;
 
 export interface AttendanceUpdate {
   status?: AttendanceUpdateStatus;
   notes?: string;
   scheduleId?: number;
+}
+
+export type AttendanceRegisterMarkStatus = typeof AttendanceRegisterMarkStatus[keyof typeof AttendanceRegisterMarkStatus];
+
+
+export const AttendanceRegisterMarkStatus = {
+  present: 'present',
+  absent: 'absent',
+  late: 'late',
+  authorised: 'authorised',
+  excluded: 'excluded',
+  distance_learning: 'distance_learning',
+} as const;
+
+export interface AttendanceRegisterMark {
+  studentId: number;
+  status: AttendanceRegisterMarkStatus;
+  notes?: string;
+}
+
+export interface AttendanceRegisterInput {
+  scheduleId: number;
+  date: string;
+  marks: AttendanceRegisterMark[];
 }
 
 export interface Target {
@@ -378,6 +408,7 @@ export interface AssessmentResultInput {
 
 export interface ScheduleEntry {
   id: number;
+  courseId: number;
   startTime: string;
   endTime: string;
   courseCode: string;
@@ -386,6 +417,8 @@ export interface ScheduleEntry {
   room?: string | null;
   /** @nullable */
   staffName?: string | null;
+  /** @nullable */
+  day?: string | null;
   registerMarked: boolean;
 }
 
@@ -680,6 +713,8 @@ export const ListAttendanceRecordsStatus = {
   absent: 'absent',
   late: 'late',
   authorised: 'authorised',
+  excluded: 'excluded',
+  distance_learning: 'distance_learning',
 } as const;
 
 export type ListTargetsParams = {

@@ -9,12 +9,13 @@ router.get("/schedule/today", async (_req, res) => {
   const records = await db
     .select({
       id: scheduleTable.id,
+      courseId: scheduleTable.courseId,
       startTime: scheduleTable.startTime,
       endTime: scheduleTable.endTime,
       room: scheduleTable.room,
       staffName: scheduleTable.staffName,
+      day: scheduleTable.day,
       registerMarked: scheduleTable.registerMarked,
-      courseId: coursesTable.id,
       courseCode: coursesTable.code,
       courseName: coursesTable.name,
     })
@@ -25,12 +26,14 @@ router.get("/schedule/today", async (_req, res) => {
 
   return res.json(records.map(r => ({
     id: r.id,
+    courseId: r.courseId,
     startTime: r.startTime,
     endTime: r.endTime,
     courseCode: r.courseCode ?? "",
     courseName: r.courseName ?? "",
     room: r.room ?? null,
     staffName: r.staffName ?? null,
+    day: r.day ?? null,
     registerMarked: r.registerMarked,
   })));
 });

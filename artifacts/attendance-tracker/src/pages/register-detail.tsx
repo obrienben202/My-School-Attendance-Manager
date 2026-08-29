@@ -1,6 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useListCourses, useListStudents } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  useGetTodaySchedule,
+  useListAttendanceRecords,
+  useListCourses,
+  useSubmitAttendanceRegister,
+} from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,10 +22,39 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
 const STATUSES = ["P", "A", "L", "O", "E", "D", "N"] as const;
 type StatusCode = typeof STATUSES[number];
+type ApiStatus = "present" | "absent" | "late" | "authorised" | "excluded" | "distance_learning";
+type RegisterStudent = {
+  id: number;
+  personCode: string;
+  forename: string;
+  surname: string;
+  atRisk: boolean;
+};
+
+const STATUS_TO_API: Partial<Record<StatusCode, ApiStatus>> = {
+  P: "present",
+  A: "absent",
+  L: "late",
+  O: "authorised",
+  E: "excluded",
+  D: "distance_learning",
+};
+
+const API_TO_STATUS: Record<ApiStatus, StatusCode> = {
+  present: "P",
+  absent: "A",
+  late: "L",
+  authorised: "O",
+  excluded: "E",
+  distance_learning: "D",
+};
+
+function getLocalDate() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
 
 const STATUS_LABELS: Record<StatusCode, string> = {
   P: "Present", A: "Absent", L: "Late", O: "Other Authorised",
@@ -54,7 +89,16 @@ export default function RegisterDetail() {
   const id = parseInt(params.id || "0", 10);
   const staffContext = new URLSearchParams(window.location.search).get("staff");
   const { data: courses, isLoading: isCoursesLoading } = useListCourses();
-  const { data: students, isLoading: isStudentsLoading } = useListStudents();
+  const { data: schedule = [], isLoading: isScheduleLoading } = useGetTodaySchedule();
+  const {
+    data: attendance = [],
+    isLoading: isAttendanceLoading,
+    refetch: refetchAttendance,
+  } = useListAttendanceRecords(
+    { scheduleId: id },
+    { query: { enabled: id > 0 } as any },
+  );
+  const submitAttendance = useSubmitAttendanceRegister();
 
   const [saved, setSaved] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -69,16 +113,39 @@ export default function RegisterDetail() {
   const [showEditConfirm, setShowEditConfirm] = useState(false);
   const [showPinPanel, setShowPinPanel] = useState(false);
   const [preserveOnFill, setPreserveOnFill] = useState(true);
+  const [isPersisting, setIsPersisting] = useState(false);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
 
-  const course = courses?.find((c) => c.id === id);
-  const startTime = START_TIMES[id % START_TIMES.length];
-  const [startH] = startTime.split(":").map(Number);
-  const endTime = `${String(startH + 1).padStart(2, "0")}:00`;
-  const dayOfWeek = DAYS[id % DAYS.length];
-  const eventCode = course ? `${course.code}-${new Date().getFullYear().toString().slice(2)}-${String(id).padStart(4, "0")}` : "";
-  const registerStudents = useMemo(
-    () => (students ?? []).slice(0, Math.min(15, course?.enrolledCount ?? 10)),
-    [students, course]
+  const sessionDate = useMemo(() => getLocalDate(), []);
+  const scheduleEntry = schedule.find((entry) => entry.id === id);
+  const scheduleIndex = schedule.findIndex((entry) => entry.id === id);
+  const course = courses?.find((c) => c.id === scheduleEntry?.courseId);
+  const {
+    data: registerStudents = [],
+    isLoading: isRosterLoading,
+    isError: isRosterError,
+  } = useQuery<RegisterStudent[]>({
+    queryKey: ["course-students", scheduleEntry?.courseId],
+    queryFn: async () => {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const response = await fetch(
+        `${base}/api/courses/${scheduleEntry!.courseId}/students`,
+        { credentials: "include" },
+      );
+      if (!response.ok) throw new Error("The course roster could not be loaded.");
+      return response.json();
+    },
+    enabled: scheduleEntry?.courseId !== undefined,
+  });
+  const startTime = scheduleEntry?.startTime ?? "";
+  const endTime = scheduleEntry?.endTime ?? "";
+  const dayOfWeek = scheduleEntry?.day ?? "Not provided";
+  const eventCode = scheduleEntry
+    ? `${scheduleEntry.courseCode}-${new Date().getFullYear().toString().slice(2)}-${String(id).padStart(4, "0")}`
+    : "";
+  const existingAttendance = useMemo(
+    () => attendance.filter((record) => record.date === sessionDate),
+    [attendance, sessionDate],
   );
   const absentStudents = registerStudents.filter((s) => markings[s.id] === "A");
 
@@ -86,6 +153,21 @@ export default function RegisterDetail() {
   const sessionPin = useMemo(() => String((id * 7 + 1337) % 9000 + 1000), [id]);
 
   const isLocked = submitted && !editing;
+
+  useEffect(() => {
+    if (isAttendanceLoading) return;
+
+    const nextMarkings: Record<number, StatusCode> = {};
+    const nextComments: Record<number, string> = {};
+    existingAttendance.forEach((record) => {
+      nextMarkings[record.studentId] = API_TO_STATUS[record.status as ApiStatus] ?? "N";
+      if (record.notes) nextComments[record.studentId] = record.notes;
+    });
+    setMarkings(nextMarkings);
+    setComments(nextComments);
+    setSubmitted(existingAttendance.length > 0);
+    setSaved(existingAttendance.length > 0);
+  }, [existingAttendance, isAttendanceLoading]);
 
   function setMark(studentId: number, val: StatusCode) {
     if (isLocked) return;
@@ -115,10 +197,44 @@ export default function RegisterDetail() {
     setSaved(false);
   }
 
-  function handleSave() { setSaved(true); }
+  async function persistRegister() {
+    if (!scheduleEntry) return false;
 
-  function handleSubmitFinal() {
-    if (!saved) setSaved(true);
+    setIsPersisting(true);
+    setPersistenceError(null);
+    try {
+      const marks = registerStudents.flatMap((student) => {
+        const mark = markings[student.id];
+        const apiStatus = mark ? STATUS_TO_API[mark] : undefined;
+        if (!apiStatus) return [];
+        const notes = comments[student.id]?.trim();
+        return [{
+          studentId: student.id,
+          status: apiStatus,
+          ...(notes ? { notes } : {}),
+        }];
+      });
+
+      await submitAttendance.mutateAsync({
+        data: { scheduleId: id, date: sessionDate, marks },
+      });
+      await refetchAttendance();
+      return true;
+    } catch (error) {
+      setPersistenceError(error instanceof Error ? error.message : "The register could not be saved.");
+      return false;
+    } finally {
+      setIsPersisting(false);
+    }
+  }
+
+  async function handleSave() {
+    if (await persistRegister()) setSaved(true);
+  }
+
+  async function handleSubmitFinal() {
+    if (!(await persistRegister())) return;
+    setSaved(true);
     setSubmitted(true);
     setEditing(false);
     setShowSubmitConfirm(false);
@@ -137,8 +253,14 @@ export default function RegisterDetail() {
   const REGISTER_LINKS = [
     { label: "Session Summary", action: () => setActiveLink("Session Summary") },
     { label: "View Full Course", action: () => navigate(`/courses/${course?.id ?? id}`) },
-    { label: "Previous Session", action: () => id > 1 && navigate(`/registers/${id - 1}`) },
-    { label: "Next Session", action: () => navigate(`/registers/${id + 1}`) },
+    {
+      label: "Previous Session",
+      action: () => scheduleIndex > 0 && navigate(`/registers/${schedule[scheduleIndex - 1].id}`),
+    },
+    {
+      label: "Next Session",
+      action: () => scheduleIndex >= 0 && scheduleIndex < schedule.length - 1 && navigate(`/registers/${schedule[scheduleIndex + 1].id}`),
+    },
     { label: "Lesson Plan", action: () => setActiveLink("Lesson Plan") },
     { label: "Register Audit", action: () => setActiveLink("Register Audit") },
     { label: "eRegisters List", action: () => navigate("/attendance") },
@@ -150,10 +272,13 @@ export default function RegisterDetail() {
   const other = Object.values(markings).filter((v) => !["P", "A", "L"].includes(v)).length;
   const unmarked = registerStudents.length - Object.keys(markings).length;
 
-  if (isCoursesLoading || isStudentsLoading) {
+  if (isCoursesLoading || isRosterLoading || isScheduleLoading || isAttendanceLoading) {
     return <div className="space-y-4 p-6"><Skeleton className="h-8 w-64" /><Skeleton className="h-48 w-full" /></div>;
   }
-  if (!course) {
+  if (isRosterError) {
+    return <div className="p-12 text-center text-red-700">The course roster could not be loaded. Please try again.</div>;
+  }
+  if (!course || !scheduleEntry) {
     return <div className="p-12 text-center text-muted-foreground">Register not found.</div>;
   }
 
@@ -197,7 +322,7 @@ export default function RegisterDetail() {
             <div>
               <h1 className="text-base font-bold text-slate-800">Mark Register</h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                {course.name} ({eventCode}) &nbsp;|&nbsp; {dayOfWeek} {startTime}–{endTime} &nbsp;|&nbsp; Room: {course.room ?? "—"}
+                {course.name} ({eventCode}) &nbsp;|&nbsp; {dayOfWeek} {startTime}–{endTime} &nbsp;|&nbsp; Room: {scheduleEntry.room ?? course.room ?? "—"}
               </p>
             </div>
             <div className="flex gap-2 shrink-0 ml-4 flex-wrap justify-end">
@@ -212,13 +337,15 @@ export default function RegisterDetail() {
                 <>
                   <button
                     onClick={handleSave}
-                    className="flex items-center gap-1.5 text-xs bg-teal-700 text-white rounded px-2.5 py-1 hover:bg-teal-800"
+                    disabled={isPersisting}
+                    className="flex items-center gap-1.5 text-xs bg-teal-700 text-white rounded px-2.5 py-1 hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <Save className="w-3 h-3" /> Save
+                    <Save className="w-3 h-3" /> {isPersisting ? "Saving…" : "Save"}
                   </button>
                   <button
                     onClick={() => setShowSubmitConfirm(true)}
-                    className="flex items-center gap-1.5 text-xs bg-slate-700 text-white rounded px-2.5 py-1 hover:bg-slate-800"
+                    disabled={isPersisting}
+                    className="flex items-center gap-1.5 text-xs bg-slate-700 text-white rounded px-2.5 py-1 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Send className="w-3 h-3" /> Submit
                   </button>
@@ -260,6 +387,11 @@ export default function RegisterDetail() {
             {editing && (
               <div className="inline-flex items-center gap-1.5 bg-amber-600 text-white text-xs font-semibold px-3 py-1 rounded">
                 <Edit className="w-3 h-3" /> Editing submitted register — save and re-submit when done.
+              </div>
+            )}
+            {persistenceError && (
+              <div className="inline-flex items-center gap-1.5 border border-red-200 bg-red-50 text-red-700 text-xs font-semibold px-3 py-1 rounded">
+                <AlertTriangle className="w-3 h-3" /> {persistenceError}
               </div>
             )}
           </div>
@@ -311,11 +443,11 @@ export default function RegisterDetail() {
             <div className="px-5 py-4 grid grid-cols-2 gap-x-12">
               <div className="space-y-1">
                 <InfoRow label="Register Reference" value={eventCode} />
-                <InfoRow label="Session Date" value={new Date().toLocaleDateString("en-GB")} />
+                <InfoRow label="Session Date" value={new Date(`${sessionDate}T00:00:00`).toLocaleDateString("en-GB")} />
                 <InfoRow label="Day" value={dayOfWeek} />
                 <InfoRow label="Start Time" value={startTime} />
                 <InfoRow label="End Time" value={endTime} />
-                <InfoRow label="Room" value={course.room} />
+                <InfoRow label="Room" value={scheduleEntry.room ?? course.room} />
               </div>
               <div className="space-y-1">
                 <InfoRow
@@ -624,7 +756,13 @@ export default function RegisterDetail() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSubmitConfirm(false)}>Cancel</Button>
-            <Button onClick={handleSubmitFinal} className="bg-slate-700 hover:bg-slate-800">Submit Final</Button>
+            <Button
+              onClick={handleSubmitFinal}
+              disabled={isPersisting}
+              className="bg-slate-700 hover:bg-slate-800"
+            >
+              {isPersisting ? "Submitting…" : "Submit Final"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
