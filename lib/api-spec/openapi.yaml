@@ -798,7 +798,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/EprogressionInput"
+              $ref: "#/components/schemas/EprogressionUpdate"
       responses:
         "200":
           description: Updated
@@ -2302,6 +2302,7 @@ components:
       properties:
         type:
           type: string
+          enum: [learner, course]
         studentId:
           type: ["integer", "null"]
         courseId:
@@ -2314,20 +2315,31 @@ components:
           type: ["string", "null"]
         newProgressCode:
           type: string
+          minLength: 1
         progressDate:
           type: string
+          format: date
         comments:
           type: ["string", "null"]
         reason:
           type: ["string", "null"]
         status:
           type: string
+          enum: [Pending]
         submittedBy:
           type: ["string", "null"]
       required:
         - courseCode
         - newProgressCode
         - progressDate
+
+    EprogressionUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [Pending, Authorised, Rejected]
+      required: [status]
 
     ConciergeApplication:
       type: object

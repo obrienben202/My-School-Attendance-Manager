@@ -671,8 +671,23 @@ export interface Eprogression {
   submittedAt: string;
 }
 
+export type EprogressionInputType = typeof EprogressionInputType[keyof typeof EprogressionInputType];
+
+
+export const EprogressionInputType = {
+  learner: 'learner',
+  course: 'course',
+} as const;
+
+export type EprogressionInputStatus = typeof EprogressionInputStatus[keyof typeof EprogressionInputStatus];
+
+
+export const EprogressionInputStatus = {
+  Pending: 'Pending',
+} as const;
+
 export interface EprogressionInput {
-  type?: string;
+  type?: EprogressionInputType;
   /** @nullable */
   studentId?: number | null;
   /** @nullable */
@@ -682,15 +697,29 @@ export interface EprogressionInput {
   calOccCode?: string | null;
   /** @nullable */
   currentProgressCode?: string | null;
+  /** @minLength 1 */
   newProgressCode: string;
   progressDate: string;
   /** @nullable */
   comments?: string | null;
   /** @nullable */
   reason?: string | null;
-  status?: string;
+  status?: EprogressionInputStatus;
   /** @nullable */
   submittedBy?: string | null;
+}
+
+export type EprogressionUpdateStatus = typeof EprogressionUpdateStatus[keyof typeof EprogressionUpdateStatus];
+
+
+export const EprogressionUpdateStatus = {
+  Pending: 'Pending',
+  Authorised: 'Authorised',
+  Rejected: 'Rejected',
+} as const;
+
+export interface EprogressionUpdate {
+  status: EprogressionUpdateStatus;
 }
 
 export interface ConciergeApplication {

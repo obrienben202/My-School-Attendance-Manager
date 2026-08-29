@@ -5,9 +5,11 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { EprogressionInputStatus } from './eprogressionInputStatus';
+import type { EprogressionInputType } from './eprogressionInputType';
 
 export interface EprogressionInput {
-  type?: string;
+  type?: EprogressionInputType;
   /** @nullable */
   studentId?: number | null;
   /** @nullable */
@@ -17,13 +19,14 @@ export interface EprogressionInput {
   calOccCode?: string | null;
   /** @nullable */
   currentProgressCode?: string | null;
+  /** @minLength 1 */
   newProgressCode: string;
-  progressDate: string;
+  progressDate: Date;
   /** @nullable */
   comments?: string | null;
   /** @nullable */
   reason?: string | null;
-  status?: string;
+  status?: EprogressionInputStatus;
   /** @nullable */
   submittedBy?: string | null;
 }

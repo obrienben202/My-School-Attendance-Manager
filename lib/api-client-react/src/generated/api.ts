@@ -38,6 +38,7 @@ import type {
   DashboardSummary,
   Eprogression,
   EprogressionInput,
+  EprogressionUpdate,
   ErrorEnvelope,
   HealthStatus,
   Ilp,
@@ -2736,7 +2737,7 @@ export const getUpdateEprogressionUrl = (id: number,) => {
  * @summary Update eProgression status (authorise/reject)
  */
 export const updateEprogression = async (id: number,
-    eprogressionInput: EprogressionInput, options?: RequestInit): Promise<Eprogression> => {
+    eprogressionUpdate: EprogressionUpdate, options?: RequestInit): Promise<Eprogression> => {
 
   return customFetch<Eprogression>(getUpdateEprogressionUrl(id),
   {
@@ -2744,7 +2745,7 @@ export const updateEprogression = async (id: number,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(
-      eprogressionInput,)
+      eprogressionUpdate,)
   }
 );}
 
@@ -2752,8 +2753,8 @@ export const updateEprogression = async (id: number,
 
 
 export const getUpdateEprogressionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionUpdate>}, TContext> => {
 
 const mutationKey = ['updateEprogression'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2765,7 +2766,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEprogression>>, {id: number;data: BodyType<EprogressionInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEprogression>>, {id: number;data: BodyType<EprogressionUpdate>}> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateEprogression(id,data,requestOptions)
@@ -2779,18 +2780,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type UpdateEprogressionMutationResult = NonNullable<Awaited<ReturnType<typeof updateEprogression>>>
-    export type UpdateEprogressionMutationBody = BodyType<EprogressionInput>
+    export type UpdateEprogressionMutationBody = BodyType<EprogressionUpdate>
     export type UpdateEprogressionMutationError = ErrorType<unknown>
 
     /**
  * @summary Update eProgression status (authorise/reject)
  */
 export const useUpdateEprogression = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateEprogression>>,
         TError,
-        {id: number;data: BodyType<EprogressionInput>},
+        {id: number;data: BodyType<EprogressionUpdate>},
         TContext
       > => {
       return useMutation(getUpdateEprogressionMutationOptions(options));

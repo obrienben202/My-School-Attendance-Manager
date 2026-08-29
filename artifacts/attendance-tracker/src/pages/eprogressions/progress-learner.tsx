@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import {
+  type Eprogression,
   useGetStudent,
   useListCourses,
   useListEprogressions,
@@ -9,8 +10,8 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { formatDateOnly, toLocalDateOnlyValue } from "@/lib/date-only";
 import {
   Select,
   SelectContent,
@@ -63,9 +64,12 @@ export default function ProgressLearner() {
   const id = Number(params.id);
   const [, setLocation] = useLocation();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [completedRecords, setCompletedRecords] = useState<Eprogression[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [rows, setRows] = useState<Record<number, RowState>>({});
+  const submittingRef = useRef(false);
+  const { toast } = useToast();
 
   const { data: student } = useGetStudent(id, { query: { enabled: !!id } as any });
   const { data: courses = [] } = useListCourses({} as any);
@@ -76,7 +80,7 @@ export default function ProgressLearner() {
   const { mutateAsync: createProg } = useCreateEprogression();
   const { mutateAsync: deleteProg } = useDeleteEprogression();
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = toLocalDateOnlyValue();
 
   const getRow = (courseId: number): RowState =>
     rows[courseId] ?? { newProgressCode: "", progressDate: today, comments: "", reason: "" };
@@ -88,13 +92,32 @@ export default function ProgressLearner() {
     }));
 
   const dirtyRows = courses.filter((c) => rows[c.id]?.newProgressCode);
+  const invalidRows = dirtyRows.filter((course) => !getRow(course.id).progressDate);
+
+  const openConfirmation = () => {
+    if (dirtyRows.length === 0 || submittingRef.current) return;
+    if (invalidRows.length > 0) {
+      setSubmitError("Choose a progress date for every selected course.");
+      return;
+    }
+    setSubmitError(null);
+    setShowConfirm(true);
+  };
 
   const handleSubmit = async () => {
+    if (submittingRef.current || dirtyRows.length === 0) return;
+    if (invalidRows.length > 0) {
+      setSubmitError("Choose a progress date for every selected course.");
+      return;
+    }
+
+    submittingRef.current = true;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      for (const course of dirtyRows) {
+      const saved = await Promise.all(dirtyRows.map(async (course) => {
         const r = getRow(course.id);
-        await createProg({
+        return createProg({
           data: {
             type: "learner",
             studentId: id,
@@ -108,15 +131,25 @@ export default function ProgressLearner() {
             reason: r.reason || null,
             status: "Pending",
             submittedBy: student ? `${student.forename} ${student.surname}` : undefined,
-          } as any,
+          },
         });
-      }
+      }));
       await refetch();
       setRows({});
-      setSubmitting(false);
       setShowConfirm(false);
-      setSubmitted(true);
-    } catch {
+      setCompletedRecords(saved);
+      toast({
+        title: "eProgression saved",
+        description: `${saved.length} progression${saved.length === 1 ? "" : "s"} now await authorisation.`,
+      });
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "The progression could not be saved. Please try again.",
+      );
+    } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -243,13 +276,19 @@ export default function ProgressLearner() {
       {/* Submit */}
       <div className="flex justify-end mb-8">
         <Button
-          onClick={() => setShowConfirm(true)}
-          disabled={dirtyRows.length === 0}
+          onClick={openConfirmation}
+          disabled={dirtyRows.length === 0 || submitting}
           className="bg-blue-600 hover:bg-blue-700"
         >
           Submit ({dirtyRows.length} progression{dirtyRows.length !== 1 ? "s" : ""})
         </Button>
       </div>
+
+      {submitError && !showConfirm && (
+        <div role="alert" className="mb-6 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {submitError}
+        </div>
+      )}
 
       {/* Pending Progressions */}
       {pending.length > 0 && (
@@ -286,7 +325,7 @@ export default function ProgressLearner() {
                     </span>
                   </TableCell>
                   <TableCell className="text-sm text-gray-500">
-                    {new Date(p.progressDate).toLocaleDateString("en-GB")}
+                    {formatDateOnly(p.progressDate)}
                   </TableCell>
                   <TableCell className="text-sm text-gray-500">{p.comments ?? "—"}</TableCell>
                   <TableCell className="text-sm text-gray-500">{p.reason ?? "—"}</TableCell>
@@ -318,7 +357,12 @@ export default function ProgressLearner() {
       )}
 
       {/* Confirm modal */}
-      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+      <Dialog
+        open={showConfirm}
+        onOpenChange={(open) => {
+          if (!submittingRef.current) setShowConfirm(open);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Submit eProgressions?</DialogTitle>
@@ -339,14 +383,19 @@ export default function ProgressLearner() {
                     <span className="font-mono">{c.code}</span>
                     <span>→</span>
                     <span className="font-mono font-bold text-blue-700">{r.newProgressCode}</span>
-                    <span className="text-gray-400">({new Date(r.progressDate).toLocaleDateString("en-GB")})</span>
+                    <span className="text-gray-400">({formatDateOnly(r.progressDate)})</span>
                   </li>
                 );
               })}
             </ul>
+            {submitError && (
+              <p role="alert" className="rounded border border-red-200 bg-red-50 p-2 text-red-700">
+                {submitError}
+              </p>
+            )}
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={submitting}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={submitting}>
               {submitting ? "Submitting…" : "Submit"}
             </Button>
@@ -355,7 +404,12 @@ export default function ProgressLearner() {
       </Dialog>
 
       {/* Success modal */}
-      <Dialog open={submitted} onOpenChange={setSubmitted}>
+      <Dialog
+        open={completedRecords.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setCompletedRecords([]);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-700">
@@ -363,10 +417,11 @@ export default function ProgressLearner() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600">
-            The eProgression has been submitted successfully and is now awaiting authorisation.
+            {completedRecords.length} eProgression{completedRecords.length === 1 ? " has" : "s have"} been saved and
+            {completedRecords.length === 1 ? " is" : " are"} now awaiting authorisation.
           </p>
           <DialogFooter>
-            <Button onClick={() => setSubmitted(false)}>Close</Button>
+            <Button onClick={() => setCompletedRecords([])}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

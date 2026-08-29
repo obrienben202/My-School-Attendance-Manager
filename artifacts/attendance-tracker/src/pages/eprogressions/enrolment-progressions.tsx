@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import {
+  type Eprogression,
   useGetCourse,
   useListStudents,
   useListEprogressions,
@@ -9,6 +10,8 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { formatDateOnly, toLocalDateOnlyValue } from "@/lib/date-only";
 import {
   Select,
   SelectContent,
@@ -64,11 +67,14 @@ export default function EnrolmentProgressions() {
   const [, setLocation] = useLocation();
   const [rows, setRows] = useState<Record<number, RowState>>({});
   const [showConfirm, setShowConfirm] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [completedRecords, setCompletedRecords] = useState<Eprogression[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [fillMsg, setFillMsg] = useState<string | null>(null);
+  const submittingRef = useRef(false);
+  const { toast } = useToast();
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = toLocalDateOnlyValue();
 
   const { data: course } = useGetCourse(id, { query: { enabled: !!id } as any });
   const { data: allStudents = [] } = useListStudents();
@@ -102,14 +108,32 @@ export default function EnrolmentProgressions() {
   };
 
   const dirtyRows = enrolled.filter((s) => rows[s.id]?.newProgressCode);
+  const invalidRows = dirtyRows.filter((student) => !getRow(student.id).progressDate);
+
+  const openConfirmation = () => {
+    if (dirtyRows.length === 0 || submittingRef.current) return;
+    if (invalidRows.length > 0) {
+      setSubmitError("Choose a progress date for every selected learner.");
+      return;
+    }
+    setSubmitError(null);
+    setShowConfirm(true);
+  };
 
   const handleSubmit = async () => {
-    if (!course) return;
+    if (!course || submittingRef.current || dirtyRows.length === 0) return;
+    if (invalidRows.length > 0) {
+      setSubmitError("Choose a progress date for every selected learner.");
+      return;
+    }
+
+    submittingRef.current = true;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      for (const student of dirtyRows) {
+      const saved = await Promise.all(dirtyRows.map(async (student) => {
         const r = getRow(student.id);
-        await createProg({
+        return createProg({
           data: {
             type: "course",
             studentId: student.id,
@@ -123,15 +147,25 @@ export default function EnrolmentProgressions() {
             reason: r.reason || null,
             status: "Pending",
             submittedBy: `${student.forename} ${student.surname}`,
-          } as any,
+          },
         });
-      }
+      }));
       await refetch();
       setRows({});
-      setSubmitting(false);
       setShowConfirm(false);
-      setSubmitted(true);
-    } catch {
+      setCompletedRecords(saved);
+      toast({
+        title: "eProgressions saved",
+        description: `${saved.length} progression${saved.length === 1 ? "" : "s"} now await authorisation.`,
+      });
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "The progressions could not be saved. Please try again.",
+      );
+    } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -292,13 +326,19 @@ export default function EnrolmentProgressions() {
       {/* Submit */}
       <div className="flex justify-end mb-8">
         <Button
-          onClick={() => setShowConfirm(true)}
-          disabled={dirtyRows.length === 0}
+          onClick={openConfirmation}
+          disabled={dirtyRows.length === 0 || submitting}
           className="bg-blue-600 hover:bg-blue-700"
         >
           Submit ({dirtyRows.length} progression{dirtyRows.length !== 1 ? "s" : ""})
         </Button>
       </div>
+
+      {submitError && !showConfirm && (
+        <div role="alert" className="mb-6 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {submitError}
+        </div>
+      )}
 
       {/* Pending grid */}
       {pending.length > 0 && (
@@ -339,7 +379,7 @@ export default function EnrolmentProgressions() {
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-gray-500">
-                      {new Date(p.progressDate).toLocaleDateString("en-GB")}
+                      {formatDateOnly(p.progressDate)}
                     </TableCell>
                     <TableCell className="text-sm text-gray-500">{p.comments ?? "—"}</TableCell>
                     <TableCell className="text-sm text-gray-500">{p.reason ?? "—"}</TableCell>
@@ -380,7 +420,12 @@ export default function EnrolmentProgressions() {
       </Dialog>
 
       {/* Confirm submit */}
-      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+      <Dialog
+        open={showConfirm}
+        onOpenChange={(open) => {
+          if (!submittingRef.current) setShowConfirm(open);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Submit eProgressions?</DialogTitle></DialogHeader>
           <div className="text-sm text-gray-600 space-y-2">
@@ -391,9 +436,14 @@ export default function EnrolmentProgressions() {
             <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
               These will not update the source tables directly. Submissions will appear on the Agent Progressions tab for authorisation.
             </p>
+            {submitError && (
+              <p role="alert" className="rounded border border-red-200 bg-red-50 p-2 text-red-700">
+                {submitError}
+              </p>
+            )}
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={submitting}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={submitting}>
               {submitting ? "Submitting…" : "Submit"}
             </Button>
@@ -402,7 +452,12 @@ export default function EnrolmentProgressions() {
       </Dialog>
 
       {/* Success */}
-      <Dialog open={submitted} onOpenChange={setSubmitted}>
+      <Dialog
+        open={completedRecords.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setCompletedRecords([]);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-700">
@@ -410,9 +465,10 @@ export default function EnrolmentProgressions() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600">
-            The eProgressions have been submitted successfully and are now awaiting authorisation.
+            {completedRecords.length} eProgression{completedRecords.length === 1 ? " has" : "s have"} been saved and
+            {completedRecords.length === 1 ? " is" : " are"} now awaiting authorisation.
           </p>
-          <DialogFooter><Button onClick={() => setSubmitted(false)}>Close</Button></DialogFooter>
+          <DialogFooter><Button onClick={() => setCompletedRecords([])}>Close</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

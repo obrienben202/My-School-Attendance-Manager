@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useListEprogressions, useUpdateEprogression, useDeleteEprogression } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatDateOnly } from "@/lib/date-only";
 import {
   Select,
   SelectContent,
@@ -201,7 +202,7 @@ export default function EprogressionsHub() {
                     </span>
                   </TableCell>
                   <TableCell className="text-gray-500">
-                    {new Date(p.progressDate).toLocaleDateString("en-GB")}
+                    {formatDateOnly(p.progressDate)}
                   </TableCell>
                   <TableCell className="text-gray-500 max-w-[150px] truncate">
                     {p.reason ?? p.comments ?? "—"}
