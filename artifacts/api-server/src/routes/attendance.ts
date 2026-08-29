@@ -18,6 +18,7 @@ import {
 } from "@workspace/api-zod";
 import { canManageAttendanceSchedule } from "../lib/attendance-authorization";
 import { replaceAttendanceRegister } from "../lib/attendance-register";
+import { attendanceDateMatchesScheduleDay } from "../lib/schedule-day";
 
 const router = Router();
 
@@ -28,6 +29,7 @@ async function getScheduleAssignment(scheduleId: number) {
       courseId: scheduleTable.courseId,
       scheduleStaffName: scheduleTable.staffName,
       courseStaffName: coursesTable.staffName,
+      scheduleDay: scheduleTable.day,
     })
     .from(scheduleTable)
     .leftJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
@@ -111,6 +113,9 @@ router.post("/attendance", async (req, res) => {
   if (!schedule || schedule.courseId !== restAttendance.courseId) {
     return res.status(400).json({ error: "Schedule session does not belong to the selected course" });
   }
+  if (!attendanceDateMatchesScheduleDay(date, schedule.scheduleDay)) {
+    return res.status(400).json({ error: "Attendance date does not match the schedule day" });
+  }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
     return res.status(403).json({ error: "You are not assigned to this lesson register" });
   }
@@ -144,6 +149,9 @@ router.post("/attendance/register", async (req, res) => {
 
   const schedule = await getScheduleAssignment(scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!attendanceDateMatchesScheduleDay(date, schedule.scheduleDay)) {
+    return res.status(400).json({ error: "Attendance date does not match the schedule day" });
+  }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
     return res.status(403).json({ error: "You are not assigned to this lesson register" });
   }

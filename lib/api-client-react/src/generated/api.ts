@@ -1259,7 +1259,7 @@ export const createAttendanceRecord = async (attendanceInput: AttendanceInput, o
 
 
 
-export const getCreateAttendanceRecordMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateAttendanceRecordMutationOptions = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAttendanceRecord>>, TError,{data: BodyType<AttendanceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createAttendanceRecord>>, TError,{data: BodyType<AttendanceInput>}, TContext> => {
 
@@ -1288,12 +1288,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateAttendanceRecordMutationResult = NonNullable<Awaited<ReturnType<typeof createAttendanceRecord>>>
     export type CreateAttendanceRecordMutationBody = BodyType<AttendanceInput>
-    export type CreateAttendanceRecordMutationError = ErrorType<unknown>
+    export type CreateAttendanceRecordMutationError = ErrorType<ErrorEnvelope>
 
     /**
  * @summary Mark attendance
  */
-export const useCreateAttendanceRecord = <TError = ErrorType<unknown>,
+export const useCreateAttendanceRecord = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAttendanceRecord>>, TError,{data: BodyType<AttendanceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createAttendanceRecord>>,
@@ -1330,7 +1330,7 @@ export const submitAttendanceRegister = async (attendanceRegisterInput: Attendan
 
 
 
-export const getSubmitAttendanceRegisterMutationOptions = <TError = ErrorType<unknown>,
+export const getSubmitAttendanceRegisterMutationOptions = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof submitAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterInput>}, TContext> => {
 
@@ -1359,12 +1359,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SubmitAttendanceRegisterMutationResult = NonNullable<Awaited<ReturnType<typeof submitAttendanceRegister>>>
     export type SubmitAttendanceRegisterMutationBody = BodyType<AttendanceRegisterInput>
-    export type SubmitAttendanceRegisterMutationError = ErrorType<unknown>
+    export type SubmitAttendanceRegisterMutationError = ErrorType<ErrorEnvelope>
 
     /**
  * @summary Atomically submit all marks for a lesson register
  */
-export const useSubmitAttendanceRegister = <TError = ErrorType<unknown>,
+export const useSubmitAttendanceRegister = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof submitAttendanceRegister>>,

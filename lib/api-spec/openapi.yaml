@@ -400,6 +400,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Invalid attendance data, including a date whose weekday does not match the selected schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /attendance/register:
     post:
@@ -421,6 +427,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Invalid register data, including a date whose weekday does not match the selected schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /attendance/{id}:
     patch:

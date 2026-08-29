@@ -2,18 +2,9 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { scheduleTable, coursesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { getScheduleDayIndex } from "../lib/schedule-day";
 
 const router = Router();
-
-const DAY_TO_INDEX: Record<string, number> = {
-  sunday: 0,
-  monday: 1,
-  tuesday: 2,
-  wednesday: 3,
-  thursday: 4,
-  friday: 5,
-  saturday: 6,
-};
 
 function formatDate(date: Date) {
   return [
@@ -24,7 +15,7 @@ function formatDate(date: Date) {
 }
 
 function getLessonOccurrenceDate(day: string | null, referenceDate = new Date()) {
-  const targetDay = day ? DAY_TO_INDEX[day.trim().toLowerCase()] : undefined;
+  const targetDay = getScheduleDayIndex(day);
   if (targetDay === undefined) return formatDate(referenceDate);
 
   const occurrenceDate = new Date(referenceDate);

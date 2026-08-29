@@ -5,6 +5,7 @@ import {
   canManageAttendanceSchedule,
   isStaffAssignedToSchedule,
 } from "./attendance-authorization";
+import { attendanceDateMatchesScheduleDay } from "./schedule-day";
 
 function user(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -97,5 +98,37 @@ test("office users do not receive a privileged mutation exception", () => {
       courseStaffName: "Mr Matthew Shaper",
     }),
     false,
+  );
+});
+
+test("attendance dates are accepted when they match the timetable day", () => {
+  assert.equal(
+    attendanceDateMatchesScheduleDay(new Date("2026-08-24T00:00:00.000Z"), " Monday "),
+    true,
+  );
+});
+
+test("attendance dates are rejected when they do not match the timetable day", () => {
+  assert.equal(
+    attendanceDateMatchesScheduleDay(new Date("2026-08-25T00:00:00.000Z"), "Monday"),
+    false,
+  );
+});
+
+test("matching is based on weekday, so valid prior-week occurrences remain accepted", () => {
+  assert.equal(
+    attendanceDateMatchesScheduleDay(new Date("2026-08-17T00:00:00.000Z"), "Monday"),
+    true,
+  );
+});
+
+test("attendance dates remain accepted when a timetable day is missing", () => {
+  assert.equal(
+    attendanceDateMatchesScheduleDay(new Date("2026-08-25T00:00:00.000Z"), null),
+    true,
+  );
+  assert.equal(
+    attendanceDateMatchesScheduleDay(new Date("2026-08-25T00:00:00.000Z"), " "),
+    true,
   );
 });
