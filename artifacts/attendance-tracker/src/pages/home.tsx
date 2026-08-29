@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useGetDashboardSummary, useGetTodaySchedule, useListTargets, useListCourses, useListStudents, useListStaff } from "@workspace/api-client-react";
 import type { StaffSource } from "@workspace/api-client-react";
@@ -13,6 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { downloadStaffResults, filterStaffRows, type StaffExportFormat } from "@/lib/staff-export";
+import { getPagination } from "@/lib/pagination";
 
 type CourseRow = {
   id: number;
@@ -24,15 +27,62 @@ type CourseRow = {
   enrolledCount: number;
 };
 
+const SEARCH_PAGE_SIZE = 10;
+
+function SearchResultsFooter({
+  totalItems,
+  page,
+  onPageChange,
+}: {
+  totalItems: number;
+  page: number;
+  onPageChange: (page: number) => void;
+}) {
+  const pagination = getPagination(totalItems, page, SEARCH_PAGE_SIZE);
+  return (
+    <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
+      <span className="text-xs text-slate-500">
+        Showing {totalItems === 0 ? 0 : pagination.startIndex + 1} to {pagination.endIndex} of {totalItems} entries (max 100)
+      </span>
+      {pagination.totalPages > 1 && (
+        <div className="flex gap-1">
+          <button
+            type="button"
+            aria-label="Previous results page"
+            onClick={() => onPageChange(pagination.currentPage - 1)}
+            disabled={!pagination.canGoPrevious}
+            className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40"
+          >‹</button>
+          <span className="flex items-center px-1 text-xs text-slate-500">{pagination.currentPage + 1} / {pagination.totalPages}</span>
+          <button
+            type="button"
+            aria-label="Next results page"
+            onClick={() => onPageChange(pagination.currentPage + 1)}
+            disabled={!pagination.canGoNext}
+            className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40"
+          >›</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CourseSearchResults({ results }: { results: CourseRow[] }) {
   const [, navigate] = useLocation();
   const [filter, setFilter] = useState("");
+  const [page, setPage] = useState(0);
 
   const filtered = filter
     ? results.filter(c =>
         (c.code + " " + c.name).toLowerCase().includes(filter.toLowerCase())
       )
     : results;
+  const pagination = getPagination(filtered.length, page, SEARCH_PAGE_SIZE);
+  const pageRows = filtered.slice(pagination.startIndex, pagination.endIndex);
+
+  useEffect(() => {
+    setPage(pagination.currentPage);
+  }, [pagination.currentPage]);
 
   return (
     <div className="border border-slate-300 rounded overflow-hidden text-sm">
@@ -45,7 +95,7 @@ function CourseSearchResults({ results }: { results: CourseRow[] }) {
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500">Filter:</span>
-          <Input value={filter} onChange={e => setFilter(e.target.value)} className="h-6 w-32 text-xs px-2 py-0" />
+          <Input value={filter} onChange={e => { setFilter(e.target.value); setPage(0); }} className="h-6 w-32 text-xs px-2 py-0" />
         </div>
       </div>
       <table className="w-full">
@@ -66,7 +116,7 @@ function CourseSearchResults({ results }: { results: CourseRow[] }) {
               <td colSpan={6} className="px-3 py-6 text-center text-slate-400">No courses found.</td>
             </tr>
           ) : (
-            filtered.map(c => (
+            pageRows.map(c => (
               <tr key={c.id} className="hover:bg-blue-50 cursor-pointer" onClick={() => navigate(`/courses/${c.id}`)}>
                 <td className="px-3 py-2">
                   <span className="flex items-center gap-1.5">
@@ -84,13 +134,7 @@ function CourseSearchResults({ results }: { results: CourseRow[] }) {
           )}
         </tbody>
       </table>
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
-        <span className="text-xs text-slate-500">Showing 1 to {filtered.length} of {filtered.length} entries (max 100)</span>
-        <div className="flex gap-1">
-          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>‹</button>
-          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>›</button>
-        </div>
-      </div>
+      <SearchResultsFooter totalItems={filtered.length} page={page} onPageChange={setPage} />
     </div>
   );
 }
@@ -108,12 +152,19 @@ type StudentRow = {
 function LearnerSearchResults({ results }: { results: StudentRow[] }) {
   const [, navigate] = useLocation();
   const [filter, setFilter] = useState("");
+  const [page, setPage] = useState(0);
 
   const filtered = filter
     ? results.filter(s =>
         `${s.surname} ${s.forename}`.toLowerCase().includes(filter.toLowerCase())
       )
     : results;
+  const pagination = getPagination(filtered.length, page, SEARCH_PAGE_SIZE);
+  const pageRows = filtered.slice(pagination.startIndex, pagination.endIndex);
+
+  useEffect(() => {
+    setPage(pagination.currentPage);
+  }, [pagination.currentPage]);
 
   return (
     <div className="border border-slate-300 rounded overflow-hidden text-sm">
@@ -130,7 +181,7 @@ function LearnerSearchResults({ results }: { results: StudentRow[] }) {
           <span className="text-xs text-slate-500">Filter:</span>
           <Input
             value={filter}
-            onChange={e => setFilter(e.target.value)}
+            onChange={e => { setFilter(e.target.value); setPage(0); }}
             className="h-6 w-32 text-xs px-2 py-0"
             placeholder=""
           />
@@ -157,7 +208,7 @@ function LearnerSearchResults({ results }: { results: StudentRow[] }) {
               </td>
             </tr>
           ) : (
-            filtered.map(s => (
+            pageRows.map(s => (
               <tr
                 key={s.id}
                 className="hover:bg-blue-50 cursor-pointer"
@@ -179,16 +230,7 @@ function LearnerSearchResults({ results }: { results: StudentRow[] }) {
           )}
         </tbody>
       </table>
-      {/* Footer pagination */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
-        <span className="text-xs text-slate-500">
-          Showing 1 to {filtered.length} of {filtered.length} entries (max 100)
-        </span>
-        <div className="flex gap-1">
-          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>‹</button>
-          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>›</button>
-        </div>
-      </div>
+      <SearchResultsFooter totalItems={filtered.length} page={page} onPageChange={setPage} />
     </div>
   );
 }
@@ -303,10 +345,17 @@ type RegisterRow = {
 function RegisterSearchResults({ results }: { results: RegisterRow[] }) {
   const [, navigate] = useLocation();
   const [filter, setFilter] = useState("");
+  const [page, setPage] = useState(0);
 
   const filtered = filter
     ? results.filter(r => (r.name + " " + r.code).toLowerCase().includes(filter.toLowerCase()))
     : results;
+  const pagination = getPagination(filtered.length, page, SEARCH_PAGE_SIZE);
+  const pageRows = filtered.slice(pagination.startIndex, pagination.endIndex);
+
+  useEffect(() => {
+    setPage(pagination.currentPage);
+  }, [pagination.currentPage]);
 
   return (
     <div className="border border-slate-300 rounded overflow-hidden text-sm">
@@ -319,7 +368,7 @@ function RegisterSearchResults({ results }: { results: RegisterRow[] }) {
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500">Filter:</span>
-          <Input value={filter} onChange={e => setFilter(e.target.value)} className="h-6 w-32 text-xs px-2 py-0" />
+          <Input value={filter} onChange={e => { setFilter(e.target.value); setPage(0); }} className="h-6 w-32 text-xs px-2 py-0" />
         </div>
       </div>
       <table className="w-full">
@@ -340,7 +389,7 @@ function RegisterSearchResults({ results }: { results: RegisterRow[] }) {
               <td colSpan={7} className="px-3 py-6 text-center text-slate-400">No registers found.</td>
             </tr>
           ) : (
-            filtered.map(r => {
+            pageRows.map(r => {
               const startTime = START_TIMES_REG[r.id % START_TIMES_REG.length];
               const [h, m] = startTime.split(":").map(Number);
               const endTime = `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
@@ -364,13 +413,7 @@ function RegisterSearchResults({ results }: { results: RegisterRow[] }) {
           )}
         </tbody>
       </table>
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
-        <span className="text-xs text-slate-500">Showing 1 to {filtered.length} of {filtered.length} entries (max 100)</span>
-        <div className="flex gap-1">
-          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>‹</button>
-          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>›</button>
-        </div>
-      </div>
+      <SearchResultsFooter totalItems={filtered.length} page={page} onPageChange={setPage} />
     </div>
   );
 }
@@ -515,10 +558,17 @@ type ExamRow = {
 function ExamSearchResults({ results }: { results: ExamRow[] }) {
   const [, navigate] = useLocation();
   const [filter, setFilter] = useState("");
+  const [page, setPage] = useState(0);
 
   const filtered = filter
     ? results.filter(r => (r.name + " " + r.code).toLowerCase().includes(filter.toLowerCase()))
     : results;
+  const pagination = getPagination(filtered.length, page, SEARCH_PAGE_SIZE);
+  const pageRows = filtered.slice(pagination.startIndex, pagination.endIndex);
+
+  useEffect(() => {
+    setPage(pagination.currentPage);
+  }, [pagination.currentPage]);
 
   return (
     <div className="border border-slate-300 rounded overflow-hidden text-sm">
@@ -531,7 +581,7 @@ function ExamSearchResults({ results }: { results: ExamRow[] }) {
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500">Filter:</span>
-          <Input value={filter} onChange={e => setFilter(e.target.value)} className="h-6 w-32 text-xs px-2 py-0" />
+          <Input value={filter} onChange={e => { setFilter(e.target.value); setPage(0); }} className="h-6 w-32 text-xs px-2 py-0" />
         </div>
       </div>
       <table className="w-full">
@@ -552,7 +602,7 @@ function ExamSearchResults({ results }: { results: ExamRow[] }) {
               <td colSpan={8} className="px-3 py-6 text-center text-slate-400">No exams found.</td>
             </tr>
           ) : (
-            filtered.map(r => {
+            pageRows.map(r => {
               const idx = r.id % EXAM_START_TIMES.length;
               const examName = EXAM_NAMES_LIST[(r.id - 1) % EXAM_NAMES_LIST.length];
               const examCode = `${r.id * 374801}-${String(r.id).padStart(3, "0")}`;
@@ -577,13 +627,7 @@ function ExamSearchResults({ results }: { results: ExamRow[] }) {
           )}
         </tbody>
       </table>
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
-        <span className="text-xs text-slate-500">Showing 1 to {filtered.length} of {filtered.length} entries (max 100)</span>
-        <div className="flex gap-1">
-          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>‹</button>
-          <button className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-500 text-xs flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>›</button>
-        </div>
-      </div>
+      <SearchResultsFooter totalItems={filtered.length} page={page} onPageChange={setPage} />
     </div>
   );
 }
@@ -1101,18 +1145,36 @@ const TITLES = ["Mr", "Mrs", "Miss", "Ms", "Dr", "Prof"];
 
 function StaffSearchResults({ results }: { results: StaffRow[] }) {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [filter, setFilter] = useState("");
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(0);
 
-  const filtered = filter
-    ? results.filter(r =>
-        `${r.staffCode ?? ""} ${r.personCode ?? ""} ${r.fullName} ${r.organisation ?? ""}`.toLowerCase().includes(filter.toLowerCase())
-      )
-    : results;
+  const filtered = filterStaffRows(results, filter);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const pagination = getPagination(filtered.length, page, PAGE_SIZE);
+  const { totalPages, currentPage } = pagination;
+  const pageRows = filtered.slice(pagination.startIndex, pagination.endIndex);
+
+  useEffect(() => {
+    setPage(currentPage);
+  }, [currentPage]);
+
+  function handleExport(format: StaffExportFormat) {
+    try {
+      downloadStaffResults(filtered, format);
+      toast({
+        title: `${format.toUpperCase()} export downloaded`,
+        description: `${filtered.length} staff record${filtered.length === 1 ? "" : "s"} exported.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: error instanceof Error ? error.message : "The staff results could not be exported.",
+        variant: "destructive",
+      });
+    }
+  }
 
   if (results.length === 0) {
     return <div className="text-sm text-slate-400 py-3">No staff found matching the search criteria.</div>;
@@ -1126,12 +1188,16 @@ function StaffSearchResults({ results }: { results: StaffRow[] }) {
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500">Export:</span>
           {[
-            { label: "XLS", color: "bg-green-600" },
-            { label: "CSV", color: "bg-emerald-600" },
-            { label: "PDF", color: "bg-red-600" },
-            { label: "DOC", color: "bg-blue-700" },
-          ].map(({ label, color }) => (
-            <button key={label} className={`${color} text-white text-[10px] font-bold px-1.5 py-0.5 rounded`}>{label}</button>
+            { label: "XLS", format: "xls" as const, color: "bg-green-600" },
+            { label: "CSV", format: "csv" as const, color: "bg-emerald-600" },
+            { label: "PDF", format: "pdf" as const, color: "bg-red-600" },
+            { label: "DOC", format: "doc" as const, color: "bg-blue-700" },
+          ].map(({ label, format, color }) => (
+            <button
+              key={label}
+              onClick={() => handleExport(format)}
+              className={`${color} text-white text-[10px] font-bold px-1.5 py-0.5 rounded hover:opacity-90`}
+            >{label}</button>
           ))}
         </div>
         <div className="flex items-center gap-2 ml-auto">
@@ -1170,17 +1236,17 @@ function StaffSearchResults({ results }: { results: StaffRow[] }) {
 
       <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200">
         <span className="text-xs text-slate-500">
-          Showing {filtered.length === 0 ? 0 : page * PAGE_SIZE + 1} to {Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} entries (max 100)
+          Showing {filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1} to {Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} entries (max 100)
         </span>
         <div className="flex gap-1">
           <button
             onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
+            disabled={currentPage === 0}
             className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-600 text-xs flex items-center justify-center disabled:opacity-40 hover:bg-slate-100"
           >‹</button>
           <button
             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
+            disabled={currentPage >= totalPages - 1}
             className="w-7 h-7 rounded border border-slate-300 bg-white text-slate-600 text-xs flex items-center justify-center disabled:opacity-40 hover:bg-slate-100"
           >›</button>
         </div>
@@ -1351,11 +1417,79 @@ function StatsCard({ title, value, unit = "", colorClass = "bg-white text-slate-
   );
 }
 
+function DashboardPager({
+  page,
+  totalItems,
+  pageSize,
+  onPageChange,
+}: {
+  page: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  const pagination = getPagination(totalItems, page, pageSize);
+  const { totalPages, currentPage } = pagination;
+  if (totalPages <= 1) return null;
+  const start = pagination.startIndex + 1;
+  const end = pagination.endIndex;
+
+  return (
+    <div className="flex items-center justify-between px-4 py-2 border-t border-slate-200 bg-slate-50 text-xs text-slate-500">
+      <span>Showing {start} to {end} of {totalItems}</span>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          aria-label="Previous page"
+          onClick={() => onPageChange(Math.max(0, currentPage - 1))}
+          disabled={!pagination.canGoPrevious}
+          className="rounded border border-slate-300 bg-white px-2 py-1 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Previous
+        </button>
+        <span className="flex items-center px-1" aria-label={`Page ${currentPage + 1} of ${totalPages}`}>
+          {currentPage + 1} / {totalPages}
+        </span>
+        <button
+          type="button"
+          aria-label="Next page"
+          onClick={() => onPageChange(Math.min(totalPages - 1, currentPage + 1))}
+          disabled={!pagination.canGoNext}
+          className="rounded border border-slate-300 bg-white px-2 py-1 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const { data: summary } = useGetDashboardSummary();
   const { data: schedule, isLoading: isScheduleLoading } = useGetTodaySchedule();
   const { data: targets, isLoading: isTargetsLoading } = useListTargets({ overdue: true });
   const { data: courses, isLoading: isCoursesLoading } = useListCourses();
+  const [schedulePage, setSchedulePage] = useState(0);
+  const [targetsPage, setTargetsPage] = useState(0);
+  const [coursesPage, setCoursesPage] = useState(0);
+  const DASHBOARD_PAGE_SIZE = 5;
+
+  const schedulePagination = getPagination(schedule?.length ?? 0, schedulePage, DASHBOARD_PAGE_SIZE);
+  const targetsPagination = getPagination(targets?.length ?? 0, targetsPage, DASHBOARD_PAGE_SIZE);
+  const coursesPagination = getPagination(courses?.length ?? 0, coursesPage, DASHBOARD_PAGE_SIZE);
+  const scheduleRows = schedule?.slice(schedulePagination.startIndex, schedulePagination.endIndex) ?? [];
+  const targetRows = targets?.slice(targetsPagination.startIndex, targetsPagination.endIndex) ?? [];
+  const courseRows = courses?.slice(coursesPagination.startIndex, coursesPagination.endIndex) ?? [];
+
+  useEffect(() => {
+    setSchedulePage(schedulePagination.currentPage);
+  }, [schedulePagination.currentPage]);
+  useEffect(() => {
+    setTargetsPage(targetsPagination.currentPage);
+  }, [targetsPagination.currentPage]);
+  useEffect(() => {
+    setCoursesPage(coursesPagination.currentPage);
+  }, [coursesPagination.currentPage]);
 
   const [personCode, setPersonCode] = useState("");
   const [personCodeOp, setPersonCodeOp] = useState("=");
@@ -1618,22 +1752,30 @@ export default function Home() {
                 <Skeleton className="h-12 w-full" />
               </div>
             ) : schedule?.length ? (
-              <ul className="divide-y">
-                {schedule.map(entry => (
-                  <li key={entry.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
-                    <div>
-                      <p className="font-semibold text-sm">{entry.courseName}</p>
-                      <p className="text-xs text-muted-foreground">{entry.room} • {entry.staffName}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{entry.startTime} - {entry.endTime}</p>
-                      <Badge variant={entry.registerMarked ? "default" : "secondary"} className="mt-1 text-[10px]">
-                        {entry.registerMarked ? "Marked" : "Pending"}
-                      </Badge>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="divide-y">
+                  {scheduleRows.map(entry => (
+                    <li key={entry.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                      <div>
+                        <p className="font-semibold text-sm">{entry.courseName}</p>
+                        <p className="text-xs text-muted-foreground">{entry.room} • {entry.staffName}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{entry.startTime} - {entry.endTime}</p>
+                        <Badge variant={entry.registerMarked ? "default" : "secondary"} className="mt-1 text-[10px]">
+                          {entry.registerMarked ? "Marked" : "Pending"}
+                        </Badge>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <DashboardPager
+                  page={schedulePage}
+                  totalItems={schedule.length}
+                  pageSize={DASHBOARD_PAGE_SIZE}
+                  onPageChange={setSchedulePage}
+                />
+              </>
             ) : (
               <div className="p-8 text-center text-sm text-muted-foreground">No classes scheduled for today.</div>
             )}
@@ -1653,19 +1795,27 @@ export default function Home() {
                  <Skeleton className="h-12 w-full" />
                </div>
              ) : targets?.length ? (
-               <ul className="divide-y divide-red-100">
-                 {targets.map(target => (
-                   <li key={target.id} className="p-4 hover:bg-red-50/50 transition-colors">
-                     <div className="flex justify-between items-start mb-1">
-                       <p className="font-semibold text-sm text-red-900">{target.title}</p>
-                       <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded">
-                         Due {target.dueDate}
-                       </span>
-                     </div>
-                     <p className="text-xs text-red-700/80 line-clamp-1">{target.studentName}</p>
-                   </li>
-                 ))}
-               </ul>
+               <>
+                 <ul className="divide-y divide-red-100">
+                   {targetRows.map(target => (
+                     <li key={target.id} className="p-4 hover:bg-red-50/50 transition-colors">
+                       <div className="flex justify-between items-start mb-1">
+                         <p className="font-semibold text-sm text-red-900">{target.title}</p>
+                         <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded">
+                           Due {target.dueDate}
+                         </span>
+                       </div>
+                       <p className="text-xs text-red-700/80 line-clamp-1">{target.studentName}</p>
+                     </li>
+                   ))}
+                 </ul>
+                 <DashboardPager
+                   page={targetsPage}
+                   totalItems={targets.length}
+                   pageSize={DASHBOARD_PAGE_SIZE}
+                   onPageChange={setTargetsPage}
+                 />
+               </>
              ) : (
                <div className="p-8 text-center text-sm text-muted-foreground">No overdue targets.</div>
              )}
@@ -1685,17 +1835,25 @@ export default function Home() {
                  <Skeleton className="h-12 w-full" />
                </div>
              ) : courses?.length ? (
-               <ul className="divide-y">
-                 {courses.map(course => (
-                   <li key={course.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
-                     <div>
-                       <p className="font-semibold text-sm">{course.code}</p>
-                       <p className="text-xs text-muted-foreground">{course.name}</p>
-                     </div>
-                     <Badge variant="outline">{course.enrolledCount} learners</Badge>
-                   </li>
-                 ))}
-               </ul>
+               <>
+                 <ul className="divide-y">
+                   {courseRows.map(course => (
+                     <li key={course.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                       <div>
+                         <p className="font-semibold text-sm">{course.code}</p>
+                         <p className="text-xs text-muted-foreground">{course.name}</p>
+                       </div>
+                       <Badge variant="outline">{course.enrolledCount} learners</Badge>
+                     </li>
+                   ))}
+                 </ul>
+                 <DashboardPager
+                   page={coursesPage}
+                   totalItems={courses.length}
+                   pageSize={DASHBOARD_PAGE_SIZE}
+                   onPageChange={setCoursesPage}
+                 />
+               </>
              ) : (
                <div className="p-8 text-center text-sm text-muted-foreground">No courses assigned.</div>
              )}

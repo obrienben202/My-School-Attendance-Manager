@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { useParams } from "wouter";
 import { useListCourses, useListStudents } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronsUpDown } from "lucide-react";
+import { getPagination } from "@/lib/pagination";
 
 const EXAM_NAMES = [
   "Functional Skills English Level 1 - Reading",
@@ -40,6 +42,23 @@ export default function ExamDetail() {
   const { data: students, isLoading: isStudentsLoading } = useListStudents();
 
   const course = courses?.find((c) => c.id === id);
+  const [filter, setFilter] = useState("");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 5;
+  const entries = students?.slice(0, (id % 6) + 1) ?? [];
+  const normalizedFilter = filter.trim().toLowerCase();
+  const filteredEntries = normalizedFilter
+    ? entries.filter(student =>
+        `${8000 + student.id} ${student.surname} ${student.forename}`.toLowerCase().includes(normalizedFilter)
+      )
+    : entries;
+  const pagination = getPagination(filteredEntries.length, page, PAGE_SIZE);
+  const { totalPages, currentPage } = pagination;
+  const pageEntries = filteredEntries.slice(pagination.startIndex, pagination.endIndex);
+
+  useEffect(() => {
+    setPage(currentPage);
+  }, [currentPage]);
 
   if (isCoursesLoading || isStudentsLoading) {
     return (
@@ -62,8 +81,6 @@ export default function ExamDetail() {
   const examDate = EXAM_DATES[id % EXAM_DATES.length];
   const startTime = START_TIMES[id % START_TIMES.length];
   const finishTime = FINISH_TIMES[id % FINISH_TIMES.length];
-  const entries = students?.slice(0, (id % 6) + 1) ?? [];
-
   return (
     <div className="space-y-4 max-w-5xl">
       <h1 className="text-xl font-semibold text-slate-800">Exam Details</h1>
@@ -115,7 +132,12 @@ export default function ExamDetail() {
           <div className="flex justify-end mb-3">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span>Filter:</span>
-              <input className="border border-slate-300 rounded px-2 py-0.5 text-xs w-40 outline-none focus:ring-1 focus:ring-teal-400" />
+              <input
+                value={filter}
+                onChange={event => { setFilter(event.target.value); setPage(0); }}
+                aria-label="Filter exam entries"
+                className="border border-slate-300 rounded px-2 py-0.5 text-xs w-40 outline-none focus:ring-1 focus:ring-teal-400"
+              />
             </div>
           </div>
           <table className="w-full text-sm">
@@ -131,12 +153,14 @@ export default function ExamDetail() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {entries.length === 0 ? (
+              {filteredEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-6 text-center text-slate-400 text-sm">No entries for this exam.</td>
+                  <td colSpan={8} className="py-6 text-center text-slate-400 text-sm">
+                    {entries.length === 0 ? "No entries for this exam." : "No exam entries match your filter."}
+                  </td>
                 </tr>
               ) : (
-                entries.map((s, idx) => (
+                pageEntries.map(s => (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="py-2 pr-4 text-slate-600">{8000 + s.id}</td>
                     <td className="py-2 pr-4 text-sky-700 hover:underline cursor-pointer">
@@ -157,16 +181,31 @@ export default function ExamDetail() {
           </table>
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-slate-500">
-              Showing 1 to {entries.length} of {entries.length} entries
+              Showing {filteredEntries.length === 0 ? 0 : pagination.startIndex + 1} to {pagination.endIndex} of {filteredEntries.length} entries
             </span>
-            <div className="flex gap-1">
-              <button className="w-7 h-7 rounded-full bg-teal-500 text-white text-xs flex items-center justify-center hover:bg-teal-600 disabled:opacity-40" disabled>
-                ‹
-              </button>
-              <button className="w-7 h-7 rounded-full bg-teal-500 text-white text-xs flex items-center justify-center hover:bg-teal-600 disabled:opacity-40" disabled>
-                ›
-              </button>
-            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Previous exam entries page"
+                  onClick={() => setPage(value => Math.max(0, value - 1))}
+                  disabled={!pagination.canGoPrevious}
+                  className="w-7 h-7 rounded-full bg-teal-500 text-white text-xs flex items-center justify-center hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ‹
+                </button>
+                <span className="px-1 text-xs text-slate-500">{currentPage + 1} / {totalPages}</span>
+                <button
+                  type="button"
+                  aria-label="Next exam entries page"
+                  onClick={() => setPage(value => Math.min(totalPages - 1, value + 1))}
+                  disabled={!pagination.canGoNext}
+                  className="w-7 h-7 rounded-full bg-teal-500 text-white text-xs flex items-center justify-center hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ›
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

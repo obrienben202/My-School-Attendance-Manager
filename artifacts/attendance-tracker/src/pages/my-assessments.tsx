@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useListAssessments, useListAssessmentResults, useListCourses, useCreateAssessment, useDeleteAssessment } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PenTool, Plus, Trash2, ChevronRight, ChevronsUpDown, X, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getPagination } from "@/lib/pagination";
 
 const ASSESSMENT_TYPES = ["Assignment", "Exam", "Coursework", "Practical", "Portfolio", "Test", "Essay", "Presentation"];
 const GRADING_SCHEMES = ["Percentage", "Marks Out Of", "Grade", "Pass/Fail", "Distinction/Merit/Pass"];
@@ -120,6 +121,8 @@ export default function MyAssessments() {
   const [filterText, setFilterText] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10;
 
   const { data: courses, isLoading: isCoursesLoading } = useListCourses();
   const { data: assessments, isLoading: isAssessmentsLoading, refetch } = useListAssessments(
@@ -138,6 +141,13 @@ export default function MyAssessments() {
     if (isUnconfirmedMode && !unconfirmedAssessmentIds?.has(a.id)) return false;
     return !filterText || (a.code + " " + a.description).toLowerCase().includes(filterText.toLowerCase());
   });
+  const pagination = getPagination(filtered.length, page, PAGE_SIZE);
+  const { totalPages, currentPage } = pagination;
+  const pageRows = filtered.slice(pagination.startIndex, pagination.endIndex);
+
+  useEffect(() => {
+    setPage(currentPage);
+  }, [currentPage]);
 
   async function handleDelete(id: number) {
     if (!confirm("Delete this assessment? This cannot be undone.")) return;
@@ -178,7 +188,7 @@ export default function MyAssessments() {
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-2">
             <span className="w-24 shrink-0 text-xs text-slate-600">Course</span>
-            <Select value={selectedCourseId?.toString() ?? "all"} onValueChange={v => setSelectedCourseId(v === "all" ? null : parseInt(v))}>
+            <Select value={selectedCourseId?.toString() ?? "all"} onValueChange={v => { setSelectedCourseId(v === "all" ? null : parseInt(v)); setPage(0); }}>
               <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="All courses" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs">All Courses</SelectItem>
@@ -188,7 +198,7 @@ export default function MyAssessments() {
           </div>
           <div className="flex items-center gap-2">
             <span className="w-24 shrink-0 text-xs text-slate-600">Search</span>
-            <input value={filterText} onChange={e => setFilterText(e.target.value)} placeholder="Filter by code or description…"
+            <input value={filterText} onChange={e => { setFilterText(e.target.value); setPage(0); }} placeholder="Filter by code or description…"
               className="flex-1 border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-teal-400 h-8" />
           </div>
         </div>
@@ -236,7 +246,7 @@ export default function MyAssessments() {
                     ? "No assessments found. Click 'Add Assessment' to create one."
                     : "No assessments match your filter."}
                 </td></tr>
-              ) : filtered.map(a => (
+              ) : pageRows.map(a => (
                 <tr key={a.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2 font-medium text-slate-800">
                     <span className="flex items-center gap-1"><ChevronRight className="w-3 h-3 text-slate-400" />{a.code}</span>
@@ -269,11 +279,26 @@ export default function MyAssessments() {
           </table>
         )}
         <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex justify-between text-xs text-slate-500">
-          <span>Showing {filtered.length} of {assessments?.length ?? 0} assessments</span>
-          <div className="flex gap-1">
-            <button className="w-6 h-6 rounded border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>‹</button>
-            <button className="w-6 h-6 rounded border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-100 disabled:opacity-40" disabled>›</button>
-          </div>
+          <span>
+            Showing {filtered.length === 0 ? 0 : pagination.startIndex + 1} to {pagination.endIndex} of {filtered.length} assessments
+          </span>
+          {totalPages > 1 && (
+            <div className="flex gap-1">
+              <button
+                aria-label="Previous assessment page"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={!pagination.canGoPrevious}
+                className="w-6 h-6 rounded border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-100 disabled:opacity-40"
+              >‹</button>
+              <span className="flex items-center px-1">{currentPage + 1} / {totalPages}</span>
+              <button
+                aria-label="Next assessment page"
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={!pagination.canGoNext}
+                className="w-6 h-6 rounded border border-slate-300 bg-white flex items-center justify-center hover:bg-slate-100 disabled:opacity-40"
+              >›</button>
+            </div>
+          )}
         </div>
       </div>
     </div>
