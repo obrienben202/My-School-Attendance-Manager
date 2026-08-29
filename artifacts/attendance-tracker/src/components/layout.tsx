@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@workspace/replit-auth-web";
 import { useRole, type Role } from "@/hooks/use-role";
@@ -32,8 +32,18 @@ import {
   ShieldPlus,
   Database,
   LayoutDashboard,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 type SidebarItem = {
   icon: React.ElementType;
@@ -148,6 +158,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -265,26 +280,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }))
     .filter((section) => section.items.length > 0);
 
-  return (
-    <div className="flex min-h-screen bg-slate-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-sidebar text-sidebar-foreground flex-shrink-0 flex flex-col h-screen sticky top-0 overflow-y-auto">
-        <div className="p-4 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center font-bold text-white">AT</div>
-            <span className="font-semibold text-lg tracking-tight">Attendance</span>
-          </div>
-        </div>
-
-        <nav className="flex-1 py-3 px-2 space-y-4">
-          {visibleSections.map((section) => (
-            <div key={section.heading}>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">
-                {section.heading}
-              </p>
-              <ul className="space-y-0.5">
-                {section.items.map((item) => (
-                  <li key={item.href}>
+  const renderNavigation = (closeOnNavigate = false) => (
+    <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-3">
+      {visibleSections.map((section) => (
+        <div key={section.heading}>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">
+            {section.heading}
+          </p>
+          <ul className="space-y-0.5">
+            {section.items.map((item) => (
+              <li key={item.href}>
+                {closeOnNavigate ? (
+                  <SheetClose asChild>
                     <Link
                       href={item.href}
                       className={cn(
@@ -298,12 +305,42 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       <item.icon className="w-4 h-4 flex-shrink-0" />
                       <span className="truncate">{item.label}</span>
                     </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </nav>
+                  </SheetClose>
+                ) : (
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] transition-colors",
+                      isActive(item.href)
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                      item.color,
+                    )}
+                  >
+                    <item.icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
+
+  return (
+    <div className="flex min-h-screen flex-col bg-slate-50 md:flex-row">
+      {/* Sidebar */}
+      <aside className="hidden w-64 bg-sidebar text-sidebar-foreground flex-shrink-0 flex-col h-screen sticky top-0 overflow-y-auto md:flex">
+        <div className="p-4 border-b border-sidebar-border">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center font-bold text-white">AT</div>
+            <span className="font-semibold text-lg tracking-tight">Attendance</span>
+          </div>
+        </div>
+
+        {renderNavigation()}
 
         <div className="p-4 border-t border-sidebar-border">
           {user && (
@@ -341,8 +378,50 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
+      <div className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-500 font-bold text-white">AT</div>
+          <span className="font-semibold tracking-tight text-slate-800">Attendance</span>
+        </div>
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              aria-label="Open navigation menu"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded border border-slate-200 text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[min(18rem,85vw)] overflow-hidden bg-sidebar p-0 text-sidebar-foreground">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Attendance navigation</SheetTitle>
+              <SheetDescription>Open a section of the staff portal.</SheetDescription>
+            </SheetHeader>
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="border-b border-sidebar-border p-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-500 font-bold text-white">AT</div>
+                  <span className="font-semibold text-lg tracking-tight">Attendance</span>
+                </div>
+              </div>
+              {renderNavigation(true)}
+              <div className="border-t border-sidebar-border p-4">
+                <button
+                  onClick={logout}
+                  className="flex min-h-10 w-full items-center gap-2 px-1 text-left text-sm text-sidebar-foreground/70 transition-colors hover:text-sidebar-foreground"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
       {/* Main content */}
-      <main className="flex-1 min-w-0 p-6 overflow-auto">{children}</main>
+      <main className="flex-1 min-w-0 overflow-auto p-6">{children}</main>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useGetCourse, useListAttendanceRecords, useListAssessments } from "@wor
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp, Printer, Plus, Pencil, Trash2, Check, X } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRole } from "@/hooks/use-role";
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
@@ -20,11 +20,11 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border border-slate-200 rounded mb-3 bg-white">
-      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-5 py-2.5 bg-slate-50 hover:bg-slate-100 text-left rounded-t border-b border-slate-200">
+      <button onClick={() => setOpen(o => !o)} className="w-full min-h-11 flex items-center justify-between px-4 md:px-5 py-2.5 bg-slate-50 hover:bg-slate-100 text-left rounded-t border-b border-slate-200">
         <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{title}</span>
         {open ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
       </button>
-      {open && <div className="px-5 py-4">{children}</div>}
+      {open && <div className="px-4 md:px-5 py-4">{children}</div>}
     </div>
   );
 }
@@ -431,6 +431,9 @@ function CourseReportDialog({
           <div>
             <DialogHeader>
               <DialogTitle className="text-white text-base font-bold">{reportName}</DialogTitle>
+              <DialogDescription className="text-teal-200 text-xs">
+                Course report for {course.name}
+              </DialogDescription>
             </DialogHeader>
             <p className="text-teal-200 text-xs mt-0.5">
               {course.name} &nbsp;|&nbsp; {course.code} &nbsp;|&nbsp; {course.yearGroup ?? "Year group not provided"} &nbsp;|&nbsp; Generated: {today}
@@ -578,9 +581,9 @@ export default function CourseDetail() {
   }
 
   return (
-    <div className="flex -mx-6 -mt-6 min-h-screen bg-slate-50">
+    <div className="flex -mx-6 -mt-6 min-h-screen flex-col bg-slate-50 md:flex-row">
       {/* ── Left Links Pane ── */}
-      <div className="w-44 shrink-0 bg-white border-r border-slate-200 flex flex-col">
+      <div className="hidden w-44 shrink-0 bg-white border-r border-slate-200 flex-col md:flex">
         <div className="px-3 py-3 border-b border-slate-100">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Course Links</p>
         </div>
@@ -601,32 +604,32 @@ export default function CourseDetail() {
       </div>
 
       {/* ── Center Content ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-auto">
+      <div className="flex w-full flex-1 flex-col min-w-0 overflow-auto">
         {/* Header bar */}
-        <div className="bg-white border-b border-slate-200 px-5 py-3">
+        <div className="bg-white border-b border-slate-200 px-4 py-4 md:px-5 md:py-3">
           {staffContext && (
             <button
               onClick={() => navigate(`/staff/${encodeURIComponent(staffContext)}`)}
-              className="mb-2 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-sky-700"
+              className="mb-3 inline-flex min-h-9 items-center gap-1 text-xs text-slate-500 hover:text-sky-700 md:mb-2"
             >
               <ArrowLeft className="h-3.5 w-3.5" /> Back to Staff Details
             </button>
           )}
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-base font-bold text-slate-800">{course.name}</h1>
-              <p className="text-xs text-slate-500 mt-0.5">Code: {course.code} &nbsp;|&nbsp; {course.yearGroup ?? "Year group not provided"} &nbsp;|&nbsp; {course.room ?? "Room not provided"}</p>
+          <div className="flex flex-col items-stretch justify-between md:flex-row md:items-start">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold leading-tight text-slate-800 md:text-base">{course.name}</h1>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500 md:mt-0.5">Code: {course.code} <span className="hidden sm:inline">&nbsp;|&nbsp;</span><span className="sm:hidden"> · </span>{course.yearGroup ?? "Year group not provided"} <span className="hidden sm:inline">&nbsp;|&nbsp;</span><span className="sm:hidden"> · </span>{course.room ?? "Room not provided"}</p>
             </div>
-            <div className="flex gap-2 shrink-0 ml-4">
+            <div className="mt-4 grid grid-cols-2 gap-2 md:ml-4 md:mt-0 md:flex md:shrink-0">
               <button
                 onClick={exportCSV}
-                className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"
+                className="flex min-h-10 items-center justify-center gap-1.5 rounded border border-slate-300 px-2.5 py-1 text-xs hover:bg-slate-50 md:min-h-0"
               >
                 <Download className="w-3 h-3" /> Export List
               </button>
               <button
                 onClick={() => printCurriculumWindow(course, dayOfWeek, startTime, endTime, courseAssessments ?? [])}
-                className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"
+                className="flex min-h-10 items-center justify-center gap-1.5 rounded border border-slate-300 px-2.5 py-1 text-xs hover:bg-slate-50 md:min-h-0"
               >
                 <FileText className="w-3 h-3" /> Print Curriculum
               </button>
@@ -634,7 +637,39 @@ export default function CourseDetail() {
           </div>
         </div>
 
-        <div className="flex-1 p-5">
+        {/* Compact navigation replaces the fixed course panes on phones. */}
+        <div className="grid grid-cols-1 gap-3 border-b border-slate-200 bg-white p-4 sm:grid-cols-2 md:hidden">
+          <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Course section
+            <select
+              value={activeLink}
+              onChange={e => {
+                const value = e.target.value;
+                if (value === "Progressions") {
+                  navigate(`/courses/${id}/progressions`);
+                } else {
+                  setActiveLink(value);
+                }
+              }}
+              className="min-h-11 rounded border border-slate-300 bg-white px-3 text-sm font-medium normal-case tracking-normal text-slate-700 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100"
+            >
+              {COURSE_LINKS.map(({ label }) => <option key={label}>{label}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Reports
+            <select
+              value={reportOpen ?? ""}
+              onChange={e => setReportOpen(e.target.value || null)}
+              className="min-h-11 rounded border border-slate-300 bg-white px-3 text-sm font-medium normal-case tracking-normal text-slate-700 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100"
+            >
+              <option value="">Choose a report…</option>
+              {COURSE_REPORTS.map(report => <option key={report}>{report}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="flex-1 p-4 md:p-5">
           {/* ── Enrolled Learners ── */}
           {activeLink === "Enrolled Learners" && (
             <div className="space-y-4">
@@ -642,7 +677,8 @@ export default function CourseDetail() {
                 {enrolledStudents.length === 0 ? (
                   <p className="text-xs text-slate-400">No learners enrolled. Add your data to populate.</p>
                 ) : (
-                  <table className="w-full text-xs">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] text-xs">
                     <thead>
                       <tr className="border-b border-slate-100">
                         <th className="text-left font-semibold text-slate-600 pb-2 pr-6">Name</th>
@@ -666,6 +702,7 @@ export default function CourseDetail() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </Section>
             </div>
@@ -675,7 +712,7 @@ export default function CourseDetail() {
           {activeLink !== "Enrolled Learners" && (
             <div className="space-y-0">
               <Section title="Course Details">
-                <div className="grid grid-cols-2 gap-x-12">
+                <div className="grid grid-cols-1 gap-x-12 md:grid-cols-2">
                   <div className="space-y-1">
                     <InfoRow label="Course Code" value={course.code} />
                     <InfoRow label="Course Name" value={course.name} />
@@ -691,7 +728,7 @@ export default function CourseDetail() {
               </Section>
 
               <Section title="Course Place Totals">
-                <div className="grid grid-cols-2 gap-x-12">
+                <div className="grid grid-cols-1 gap-x-12 md:grid-cols-2">
                   <div className="space-y-1">
                     <InfoRow label="Total Places" value={course.enrolledCount} />
                     <InfoRow label="Source" value="Courses spreadsheet" />
@@ -704,7 +741,8 @@ export default function CourseDetail() {
                   <div className="space-y-3">
                     {/* Slot table */}
                     {timetableSlots.length > 0 && (
-                      <table className="w-full text-xs">
+                      <div className="overflow-x-auto">
+                      <table className="w-full min-w-[640px] text-xs">
                         <thead>
                           <tr className="border-b border-slate-100">
                             <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Day</th>
@@ -783,6 +821,7 @@ export default function CourseDetail() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     )}
 
                     {timetableSlots.length === 0 && !addingSlot && (
@@ -793,7 +832,7 @@ export default function CourseDetail() {
                     {canEditTimetable && addingSlot && (
                       <div className="border border-teal-200 rounded bg-teal-50 p-3">
                         <p className="text-[11px] font-semibold text-teal-700 uppercase tracking-wide mb-2">New Slot</p>
-                        <div className="grid grid-cols-5 gap-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-5">
                           <div>
                             <label className="text-[10px] text-slate-500 block mb-0.5">Day</label>
                             <select value={slotForm.day} onChange={e => setSlotForm(f => ({ ...f, day: e.target.value }))}
@@ -863,7 +902,8 @@ export default function CourseDetail() {
               {activeLink === "Assessment Plan" && (
                 <Section title={`Assessment Plan (${courseAssessments?.length ?? 0} assessments)`}>
                   {courseAssessments?.length ? (
-                    <table className="w-full text-xs">
+                    <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-xs">
                       <thead>
                         <tr className="border-b border-slate-100">
                           <th className="text-left font-semibold text-slate-600 pb-2 pr-4">Code</th>
@@ -896,6 +936,7 @@ export default function CourseDetail() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       <p className="text-xs text-slate-400">No assessments on record for this course.</p>
@@ -911,7 +952,8 @@ export default function CourseDetail() {
               {activeLink === "Staff Assignments" && (
                 <Section title="Staff Assignments">
                   {course.staffName ? (
-                    <table className="w-full text-xs">
+                    <div className="overflow-x-auto">
+                    <table className="w-full min-w-[480px] text-xs">
                       <thead><tr className="border-b border-slate-100"><th className="text-left font-semibold text-slate-600 pb-2 pr-6">Staff Name</th><th className="text-left font-semibold text-slate-600 pb-2 pr-6">Role</th><th className="text-left font-semibold text-slate-600 pb-2">Hours / Week</th></tr></thead>
                       <tbody>
                         <tr className="hover:bg-slate-50">
@@ -921,13 +963,15 @@ export default function CourseDetail() {
                         </tr>
                       </tbody>
                     </table>
+                    </div>
                   ) : <p className="text-xs text-slate-400">No staff assigned.</p>}
                 </Section>
               )}
 
               <Section title="Recent Registers" defaultOpen={false}>
                 {attendance?.length ? (
-                  <table className="w-full text-xs">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-xs">
                     <thead><tr className="border-b border-slate-100"><th className="text-left font-semibold text-slate-600 pb-2 pr-6">Student</th><th className="text-left font-semibold text-slate-600 pb-2 pr-6">Date</th><th className="text-left font-semibold text-slate-600 pb-2">Status</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
                       {attendance.map(r => (
@@ -939,6 +983,7 @@ export default function CourseDetail() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 ) : <p className="text-xs text-slate-400">No attendance records for this course.</p>}
               </Section>
             </div>
@@ -947,7 +992,7 @@ export default function CourseDetail() {
       </div>
 
       {/* ── Right Reports Pane ── */}
-      <div className="w-44 shrink-0 bg-white border-l border-slate-200 flex flex-col">
+      <div className="hidden w-44 shrink-0 bg-white border-l border-slate-200 flex-col md:flex">
         <div className="px-3 py-3 border-b border-slate-100">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reports</p>
         </div>
