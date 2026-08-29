@@ -13,6 +13,8 @@ export const scheduleTable = pgTable("schedule", {
   staffName: text("staff_name"),
   weekPattern: text("week_pattern").notNull().default("Every week"),
   registerMarked: boolean("register_marked").notNull().default(false),
+  source: text("source"),
+  sourceKey: text("source_key"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

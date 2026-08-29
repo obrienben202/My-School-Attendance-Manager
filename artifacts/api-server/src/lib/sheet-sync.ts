@@ -24,6 +24,12 @@ import {
   findStaleCourseIds,
   parseCourseSheetRows,
 } from "./course-sync";
+import {
+  findStaleImportedSlotIds,
+  resolveMaintainedTimetable,
+  TECHNOLOGY_STAFF_TIMETABLE,
+  TECHNOLOGY_TIMETABLE_SOURCE,
+} from "./timetable-sync";
 
 const ATTENDANCE_SHEET_ID = "1eHSs1LPFM0cgMQQ4YWJQV2d20RSCm7-_xOCAWBfGLPQ";
 const COURSES_SHEET_ID    = "1C_FLnvrEZGpjHKpJ1bHOqt1JeYw07BgtlIDLvQ1aa9M";
@@ -183,7 +189,66 @@ export async function runSync(): Promise<SyncSummary> {
       summary["courses"] = { inserted, updated, skipped: parsed.skipped, retired, errors };
     }
 
-    // 2. Students Roster — upsert by Student ID; NO course enrolments (handled separately)
+    // 2. Maintained Technology staff timetable — reconcile source-owned course slots.
+    {
+      const courses = await db.select({
+        id: coursesTable.id,
+        sourceId: coursesTable.sourceId,
+        code: coursesTable.code,
+        room: coursesTable.room,
+      }).from(coursesTable).where(eq(coursesTable.isActive, true));
+      const resolved = resolveMaintainedTimetable(TECHNOLOGY_STAFF_TIMETABLE, courses);
+      if (resolved.slots.length === 0) {
+        throw new Error("Maintained timetable matched no active courses; existing imported slots were left unchanged");
+      }
+
+      let inserted = 0;
+      let updated = 0;
+      let retired = 0;
+
+      await db.transaction(async tx => {
+        const existing = await tx.select({
+          id: scheduleTable.id,
+          source: scheduleTable.source,
+          sourceKey: scheduleTable.sourceKey,
+        }).from(scheduleTable).where(eq(scheduleTable.source, TECHNOLOGY_TIMETABLE_SOURCE));
+        const existingByKey = new Map(
+          existing
+            .filter(slot => slot.sourceKey !== null)
+            .map(slot => [slot.sourceKey as string, slot]),
+        );
+
+        for (const slot of resolved.slots) {
+          const current = existingByKey.get(slot.sourceKey);
+          if (current) {
+            await tx.update(scheduleTable).set(slot).where(eq(scheduleTable.id, current.id));
+            updated++;
+          } else {
+            await tx.insert(scheduleTable).values(slot);
+            inserted++;
+          }
+        }
+
+        const staleIds = findStaleImportedSlotIds(
+          existing,
+          resolved.slots.map(slot => slot.sourceKey),
+        );
+        if (staleIds.length > 0) {
+          await tx.delete(scheduleTable).where(inArray(scheduleTable.id, staleIds));
+          retired = staleIds.length;
+        }
+      });
+
+      summary["timetable"] = {
+        inserted,
+        updated,
+        skipped: resolved.skipped,
+        retired,
+        errors: resolved.errors,
+      };
+    }
+
+    // 3. Students Roster — upsert by Student ID; NO course enrolments (handled separately)
     {
       const rows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "Students Roster");
       const dataRows = rows.slice(1).filter(r => r[0]?.trim());
@@ -215,7 +280,7 @@ export async function runSync(): Promise<SyncSummary> {
       summary["students"] = { inserted, updated, skipped: errors.length, retired: 0, errors };
     }
 
-    // 3. Attendance Log — insert new records only (skip if student/course not yet linked)
+    // 4. Attendance Log — insert new records only (skip if student/course not yet linked)
     {
       const rows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "Attendance Log");
       const dataRows = rows.slice(1).filter(r => r[2]?.trim() && r[1]?.trim());
@@ -259,7 +324,7 @@ export async function runSync(): Promise<SyncSummary> {
       summary["attendance"] = { inserted, updated: 0, skipped, retired: 0, errors };
     }
 
-    // 4. KPI Benchmarks — full replace
+    // 5. KPI Benchmarks — full replace
     {
       const rows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "KPIs");
       let currentCategory = "";
