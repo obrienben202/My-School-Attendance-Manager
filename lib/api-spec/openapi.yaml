@@ -241,6 +241,10 @@ paths:
           in: query
           schema:
             type: integer
+        - name: scheduleId
+          in: query
+          schema:
+            type: integer
         - name: date
           in: query
           schema:
@@ -1337,6 +1341,8 @@ components:
           type: integer
         courseId:
           type: integer
+        scheduleId:
+          type: ["integer", "null"]
         date:
           type: string
           format: date
@@ -1356,6 +1362,7 @@ components:
         - id
         - studentId
         - courseId
+        - scheduleId
         - date
         - status
         - createdAt
@@ -1366,6 +1373,8 @@ components:
         studentId:
           type: integer
         courseId:
+          type: integer
+        scheduleId:
           type: integer
         date:
           type: string
@@ -1378,6 +1387,7 @@ components:
       required:
         - studentId
         - courseId
+        - scheduleId
         - date
         - status
 
@@ -1389,6 +1399,8 @@ components:
           enum: [present, absent, late, authorised]
         notes:
           type: string
+        scheduleId:
+          type: integer
 
     Target:
       type: object
@@ -1742,20 +1754,47 @@ components:
 
     StaffRegisterHistoryResponse:
       type: object
-      required: [staffId, staffName, records]
+      required: [staffId, staffName, sessions, records]
       properties:
         staffId: { type: string }
         staffName: { type: string }
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffRegisterHistorySession"
         records:
           type: array
           items:
             $ref: "#/components/schemas/StaffRegisterHistoryRecord"
 
+    StaffRegisterHistorySession:
+      type: object
+      required: [id, scope, scheduleId, sessionDate, courseId, courseCode, courseName, startTime, endTime, attendanceRecords, present, absent, late, authorised]
+      properties:
+        id: { type: string }
+        scope: { type: string, enum: [exact-session] }
+        scheduleId: { type: integer }
+        sessionDate: { type: string, format: date }
+        courseId: { type: integer }
+        courseCode: { type: string }
+        courseName: { type: string }
+        day: { type: ["string", "null"] }
+        startTime: { type: string }
+        endTime: { type: string }
+        room: { type: ["string", "null"] }
+        weekPattern: { type: ["string", "null"] }
+        attendanceRecords: { type: integer }
+        present: { type: integer }
+        absent: { type: integer }
+        late: { type: integer }
+        authorised: { type: integer }
+
     StaffRegisterHistoryRecord:
       type: object
-      required: [id, courseId, courseCode, courseName, scheduleCount, markedScheduleCount, attendanceRecords, present, absent, late, authorised]
+      required: [id, scope, courseId, courseCode, courseName, scheduleCount, markedScheduleCount, attendanceRecords, present, absent, late, authorised]
       properties:
         id: { type: integer }
+        scope: { type: string, enum: [legacy-course-level] }
         courseId: { type: integer }
         courseCode: { type: string }
         courseName: { type: string }

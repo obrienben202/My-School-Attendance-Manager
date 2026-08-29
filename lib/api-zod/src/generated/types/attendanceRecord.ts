@@ -11,6 +11,8 @@ export interface AttendanceRecord {
   id: number;
   studentId: number;
   courseId: number;
+  /** @nullable */
+  scheduleId: number | null;
   date: Date;
   status: AttendanceRecordStatus;
   /** @nullable */

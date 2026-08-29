@@ -243,8 +243,24 @@ router.get("/staff/:id/register-history", async (req, res) => {
     ? await db.select().from(attendanceTable).where(inArray(attendanceTable.courseId, courseIds))
     : [];
 
-  const attendanceByCourse = new Map<number, typeof attendanceRows>();
+  const schedulesById = new Map(scheduleRows.map(row => [row.id, row]));
+  const linkedSessions = new Map<string, {
+    schedule: (typeof scheduleRows)[number];
+    date: string;
+    attendance: typeof attendanceRows;
+  }>();
   for (const row of attendanceRows) {
+    if (row.scheduleId === null) continue;
+    const schedule = schedulesById.get(row.scheduleId);
+    if (!schedule) continue;
+    const key = `${row.scheduleId}:${row.date}`;
+    const current = linkedSessions.get(key) ?? { schedule, date: row.date, attendance: [] };
+    current.attendance.push(row);
+    linkedSessions.set(key, current);
+  }
+
+  const attendanceByCourse = new Map<number, typeof attendanceRows>();
+  for (const row of attendanceRows.filter(item => item.scheduleId === null)) {
     const current = attendanceByCourse.get(row.courseId) ?? [];
     current.push(row);
     attendanceByCourse.set(row.courseId, current);
@@ -253,11 +269,36 @@ router.get("/staff/:id/register-history", async (req, res) => {
   return res.json({
     staffId: record.source.id,
     staffName: record.source.fullName,
+    sessions: [...linkedSessions.values()]
+      .sort((a, b) =>
+        b.date.localeCompare(a.date) ||
+        b.schedule.startTime.localeCompare(a.schedule.startTime),
+      )
+      .map(({ schedule, date, attendance }) => ({
+        id: `schedule-${schedule.id}-${date}`,
+        scope: "exact-session" as const,
+        scheduleId: schedule.id,
+        sessionDate: date,
+        courseId: schedule.courseId,
+        courseCode: schedule.courseCode,
+        courseName: schedule.courseName,
+        day: schedule.day,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        room: schedule.room,
+        weekPattern: schedule.weekPattern,
+        attendanceRecords: attendance.length,
+        present: attendance.filter(item => item.status === "present").length,
+        absent: attendance.filter(item => item.status === "absent").length,
+        late: attendance.filter(item => item.status === "late").length,
+        authorised: attendance.filter(item => item.status === "authorised").length,
+      })),
     records: [...coursesById.values()].map(course => {
       const attendance = attendanceByCourse.get(course.id) ?? [];
       const schedules = scheduleRows.filter(row => row.courseId === course.id);
       return {
         id: course.id,
+        scope: "legacy-course-level" as const,
         courseId: course.id,
         courseCode: course.code,
         courseName: course.name,

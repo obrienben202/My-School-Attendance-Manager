@@ -10,6 +10,7 @@ import type { AttendanceInputStatus } from './attendanceInputStatus';
 export interface AttendanceInput {
   studentId: number;
   courseId: number;
+  scheduleId: number;
   date: Date;
   status: AttendanceInputStatus;
   notes?: string;

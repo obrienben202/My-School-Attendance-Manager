@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { StaffRegisterHistoryRecord } from './staffRegisterHistoryRecord';
+import type { StaffRegisterHistorySession } from './staffRegisterHistorySession';
 
 export interface StaffRegisterHistoryResponse {
   staffId: string;
   staffName: string;
+  sessions: StaffRegisterHistorySession[];
   records: StaffRegisterHistoryRecord[];
 }

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { attendanceTable, studentsTable, coursesTable } from "@workspace/db";
+import { attendanceTable, studentsTable, coursesTable, scheduleTable } from "@workspace/db";
 import { eq, and, type SQL } from "drizzle-orm";
 import {
   ListAttendanceRecordsQueryParams,
@@ -15,11 +15,12 @@ router.get("/attendance", async (req, res) => {
   const parsed = ListAttendanceRecordsQueryParams.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: "Invalid query params" });
 
-  const { studentId, courseId, date, status } = parsed.data;
+  const { studentId, courseId, scheduleId, date, status } = parsed.data;
 
   const conditions: SQL[] = [];
   if (studentId) conditions.push(eq(attendanceTable.studentId, studentId));
   if (courseId) conditions.push(eq(attendanceTable.courseId, courseId));
+  if (scheduleId !== undefined) conditions.push(eq(attendanceTable.scheduleId, scheduleId));
   if (date) conditions.push(eq(attendanceTable.date, date instanceof Date ? date.toISOString().split("T")[0] : date));
   if (status) conditions.push(eq(attendanceTable.status, status));
 
@@ -28,6 +29,7 @@ router.get("/attendance", async (req, res) => {
       id: attendanceTable.id,
       studentId: attendanceTable.studentId,
       courseId: attendanceTable.courseId,
+      scheduleId: attendanceTable.scheduleId,
       date: attendanceTable.date,
       status: attendanceTable.status,
       notes: attendanceTable.notes,
@@ -53,9 +55,20 @@ router.post("/attendance", async (req, res) => {
   const parsed = CreateAttendanceRecordBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
-  const { date, ...restAttendance } = parsed.data;
+  const { date, scheduleId, ...restAttendance } = parsed.data;
+  const [schedule] = await db
+    .select({ id: scheduleTable.id })
+    .from(scheduleTable)
+    .where(and(
+      eq(scheduleTable.id, scheduleId),
+      eq(scheduleTable.courseId, restAttendance.courseId),
+    ))
+    .limit(1);
+  if (!schedule) return res.status(400).json({ error: "Schedule session does not belong to the selected course" });
+
   const [record] = await db.insert(attendanceTable).values({
     ...restAttendance,
+    scheduleId,
     date: date instanceof Date ? date.toISOString().split("T")[0] : date,
   }).returning();
   return res.status(201).json({
@@ -72,6 +85,25 @@ router.patch("/attendance/:id", async (req, res) => {
 
   const bodyParsed = UpdateAttendanceRecordBody.safeParse(req.body);
   if (!bodyParsed.success) return res.status(400).json({ error: "Invalid body" });
+
+  if (bodyParsed.data.scheduleId != null) {
+    const [existing] = await db
+      .select({ courseId: attendanceTable.courseId })
+      .from(attendanceTable)
+      .where(eq(attendanceTable.id, paramsParsed.data.id))
+      .limit(1);
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
+    const [schedule] = await db
+      .select({ id: scheduleTable.id })
+      .from(scheduleTable)
+      .where(and(
+        eq(scheduleTable.id, bodyParsed.data.scheduleId),
+        eq(scheduleTable.courseId, existing.courseId),
+      ))
+      .limit(1);
+    if (!schedule) return res.status(400).json({ error: "Schedule session does not belong to the attendance course" });
+  }
 
   const [record] = await db
     .update(attendanceTable)

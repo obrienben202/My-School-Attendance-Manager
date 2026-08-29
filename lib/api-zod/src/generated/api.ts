@@ -221,6 +221,7 @@ export const GetCourseResponse = zod.object({
 export const ListAttendanceRecordsQueryParams = zod.object({
   "studentId": zod.coerce.number().optional(),
   "courseId": zod.coerce.number().optional(),
+  "scheduleId": zod.coerce.number().optional(),
   "date": zod.date().optional(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised']).optional()
 })
@@ -229,6 +230,7 @@ export const ListAttendanceRecordsResponseItem = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
   "courseId": zod.number(),
+  "scheduleId": zod.number().nullable(),
   "date": zod.coerce.date(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised']),
   "notes": zod.string().nullish(),
@@ -245,6 +247,7 @@ export const ListAttendanceRecordsResponse = zod.array(ListAttendanceRecordsResp
 export const CreateAttendanceRecordBody = zod.object({
   "studentId": zod.number(),
   "courseId": zod.number(),
+  "scheduleId": zod.number(),
   "date": zod.coerce.date(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised']),
   "notes": zod.string().optional()
@@ -260,13 +263,15 @@ export const UpdateAttendanceRecordParams = zod.object({
 
 export const UpdateAttendanceRecordBody = zod.object({
   "status": zod.enum(['present', 'absent', 'late', 'authorised']).optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "scheduleId": zod.number().optional()
 })
 
 export const UpdateAttendanceRecordResponse = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
   "courseId": zod.number(),
+  "scheduleId": zod.number().nullable(),
   "date": zod.coerce.date(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised']),
   "notes": zod.string().nullish(),
@@ -1016,8 +1021,28 @@ export const GetStaffRegisterHistoryParams = zod.object({
 export const GetStaffRegisterHistoryResponse = zod.object({
   "staffId": zod.string(),
   "staffName": zod.string(),
+  "sessions": zod.array(zod.object({
+  "id": zod.string(),
+  "scope": zod.enum(['exact-session']),
+  "scheduleId": zod.number(),
+  "sessionDate": zod.coerce.date(),
+  "courseId": zod.number(),
+  "courseCode": zod.string(),
+  "courseName": zod.string(),
+  "day": zod.string().nullish(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "room": zod.string().nullish(),
+  "weekPattern": zod.string().nullish(),
+  "attendanceRecords": zod.number(),
+  "present": zod.number(),
+  "absent": zod.number(),
+  "late": zod.number(),
+  "authorised": zod.number()
+})),
   "records": zod.array(zod.object({
   "id": zod.number(),
+  "scope": zod.enum(['legacy-course-level']),
   "courseId": zod.number(),
   "courseCode": zod.string(),
   "courseName": zod.string(),

@@ -174,6 +174,8 @@ export interface AttendanceRecord {
   id: number;
   studentId: number;
   courseId: number;
+  /** @nullable */
+  scheduleId: number | null;
   date: string;
   status: AttendanceRecordStatus;
   /** @nullable */
@@ -198,6 +200,7 @@ export const AttendanceInputStatus = {
 export interface AttendanceInput {
   studentId: number;
   courseId: number;
+  scheduleId: number;
   date: string;
   status: AttendanceInputStatus;
   notes?: string;
@@ -216,6 +219,7 @@ export const AttendanceUpdateStatus = {
 export interface AttendanceUpdate {
   status?: AttendanceUpdateStatus;
   notes?: string;
+  scheduleId?: number;
 }
 
 export interface Target {
@@ -467,8 +471,46 @@ export interface StaffTimetableResponse {
   records: StaffTimetableRecord[];
 }
 
+export type StaffRegisterHistorySessionScope = typeof StaffRegisterHistorySessionScope[keyof typeof StaffRegisterHistorySessionScope];
+
+
+export const StaffRegisterHistorySessionScope = {
+  'exact-session': 'exact-session',
+} as const;
+
+export interface StaffRegisterHistorySession {
+  id: string;
+  scope: StaffRegisterHistorySessionScope;
+  scheduleId: number;
+  sessionDate: string;
+  courseId: number;
+  courseCode: string;
+  courseName: string;
+  /** @nullable */
+  day?: string | null;
+  startTime: string;
+  endTime: string;
+  /** @nullable */
+  room?: string | null;
+  /** @nullable */
+  weekPattern?: string | null;
+  attendanceRecords: number;
+  present: number;
+  absent: number;
+  late: number;
+  authorised: number;
+}
+
+export type StaffRegisterHistoryRecordScope = typeof StaffRegisterHistoryRecordScope[keyof typeof StaffRegisterHistoryRecordScope];
+
+
+export const StaffRegisterHistoryRecordScope = {
+  'legacy-course-level': 'legacy-course-level',
+} as const;
+
 export interface StaffRegisterHistoryRecord {
   id: number;
+  scope: StaffRegisterHistoryRecordScope;
   courseId: number;
   courseCode: string;
   courseName: string;
@@ -488,6 +530,7 @@ export interface StaffRegisterHistoryRecord {
 export interface StaffRegisterHistoryResponse {
   staffId: string;
   staffName: string;
+  sessions: StaffRegisterHistorySession[];
   records: StaffRegisterHistoryRecord[];
 }
 
@@ -624,6 +667,7 @@ atRisk?: boolean;
 export type ListAttendanceRecordsParams = {
 studentId?: number;
 courseId?: number;
+scheduleId?: number;
 date?: string;
 status?: ListAttendanceRecordsStatus;
 };

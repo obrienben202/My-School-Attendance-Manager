@@ -10,6 +10,7 @@ import type { ListAttendanceRecordsStatus } from './listAttendanceRecordsStatus'
 export type ListAttendanceRecordsParams = {
 studentId?: number;
 courseId?: number;
+scheduleId?: number;
 date?: Date;
 status?: ListAttendanceRecordsStatus;
 };

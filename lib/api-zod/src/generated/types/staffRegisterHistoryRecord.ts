@@ -5,9 +5,11 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { StaffRegisterHistoryRecordScope } from './staffRegisterHistoryRecordScope';
 
 export interface StaffRegisterHistoryRecord {
   id: number;
+  scope: StaffRegisterHistoryRecordScope;
   courseId: number;
   courseCode: string;
   courseName: string;
