@@ -125,17 +125,12 @@ export interface Course {
   /** @nullable */
   staffName?: string | null;
   /** @nullable */
+  headOfDepartment?: string | null;
+  /** @nullable */
   yearGroup?: string | null;
   enrolledCount: number;
+  isActive: boolean;
   createdAt: string;
-}
-
-export interface CourseInput {
-  code: string;
-  name: string;
-  room?: string;
-  staffName?: string;
-  yearGroup?: string;
 }
 
 export type AttendanceRecordStatus = typeof AttendanceRecordStatus[keyof typeof AttendanceRecordStatus];

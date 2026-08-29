@@ -36,6 +36,7 @@ type SyncSummaryEntry = {
   inserted: number;
   updated: number;
   skipped: number;
+  retired: number;
   errors: string[];
 };
 
@@ -178,10 +179,9 @@ export default function AdminSync() {
               {(["courses", "students", "attendance", "kpis"] as const).map(key => {
                 const s = status.lastSummary![key];
                 if (!s) return null;
-                const total = s.inserted + s.updated;
                 return (
                   <Badge key={key} variant="outline" className="text-xs capitalize">
-                    {key}: {total > 0 ? `${total} changes` : "no changes"}
+                    {key}: {s.inserted} inserted · {s.updated} updated · {s.skipped} skipped · {s.retired} retired
                   </Badge>
                 );
               })}
@@ -272,7 +272,7 @@ export default function AdminSync() {
             <div>
               <p className="font-medium text-foreground mb-1">What gets synced automatically</p>
               <ul className="space-y-1 list-disc list-inside">
-                <li><strong>Courses</strong> — adds new courses and updates existing ones as the spreadsheet changes</li>
+                <li><strong>Courses</strong> — adds and updates sheet courses, preserves legacy relationships, and retires courses removed from the sheet</li>
                 <li><strong>Students</strong> — upserts by Student ID (name, year group, form group); no class enrolments yet — those are added per year group when ready</li>
                 <li><strong>Attendance Log</strong> — imports new records once students are enrolled in a course</li>
                 <li><strong>KPI Benchmarks</strong> — replaces attendance and punctuality thresholds each run</li>

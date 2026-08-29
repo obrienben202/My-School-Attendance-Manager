@@ -185,23 +185,13 @@ export const ListCoursesResponseItem = zod.object({
   "name": zod.string(),
   "room": zod.string().nullish(),
   "staffName": zod.string().nullish(),
+  "headOfDepartment": zod.string().nullish(),
   "yearGroup": zod.string().nullish(),
   "enrolledCount": zod.number(),
+  "isActive": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
 export const ListCoursesResponse = zod.array(ListCoursesResponseItem)
-
-
-/**
- * @summary Create a course
- */
-export const CreateCourseBody = zod.object({
-  "code": zod.string(),
-  "name": zod.string(),
-  "room": zod.string().optional(),
-  "staffName": zod.string().optional(),
-  "yearGroup": zod.string().optional()
-})
 
 
 /**
@@ -217,8 +207,10 @@ export const GetCourseResponse = zod.object({
   "name": zod.string(),
   "room": zod.string().nullish(),
   "staffName": zod.string().nullish(),
+  "headOfDepartment": zod.string().nullish(),
   "yearGroup": zod.string().nullish(),
   "enrolledCount": zod.number(),
+  "isActive": zod.boolean(),
   "createdAt": zod.coerce.date()
 })
 
@@ -920,17 +912,3 @@ export const GetTodayScheduleResponseItem = zod.object({
   "registerMarked": zod.boolean()
 })
 export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)
-
-// ── Timetable slot schemas (hand-authored, not generated) ────────────────────
-export const TimetableSlotDay = zod.enum(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
-export const TimetableSlotWeekPattern = zod.enum(["Every week", "Week A only", "Week B only"]);
-
-export const CreateTimetableSlotBody = zod.object({
-  day: TimetableSlotDay,
-  startTime: zod.string().regex(/^\d{2}:\d{2}$/),
-  endTime: zod.string().regex(/^\d{2}:\d{2}$/),
-  room: zod.string().max(50).optional(),
-  weekPattern: TimetableSlotWeekPattern.default("Every week"),
-});
-
-export const UpdateTimetableSlotBody = CreateTimetableSlotBody;

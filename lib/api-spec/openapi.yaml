@@ -204,24 +204,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Course"
-    post:
-      operationId: createCourse
-      tags: [courses]
-      summary: Create a course
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CourseInput"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Course"
-
   /courses/{id}:
     get:
       operationId: getCourse
@@ -1158,10 +1140,14 @@ components:
           type: ["string", "null"]
         staffName:
           type: ["string", "null"]
+        headOfDepartment:
+          type: ["string", "null"]
         yearGroup:
           type: ["string", "null"]
         enrolledCount:
           type: integer
+        isActive:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -1170,24 +1156,8 @@ components:
         - code
         - name
         - enrolledCount
+        - isActive
         - createdAt
-
-    CourseInput:
-      type: object
-      properties:
-        code:
-          type: string
-        name:
-          type: string
-        room:
-          type: string
-        staffName:
-          type: string
-        yearGroup:
-          type: string
-      required:
-        - code
-        - name
 
     AttendanceRecord:
       type: object

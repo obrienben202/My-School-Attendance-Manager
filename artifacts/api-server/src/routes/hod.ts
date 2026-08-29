@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { scheduleTable, coursesTable, usersTable, staffTimetableTable } from "@workspace/db";
-import { eq, ilike, or, inArray } from "drizzle-orm";
+import { and, eq, ilike, or, inArray } from "drizzle-orm";
 
 const router = Router();
 
@@ -48,15 +48,17 @@ router.get("/hod/department-timetable", async (req, res) => {
 
   let rawCourseRows;
   if (role === "admin") {
-    rawCourseRows = await courseQuery.orderBy(scheduleTable.day, scheduleTable.startTime);
+    rawCourseRows = await courseQuery
+      .where(eq(coursesTable.isActive, true))
+      .orderBy(scheduleTable.day, scheduleTable.startTime);
   } else {
     const fullName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.name || "";
     const conditions: ReturnType<typeof ilike>[] = [];
     if (myDept)   conditions.push(ilike(coursesTable.headOfDepartment, `%${myDept}%`));
     if (fullName) conditions.push(ilike(coursesTable.headOfDepartment, `%${fullName}%`));
     rawCourseRows = conditions.length
-      ? await courseQuery.where(or(...conditions)).orderBy(scheduleTable.day, scheduleTable.startTime)
-      : await courseQuery.orderBy(scheduleTable.day, scheduleTable.startTime);
+      ? await courseQuery.where(and(eq(coursesTable.isActive, true), or(...conditions))).orderBy(scheduleTable.day, scheduleTable.startTime)
+      : await courseQuery.where(eq(coursesTable.isActive, true)).orderBy(scheduleTable.day, scheduleTable.startTime);
   }
 
   const courseSlots = rawCourseRows.map(r => ({

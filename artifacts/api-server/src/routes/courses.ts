@@ -1,42 +1,42 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { coursesTable, studentsTable, enrollmentsTable, scheduleTable } from "@workspace/db";
+import { coursesTable, studentsTable, enrollmentsTable, scheduleTable, insertScheduleSchema } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
-  CreateCourseBody,
   GetCourseParams,
-  CreateTimetableSlotBody,
+  GetCourseResponse,
+  ListCoursesResponse,
 } from "@workspace/api-zod";
 import { requireAdminOrHod } from "./auth";
 
 const router = Router();
 
 router.get("/courses", async (_req, res) => {
-  const courses = await db.select().from(coursesTable).orderBy(coursesTable.name);
-  return res.json(courses.map(toCourseResponse));
-});
-
-router.post("/courses", async (req, res) => {
-  const parsed = CreateCourseBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
-
-  const [course] = await db.insert(coursesTable).values(parsed.data).returning();
-  return res.status(201).json(toCourseResponse(course));
+  const courses = await db.select().from(coursesTable)
+    .where(eq(coursesTable.isActive, true))
+    .orderBy(coursesTable.name);
+  return res.json(ListCoursesResponse.parse(courses.map(toCourseResponse)));
 });
 
 router.get("/courses/:id", async (req, res) => {
   const parsed = GetCourseParams.safeParse({ id: Number(req.params.id) });
   if (!parsed.success) return res.status(400).json({ error: "Invalid id" });
 
-  const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, parsed.data.id));
+  const [course] = await db.select().from(coursesTable).where(
+    and(eq(coursesTable.id, parsed.data.id), eq(coursesTable.isActive, true)),
+  );
   if (!course) return res.status(404).json({ error: "Not found" });
-  return res.json(toCourseResponse(course));
+  return res.json(GetCourseResponse.parse(toCourseResponse(course)));
 });
 
 // GET /courses/:id/students — returns students actually enrolled in this course
 router.get("/courses/:id/students", async (req, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  const [course] = await db.select({ id: coursesTable.id }).from(coursesTable).where(
+    and(eq(coursesTable.id, id), eq(coursesTable.isActive, true)),
+  );
+  if (!course) return res.status(404).json({ error: "Course not found" });
 
   const rows = await db
     .select({
@@ -65,12 +65,16 @@ router.get("/courses/:id/students", async (req, res) => {
 
 // ── Timetable Slots ──────────────────────────────────────────────────────────
 
-const SlotBody = CreateTimetableSlotBody;
+const SlotBody = insertScheduleSchema.omit({ courseId: true });
 
 // GET /courses/:id/slots
 router.get("/courses/:id/slots", async (req, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  const [course] = await db.select({ id: coursesTable.id }).from(coursesTable).where(
+    and(eq(coursesTable.id, id), eq(coursesTable.isActive, true)),
+  );
+  if (!course) return res.status(404).json({ error: "Course not found" });
   const slots = await db.select().from(scheduleTable).where(eq(scheduleTable.courseId, id)).orderBy(scheduleTable.day, scheduleTable.startTime);
   return res.json(slots);
 });
@@ -79,6 +83,10 @@ router.get("/courses/:id/slots", async (req, res) => {
 router.post("/courses/:id/slots", requireAdminOrHod, async (req, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  const [course] = await db.select({ id: coursesTable.id }).from(coursesTable).where(
+    and(eq(coursesTable.id, id), eq(coursesTable.isActive, true)),
+  );
+  if (!course) return res.status(404).json({ error: "Course not found" });
   const parsed = SlotBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", issues: parsed.error.issues });
   const [slot] = await db.insert(scheduleTable).values({ courseId: id, ...parsed.data }).returning();
@@ -90,6 +98,10 @@ router.put("/courses/:id/slots/:slotId", requireAdminOrHod, async (req, res) => 
   const id = Number(req.params.id);
   const slotId = Number(req.params.slotId);
   if (isNaN(id) || isNaN(slotId)) return res.status(400).json({ error: "Invalid id" });
+  const [course] = await db.select({ id: coursesTable.id }).from(coursesTable).where(
+    and(eq(coursesTable.id, id), eq(coursesTable.isActive, true)),
+  );
+  if (!course) return res.status(404).json({ error: "Course not found" });
   const parsed = SlotBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", issues: parsed.error.issues });
   const [slot] = await db
@@ -106,13 +118,25 @@ router.delete("/courses/:id/slots/:slotId", requireAdminOrHod, async (req, res) 
   const id = Number(req.params.id);
   const slotId = Number(req.params.slotId);
   if (isNaN(id) || isNaN(slotId)) return res.status(400).json({ error: "Invalid id" });
+  const [course] = await db.select({ id: coursesTable.id }).from(coursesTable).where(
+    and(eq(coursesTable.id, id), eq(coursesTable.isActive, true)),
+  );
+  if (!course) return res.status(404).json({ error: "Course not found" });
   await db.delete(scheduleTable).where(and(eq(scheduleTable.id, slotId), eq(scheduleTable.courseId, id)));
   return res.status(204).send();
 });
 
 function toCourseResponse(c: typeof coursesTable.$inferSelect) {
   return {
-    ...c,
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    room: c.room,
+    staffName: c.staffName,
+    headOfDepartment: c.headOfDepartment,
+    yearGroup: c.yearGroup,
+    enrolledCount: c.enrolledCount,
+    isActive: c.isActive,
     createdAt: c.createdAt.toISOString(),
   };
 }

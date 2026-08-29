@@ -19,7 +19,8 @@ router.get("/schedule/today", async (_req, res) => {
       courseName: coursesTable.name,
     })
     .from(scheduleTable)
-    .leftJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
+    .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
+    .where(eq(coursesTable.isActive, true))
     .orderBy(scheduleTable.startTime);
 
   return res.json(records.map(r => ({

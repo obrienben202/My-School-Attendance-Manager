@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { runSync, getSyncState } from "../lib/sheet-sync";
 import { db, studentsTable, coursesTable, attendanceTable, kpiBenchmarksTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -19,7 +20,7 @@ router.get("/admin/sync/status", async (req, res) => {
 
   const [studentCount, courseCount, attendanceCount, kpis] = await Promise.all([
     db.$count(studentsTable),
-    db.$count(coursesTable),
+    db.$count(coursesTable, eq(coursesTable.isActive, true)),
     db.$count(attendanceTable),
     db.select().from(kpiBenchmarksTable).orderBy(kpiBenchmarksTable.category, kpiBenchmarksTable.lowerPercent),
   ]);

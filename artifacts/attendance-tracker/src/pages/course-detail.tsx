@@ -47,18 +47,14 @@ const COURSE_REPORTS = [
   "Grade Distribution Report",
 ];
 
-const FACULTIES = ["Business & Administration", "Mathematics", "English & Media", "Science", "Arts & Design", "Computing", "PE & Health", "Modern Languages"];
-const LEVELS = ["Level 1", "Level 2", "Level 3", "GCSE", "A Level", "BTEC", "Entry Level"];
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
 
 // ── Report / Print helpers ────────────────────────────────────────────────────
 
 type CourseType = {
   id: number; code: string; name: string; room?: string | null;
-  staffName?: string | null; enrolledCount: number;
-  level?: string | null; faculty?: string | null;
-  academicYear?: string | null; courseHours?: number | null; status?: string | null;
+  staffName?: string | null; headOfDepartment?: string | null;
+  yearGroup?: string | null; enrolledCount: number; isActive: boolean;
 };
 type AttType = { studentName?: string | null; date: string; status: string; studentId?: number };
 type StudentType = { id: number; forename: string; surname: string; personCode?: string | null; gender?: string | null; yearGroup?: string | null; attendancePercent: number };
@@ -84,24 +80,18 @@ function openPrintWindow(title: string, html: string) {
   w.document.close();
 }
 
-function courseHeader(course: CourseType, level: string, faculty: string, extra = "") {
+function courseHeader(course: CourseType, extra = "") {
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
   return `<h1>${course.name}</h1>
-<div class="meta">Code: ${course.code} &nbsp;|&nbsp; ${level} &nbsp;|&nbsp; ${faculty} &nbsp;|&nbsp; Status: Active &nbsp;|&nbsp; Staff: ${course.staffName ?? "—"} &nbsp;|&nbsp; Generated: ${today}${extra}</div>`;
+<div class="meta">Code: ${course.code} &nbsp;|&nbsp; Year group: ${course.yearGroup ?? "Not provided"} &nbsp;|&nbsp; Staff: ${course.staffName ?? "Not provided"} &nbsp;|&nbsp; Head of department: ${course.headOfDepartment ?? "Not provided"} &nbsp;|&nbsp; Generated: ${today}${extra}</div>`;
 }
 
 function printCurriculumWindow(
-  course: CourseType, level: string, faculty: string,
-  dayOfWeek: string, startTime: string, endTime: string,
+  course: CourseType,
+  dayOfWeek: string | null, startTime: string | null, endTime: string | null,
   assessments: AssessType[],
-  presentCount: number, absentCount: number, lateCount: number,
 ) {
-  const hdr = courseHeader(course, level, faculty);
-  const placeRows = [
-    ["Total Places", course.enrolledCount], ["Active Places", Math.max(0, course.enrolledCount - absentCount)],
-    ["Non Starter Places", absentCount], ["Finished Places", lateCount],
-    ["Remaining Places", Math.max(0, course.enrolledCount - presentCount)], ["Waiting", 0],
-  ].map(([l, v]) => `<tr><td style="font-weight:500">${l}</td><td>${v}</td></tr>`).join("");
+  const hdr = courseHeader(course);
 
   const asmRows = assessments.length
     ? assessments.map(a => `<tr><td>${a.code}</td><td>${a.description}</td><td>${a.type}</td><td>${a.dueDate ?? "—"}</td><td>${a.gradingScheme}</td><td>${a.mandatory ? "Yes" : "No"}</td></tr>`).join("")
@@ -111,19 +101,18 @@ function printCurriculumWindow(
 <div class="section-title">Course Details</div>
 <table class="tbl2" style="width:auto;min-width:400px">
   <tbody>
-    <tr><td style="font-weight:500">Course Code</td><td>${course.code}</td><td style="font-weight:500">Course Leader</td><td>${course.staffName ?? "—"}</td></tr>
-    <tr><td style="font-weight:500">Level</td><td>${level}</td><td style="font-weight:500">Academic Year</td><td>${(course as CourseType).academicYear ?? "2024/25"}</td></tr>
-    <tr><td style="font-weight:500">Faculty</td><td>${faculty}</td><td style="font-weight:500">Course Hours</td><td>${(course as CourseType).courseHours ?? 180}</td></tr>
-    <tr><td style="font-weight:500">Room</td><td>${course.room ?? "—"}</td><td style="font-weight:500">Status</td><td>${(course as CourseType).status ?? "Active"}</td></tr>
+    <tr><td style="font-weight:500">Course Code</td><td>${course.code}</td><td style="font-weight:500">Course Leader</td><td>${course.staffName ?? "Not provided"}</td></tr>
+    <tr><td style="font-weight:500">Year Group</td><td>${course.yearGroup ?? "Not provided"}</td><td style="font-weight:500">Head of Department</td><td>${course.headOfDepartment ?? "Not provided"}</td></tr>
+    <tr><td style="font-weight:500">Room</td><td>${course.room ?? "Not provided"}</td><td style="font-weight:500">Enrolment Count</td><td>${course.enrolledCount}</td></tr>
   </tbody>
 </table>
 <div class="section-title">Timetable</div>
 <table class="tbl2" style="width:auto">
   <thead><tr><th>Day</th><th>Start</th><th>End</th><th>Room</th><th>Week Pattern</th></tr></thead>
-  <tbody><tr><td>${dayOfWeek}</td><td>${startTime}</td><td>${endTime}</td><td>${course.room ?? "—"}</td><td>1–49, 51–52</td></tr></tbody>
+  <tbody>${dayOfWeek && startTime && endTime ? `<tr><td>${dayOfWeek}</td><td>${startTime}</td><td>${endTime}</td><td>${course.room ?? "Not provided"}</td><td>See timetable</td></tr>` : `<tr><td colspan="5">No timetable slots on record.</td></tr>`}</tbody>
 </table>
-<div class="section-title">Place Totals</div>
-<table class="tbl2" style="width:auto"><tbody>${placeRows}</tbody></table>
+<div class="section-title">Enrolment</div>
+<table class="tbl2" style="width:auto"><tbody><tr><td style="font-weight:500">Spreadsheet enrolment count</td><td>${course.enrolledCount}</td></tr></tbody></table>
 <div class="section-title">Assessment Plan</div>
 <table>
   <thead><tr><th>Code</th><th>Description</th><th>Type</th><th>Due Date</th><th>Grading Scheme</th><th>Mandatory</th></tr></thead>
@@ -139,11 +128,11 @@ function printCurriculumWindow(
 
 function buildCourseReportHtml(
   reportName: string,
-  course: CourseType, level: string, faculty: string,
+  course: CourseType,
   attendance: AttType[], students: StudentType[],
   assessments: AssessType[],
 ): string {
-  const hdr = courseHeader(course, level, faculty);
+  const hdr = courseHeader(course);
 
   if (reportName === "Course Register (Master)") {
     const rows = students.map(s => `<tr>
@@ -240,11 +229,11 @@ function CStatusBadge({ label }: { label: string }) {
 }
 
 function CourseReportDialog({
-  reportName, course, level, faculty,
+  reportName, course,
   attendance, students, assessments, onClose,
 }: {
   reportName: string | null;
-  course: CourseType; level: string; faculty: string;
+  course: CourseType;
   attendance: AttType[]; students: StudentType[];
   assessments: AssessType[];
   onClose: () => void;
@@ -252,7 +241,7 @@ function CourseReportDialog({
   if (!reportName) return null;
 
   function handlePrint() {
-    const html = buildCourseReportHtml(reportName!, course, level, faculty, attendance, students, assessments);
+    const html = buildCourseReportHtml(reportName!, course, attendance, students, assessments);
     openPrintWindow(reportName!, html);
   }
 
@@ -444,7 +433,7 @@ function CourseReportDialog({
               <DialogTitle className="text-white text-base font-bold">{reportName}</DialogTitle>
             </DialogHeader>
             <p className="text-teal-200 text-xs mt-0.5">
-              {course.name} &nbsp;|&nbsp; {course.code} &nbsp;|&nbsp; {level} &nbsp;|&nbsp; {faculty} &nbsp;|&nbsp; Generated: {today}
+              {course.name} &nbsp;|&nbsp; {course.code} &nbsp;|&nbsp; {course.yearGroup ?? "Year group not provided"} &nbsp;|&nbsp; Generated: {today}
             </p>
           </div>
           <button onClick={handlePrint} className="ml-4 flex items-center gap-1.5 bg-white text-teal-800 text-xs font-semibold px-3 py-1.5 rounded hover:bg-teal-50 shrink-0">
@@ -567,21 +556,10 @@ export default function CourseDetail() {
     return <div className="p-12 text-center text-muted-foreground">Course not found.</div>;
   }
 
-  const faculty = (course as CourseType).faculty ?? "—";
-  const level   = (course as CourseType).level   ?? "—";
-  const academicYear  = (course as CourseType).academicYear  ?? "2024/25";
-  const courseHours   = (course as CourseType).courseHours   ?? 180;
-  const courseStatus  = (course as CourseType).status        ?? "Active";
-  const centuryId = `CTY-${String(id).padStart(4, "0")}`;
-  // Derive a representative time for legacy print helpers (uses first timetable slot if available)
   const firstSlot = timetableSlots[0];
-  const dayOfWeek  = firstSlot?.day      ?? DAYS[id % DAYS.length];
-  const startTime  = firstSlot?.startTime ?? START_TIMES[id % START_TIMES.length];
-  const endTime    = firstSlot?.endTime   ?? (() => { const [h] = (firstSlot?.startTime ?? START_TIMES[id % START_TIMES.length]).split(":").map(Number); return `${String(h + 1).padStart(2, "0")}:00`; })();
-
-  const presentCount = attendance?.filter(a => a.status === "present").length ?? 0;
-  const absentCount = attendance?.filter(a => a.status === "absent").length ?? 0;
-  const lateCount = attendance?.filter(a => a.status === "late").length ?? 0;
+  const dayOfWeek = firstSlot?.day ?? null;
+  const startTime = firstSlot?.startTime ?? null;
+  const endTime = firstSlot?.endTime ?? null;
 
   function exportCSV() {
     if (!course) return;
@@ -628,7 +606,7 @@ export default function CourseDetail() {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-base font-bold text-slate-800">{course.name}</h1>
-              <p className="text-xs text-slate-500 mt-0.5">Code: {course.code} &nbsp;|&nbsp; {level} &nbsp;|&nbsp; {faculty} &nbsp;|&nbsp; Status: {courseStatus}</p>
+              <p className="text-xs text-slate-500 mt-0.5">Code: {course.code} &nbsp;|&nbsp; {course.yearGroup ?? "Year group not provided"} &nbsp;|&nbsp; {course.room ?? "Room not provided"}</p>
             </div>
             <div className="flex gap-2 shrink-0 ml-4">
               <button
@@ -638,7 +616,7 @@ export default function CourseDetail() {
                 <Download className="w-3 h-3" /> Export List
               </button>
               <button
-                onClick={() => printCurriculumWindow(course, level, faculty, dayOfWeek, startTime, endTime, courseAssessments ?? [], presentCount, absentCount, lateCount)}
+                onClick={() => printCurriculumWindow(course, dayOfWeek, startTime, endTime, courseAssessments ?? [])}
                 className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"
               >
                 <FileText className="w-3 h-3" /> Print Curriculum
@@ -692,18 +670,13 @@ export default function CourseDetail() {
                   <div className="space-y-1">
                     <InfoRow label="Course Code" value={course.code} />
                     <InfoRow label="Course Name" value={course.name} />
-                    <InfoRow label="Occurrence" value="Current Year" />
-                    <InfoRow label="Academic Year" value={academicYear} />
-                    <InfoRow label="Level" value={level} />
-                    <InfoRow label="Faculty / Department" value={faculty} />
+                    <InfoRow label="Year Group" value={course.yearGroup} />
+                    <InfoRow label="Room" value={course.room} />
+                    <InfoRow label="Enrolment Count" value={course.enrolledCount} />
                   </div>
                   <div className="space-y-1">
                     <InfoRow label="Course Leader" value={course.staffName} />
-                    <InfoRow label="Owning Organisation" value={faculty} />
-                    <InfoRow label="Start Date" value="01/08/2024" />
-                    <InfoRow label="End Date" value="31/07/2025" />
-                    <InfoRow label="Status" value={`Live / Published (${courseStatus.toUpperCase()})`} />
-                    <InfoRow label="Course Hours" value={String(courseHours)} />
+                    <InfoRow label="Head of Department" value={course.headOfDepartment} />
                   </div>
                 </div>
               </Section>
@@ -712,30 +685,7 @@ export default function CourseDetail() {
                 <div className="grid grid-cols-2 gap-x-12">
                   <div className="space-y-1">
                     <InfoRow label="Total Places" value={course.enrolledCount} />
-                    <InfoRow label="Active Places" value={Math.max(0, course.enrolledCount - absentCount)} />
-                    <InfoRow label="Transferred Places" value={0} />
-                    <InfoRow label="Withdraw Places" value={0} />
-                  </div>
-                  <div className="space-y-1">
-                    <InfoRow label="Non Starter Places" value={absentCount} />
-                    <InfoRow label="Finished Places" value={lateCount} />
-                    <InfoRow label="Waiting" value={0} />
-                    <InfoRow label="Remaining Places" value={Math.max(0, course.enrolledCount - presentCount)} />
-                  </div>
-                </div>
-              </Section>
-
-              <Section title="Century Details">
-                <div className="grid grid-cols-2 gap-x-12">
-                  <div className="space-y-1">
-                    <InfoRow label="Century ID" value={centuryId} />
-                    <InfoRow label="Century Name" value={`${course.name} — ${new Date().getFullYear()}`} />
-                    <InfoRow label="Primary Lecturer" value={course.staffName} />
-                  </div>
-                  <div className="space-y-1">
-                    <InfoRow label="Room" value={course.room} />
-                    <InfoRow label="Planned Hours" value="180" />
-                    <InfoRow label="Actual Hours" value={String(Math.round(180 * (attendance?.length ? 0.85 : 0)))} />
+                    <InfoRow label="Source" value="Courses spreadsheet" />
                   </div>
                 </div>
               </Section>
@@ -1002,8 +952,6 @@ export default function CourseDetail() {
       <CourseReportDialog
         reportName={reportOpen}
         course={course}
-        level={level}
-        faculty={faculty}
         attendance={attendance ?? []}
         students={enrolledStudents}
         assessments={courseAssessments ?? []}

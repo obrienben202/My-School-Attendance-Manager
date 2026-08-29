@@ -31,6 +31,7 @@ export default function Courses() {
                 <TableHead>Code</TableHead>
                 <TableHead>Course Name</TableHead>
                 <TableHead>Staff</TableHead>
+                <TableHead>Head of Department</TableHead>
                 <TableHead>Room</TableHead>
                 <TableHead>Year Group</TableHead>
                 <TableHead>Enrolled</TableHead>
@@ -43,6 +44,7 @@ export default function Courses() {
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
@@ -53,9 +55,10 @@ export default function Courses() {
                   <TableRow key={course.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => navigate(`/courses/${course.id}`)}>
                     <TableCell className="font-mono text-xs font-semibold text-sky-700 hover:underline">{course.code}</TableCell>
                     <TableCell className="font-medium">{course.name}</TableCell>
-                    <TableCell>{course.staffName || "Unassigned"}</TableCell>
-                    <TableCell>{course.room || "TBA"}</TableCell>
-                    <TableCell>{course.yearGroup || "-"}</TableCell>
+                    <TableCell>{course.staffName || "Not provided"}</TableCell>
+                    <TableCell>{course.headOfDepartment || "Not provided"}</TableCell>
+                    <TableCell>{course.room || "Not provided"}</TableCell>
+                    <TableCell>{course.yearGroup || "Not provided"}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="gap-1">
                         <Users className="w-3 h-3" />
@@ -66,7 +69,7 @@ export default function Courses() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                     No courses found.
                   </TableCell>
                 </TableRow>

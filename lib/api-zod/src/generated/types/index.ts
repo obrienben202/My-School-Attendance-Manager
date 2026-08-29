@@ -22,7 +22,6 @@ export * from './authUserEnvelope';
 export * from './conciergeApplication';
 export * from './conciergeApplicationInput';
 export * from './course';
-export * from './courseInput';
 export * from './dashboardSummary';
 export * from './eprogression';
 export * from './eprogressionInput';

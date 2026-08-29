@@ -5,9 +5,25 @@
  * Students are NOT enrolled in courses here — enrolment is managed separately per year group.
  */
 import { ReplitConnectors } from "@replit/connectors-sdk";
-import { db, studentsTable, coursesTable, attendanceTable, kpiBenchmarksTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import {
+  assessmentsTable,
+  attendanceTable,
+  conciergeApplicationsTable,
+  coursesTable,
+  db,
+  enrollmentsTable,
+  eprogressionsTable,
+  kpiBenchmarksTable,
+  scheduleTable,
+  studentsTable,
+} from "@workspace/db";
+import { eq, inArray, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import {
+  chooseCourseReconciliation,
+  findStaleCourseIds,
+  parseCourseSheetRows,
+} from "./course-sync";
 
 const ATTENDANCE_SHEET_ID = "1eHSs1LPFM0cgMQQ4YWJQV2d20RSCm7-_xOCAWBfGLPQ";
 const COURSES_SHEET_ID    = "1C_FLnvrEZGpjHKpJ1bHOqt1JeYw07BgtlIDLvQ1aa9M";
@@ -16,6 +32,7 @@ export type SyncSummaryEntry = {
   inserted: number;
   updated:  number;
   skipped:  number;
+  retired:  number;
   errors:   string[];
 };
 
@@ -56,46 +73,27 @@ function parsePercent(val: string): string {
   return String(parseFloat(val.replace("%", "").trim()) || 0);
 }
 
-function courseCode(sheetId: string): string {
-  const n = parseInt(sheetId, 10);
-  return isNaN(n) ? sheetId.trim() : `C${String(n).padStart(3, "0")}`;
-}
-
-/** Normalise known name variants that the spreadsheet stores without apostrophes. */
-function normaliseName(name: string): string {
-  return name
-    .replace(/\bO'?Brien\b/gi, "O'Brien")   // OBrien → O'Brien
-    .replace(/\bO'?Connor\b/gi, "O'Connor") // future-proof similar cases
-    .trim();
-}
-
-/** Derive a study level from the course name and year group. */
-function deriveLevel(name: string, yearGroup: string): string {
-  const n = name.toUpperCase();
-  if (n.includes("GCSE") && !n.includes("NON GCSE")) return "GCSE";
-  if (n.includes("A LEVEL") || n.includes("A-LEVEL"))  return "A Level";
-  if (n.includes("BTEC"))                               return "BTEC";
-  if (n.includes("NON GCSE"))                           return "Level 2";
-  if (n.includes("DIGITAL TECHNOLOGY") || n.includes("COMPUTER SCIENCE")) return "Level 3";
-  if (["Year 7", "Year 8", "Year 9"].includes(yearGroup))   return "Level 2";
-  if (["Year 10", "Year 11"].includes(yearGroup))            return "Level 3";
-  return "Level 2";
-}
-
-/** Derive a faculty/department from the course name. */
-function deriveFaculty(name: string): string {
-  const n = name.toUpperCase();
-  if (n.includes("ICT") || n.includes("DIGITAL") || n.includes("COMPUTER") ||
-      (n.includes(" IT ") || n.includes(" IT-") || n.endsWith(" IT"))) return "IT";
-  if (n.includes("MATHS") || n.includes("MATHEMATICS")) return "Mathematics";
-  if (n.includes("ENGLISH"))                            return "English";
-  if (n.includes("HISTORY"))                            return "History";
-  if (n.includes("SCIENCE"))                            return "Science";
-  if (n.includes("DRAMA"))                              return "Arts & Drama";
-  if (n.includes("MUSIC"))                              return "Music";
-  if (n.includes("PE") || n.includes("SPORT"))         return "PE & Sport";
-  if (n.includes("FRENCH") || n.includes("WELSH") || n.includes("SPANISH")) return "Modern Languages";
-  return "General Studies";
+async function mergeCourseRelationships(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  fromCourseId: number,
+  toCourseId: number,
+) {
+  await tx.execute(sql`
+    insert into student_enrollments (student_id, course_id, created_at)
+    select student_id, ${toCourseId}, created_at
+    from student_enrollments
+    where course_id = ${fromCourseId}
+    on conflict (student_id, course_id) do nothing
+  `);
+  await tx.delete(enrollmentsTable).where(eq(enrollmentsTable.courseId, fromCourseId));
+  await Promise.all([
+    tx.update(attendanceTable).set({ courseId: toCourseId }).where(eq(attendanceTable.courseId, fromCourseId)),
+    tx.update(scheduleTable).set({ courseId: toCourseId }).where(eq(scheduleTable.courseId, fromCourseId)),
+    tx.update(assessmentsTable).set({ courseId: toCourseId }).where(eq(assessmentsTable.courseId, fromCourseId)),
+    tx.update(eprogressionsTable).set({ courseId: toCourseId }).where(eq(eprogressionsTable.courseId, fromCourseId)),
+    tx.update(conciergeApplicationsTable).set({ courseId: toCourseId }).where(eq(conciergeApplicationsTable.courseId, fromCourseId)),
+  ]);
+  await tx.delete(coursesTable).where(eq(coursesTable.id, fromCourseId));
 }
 
 // ── main sync ──────────────────────────────────────────────────────────────────
@@ -112,44 +110,77 @@ export async function runSync(): Promise<SyncSummary> {
   try {
     const connectors = new ReplitConnectors();
 
-    // 1. Courses — upsert by generated code, never delete (so attendance FKs stay intact)
+    // 1. Courses — authoritative source, preserving legacy IDs and soft-retiring stale rows.
     {
       const rows = await fetchSheet(connectors, COURSES_SHEET_ID, "Sheet1");
-      const dataRows = rows.slice(1).filter(r => r[0]?.trim() && r[2]?.trim());
+      const parsed = parseCourseSheetRows(rows);
+      if (parsed.errors.length > 0) {
+        throw new Error(`Course sheet validation failed: ${parsed.errors.join("; ")}`);
+      }
+      if (parsed.records.length === 0) {
+        throw new Error("Course sheet contained no valid course records; existing courses were left unchanged");
+      }
+
       let inserted = 0, updated = 0;
+      let retired = 0;
       const errors: string[] = [];
 
-      for (const row of dataRows) {
-        const [idRaw, , name, room, rawStaff, rawHead, yearGroup, enrolledRaw] = row.map(c => c?.trim() ?? "");
-        const staffName  = rawStaff ? normaliseName(rawStaff) : "";
-        const headOfDept = rawHead  ? normaliseName(rawHead)  : "";
-        const code = courseCode(idRaw);
-        const enrolledCount = parseInt(enrolledRaw, 10) || 0;
-        try {
-          const existing = await db.select({ id: coursesTable.id })
-            .from(coursesTable).where(eq(coursesTable.code, code)).limit(1);
-          const level   = deriveLevel(name, yearGroup);
-          const faculty = deriveFaculty(name);
-          if (existing.length > 0) {
-            await db.update(coursesTable).set({
-              name, room: room || null, staffName: staffName || null,
-              headOfDepartment: headOfDept || null, yearGroup: yearGroup || null, enrolledCount,
-              level, faculty,
-            }).where(eq(coursesTable.code, code));
-            updated++;
-          } else {
-            await db.insert(coursesTable).values({
-              code, name, room: room || null, staffName: staffName || null,
-              headOfDepartment: headOfDept || null, yearGroup: yearGroup || null, enrolledCount,
-              level, faculty,
-            });
+      await db.transaction(async tx => {
+        let existing = await tx.select({
+          id: coursesTable.id,
+          code: coursesTable.code,
+          sourceId: coursesTable.sourceId,
+          isActive: coursesTable.isActive,
+        }).from(coursesTable);
+        const activeIds: number[] = [];
+
+        for (const record of parsed.records) {
+          const reconciliation = chooseCourseReconciliation(record, existing);
+          let targetId = reconciliation.targetId;
+
+          if (targetId === null) {
+            const [created] = await tx.insert(coursesTable).values({
+              ...record,
+              level: null,
+              faculty: null,
+              academicYear: null,
+              courseHours: null,
+              status: null,
+              isActive: true,
+            }).returning({ id: coursesTable.id });
+            targetId = created.id;
             inserted++;
+          } else {
+            for (const duplicateId of reconciliation.duplicateIds) {
+              await mergeCourseRelationships(tx, duplicateId, targetId);
+              existing = existing.filter(course => course.id !== duplicateId);
+            }
+            await tx.update(coursesTable).set({
+              ...record,
+              level: null,
+              faculty: null,
+              academicYear: null,
+              courseHours: null,
+              status: null,
+              isActive: true,
+            }).where(eq(coursesTable.id, targetId));
+            updated++;
           }
-        } catch (e: any) {
-          errors.push(`${code}: ${e.message}`);
+
+          activeIds.push(targetId);
+          existing = existing.filter(course => course.id !== targetId);
+          existing.push({ id: targetId, code: record.code, sourceId: record.sourceId, isActive: true });
         }
-      }
-      summary["courses"] = { inserted, updated, skipped: 0, errors };
+
+        const activeExistingIds = existing.filter(course => course.isActive).map(course => course.id);
+        const staleIds = findStaleCourseIds(activeExistingIds, activeIds);
+        if (staleIds.length > 0) {
+          await tx.update(coursesTable).set({ isActive: false }).where(inArray(coursesTable.id, staleIds));
+          retired = staleIds.length;
+        }
+      });
+
+      summary["courses"] = { inserted, updated, skipped: parsed.skipped, retired, errors };
     }
 
     // 2. Students Roster — upsert by Student ID; NO course enrolments (handled separately)
@@ -181,7 +212,7 @@ export async function runSync(): Promise<SyncSummary> {
           errors.push(`${personCode}: ${e.message}`);
         }
       }
-      summary["students"] = { inserted, updated, skipped: errors.length, errors };
+      summary["students"] = { inserted, updated, skipped: errors.length, retired: 0, errors };
     }
 
     // 3. Attendance Log — insert new records only (skip if student/course not yet linked)
@@ -208,7 +239,6 @@ export async function runSync(): Promise<SyncSummary> {
           if (!student[0]) { skipped++; continue; }
 
           // Find any enrolled course for this student to satisfy the FK
-          const { enrollmentsTable } = await import("@workspace/db");
           const enrolled = await db.select({ courseId: enrollmentsTable.courseId })
             .from(enrollmentsTable).where(eq(enrollmentsTable.studentId, student[0].id)).limit(1);
           if (!enrolled[0]) { skipped++; continue; }
@@ -226,7 +256,7 @@ export async function runSync(): Promise<SyncSummary> {
           errors.push(`${personCode}@${dateRaw}: ${e.message}`);
         }
       }
-      summary["attendance"] = { inserted, updated: 0, skipped, errors };
+      summary["attendance"] = { inserted, updated: 0, skipped, retired: 0, errors };
     }
 
     // 4. KPI Benchmarks — full replace
@@ -255,7 +285,7 @@ export async function runSync(): Promise<SyncSummary> {
           }
         }
       }
-      summary["kpis"] = { inserted, updated: 0, skipped: 0, errors };
+      summary["kpis"] = { inserted, updated: 0, skipped: 0, retired: 0, errors };
     }
 
     state.lastSummary = summary;

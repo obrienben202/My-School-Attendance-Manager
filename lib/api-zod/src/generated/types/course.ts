@@ -15,7 +15,10 @@ export interface Course {
   /** @nullable */
   staffName?: string | null;
   /** @nullable */
+  headOfDepartment?: string | null;
+  /** @nullable */
   yearGroup?: string | null;
   enrolledCount: number;
+  isActive: boolean;
   createdAt: Date;
 }

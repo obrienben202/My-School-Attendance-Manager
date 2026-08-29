@@ -31,7 +31,6 @@ import type {
   ConciergeApplication,
   ConciergeApplicationInput,
   Course,
-  CourseInput,
   DashboardSummary,
   Eprogression,
   EprogressionInput,
@@ -757,77 +756,6 @@ export function useListCourses<TData = Awaited<ReturnType<typeof listCourses>>, 
 
 
 
-
-export const getCreateCourseUrl = () => {
-
-
-
-
-  return `/api/courses`
-}
-
-/**
- * @summary Create a course
- */
-export const createCourse = async (courseInput: CourseInput, options?: RequestInit): Promise<Course> => {
-
-  return customFetch<Course>(getCreateCourseUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      courseInput,)
-  }
-);}
-
-
-
-
-export const getCreateCourseMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCourse>>, TError,{data: BodyType<CourseInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createCourse>>, TError,{data: BodyType<CourseInput>}, TContext> => {
-
-const mutationKey = ['createCourse'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCourse>>, {data: BodyType<CourseInput>}> = (props) => {
-          const {data} = props ?? {};
-
-          return  createCourse(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateCourseMutationResult = NonNullable<Awaited<ReturnType<typeof createCourse>>>
-    export type CreateCourseMutationBody = BodyType<CourseInput>
-    export type CreateCourseMutationError = ErrorType<unknown>
-
-    /**
- * @summary Create a course
- */
-export const useCreateCourse = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCourse>>, TError,{data: BodyType<CourseInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createCourse>>,
-        TError,
-        {data: BodyType<CourseInput>},
-        TContext
-      > => {
-      return useMutation(getCreateCourseMutationOptions(options));
-    }
 
 export const getGetCourseUrl = (id: number,) => {
 
