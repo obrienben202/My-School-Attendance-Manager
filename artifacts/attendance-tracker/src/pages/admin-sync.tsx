@@ -1,4 +1,5 @@
 import { useRole } from "@/hooks/use-role";
+import type { UserSyncSummary } from "@workspace/api-client-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,13 +33,7 @@ import {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type SyncSummaryEntry = {
-  inserted: number;
-  updated: number;
-  skipped: number;
-  retired: number;
-  errors: string[];
-};
+type SyncSummaryEntry = UserSyncSummary;
 
 type SyncStatus = {
   counts: { students: number; courses: number; attendance: number };
@@ -58,6 +53,7 @@ type SyncStatus = {
 export default function AdminSync() {
   const role = useRole();
   const { toast } = useToast();
+  const isAdmin = role === "admin";
 
   const { data: status, refetch: refetchStatus, isFetching } = useQuery<SyncStatus>({
     queryKey: ["sync-status"],
@@ -129,18 +125,22 @@ export default function AdminSync() {
             Automatically syncs from Google Sheets every 15 minutes. Changes in the spreadsheets appear here without anyone needing to do anything.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending || status?.running}
-          className="gap-2 shrink-0"
-        >
-          {syncMutation.isPending || status?.running
-            ? <Loader2 className="h-4 w-4 animate-spin" />
-            : <RefreshCw className="h-4 w-4" />}
-          Force sync
-        </Button>
+        {isAdmin ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending || status?.running}
+            className="gap-2 shrink-0"
+          >
+            {syncMutation.isPending || status?.running
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <RefreshCw className="h-4 w-4" />}
+            Force sync
+          </Button>
+        ) : (
+          <Badge variant="outline">View only</Badge>
+        )}
       </div>
 
       {/* Last sync status bar */}
@@ -176,12 +176,13 @@ export default function AdminSync() {
           {/* Mini summary badges from last run */}
           {status?.lastSummary && !status.running && (
             <div className="flex gap-2 flex-wrap justify-end">
-              {(["courses", "students", "attendance", "kpis"] as const).map(key => {
+              {(["users", "courses", "students", "attendance", "kpis"] as const).map(key => {
                 const s = status.lastSummary![key];
                 if (!s) return null;
                 return (
                   <Badge key={key} variant="outline" className="text-xs capitalize">
-                    {key}: {s.inserted} inserted · {s.updated} updated · {s.skipped} skipped · {s.retired} retired
+                    {key}: {s.inserted} inserted · {s.updated} updated
+                    {key === "users" ? ` · ${s.unchanged} unchanged · ${s.invalid} invalid · ${s.duplicates} duplicate · ${s.unmatched} unmatched` : ` · ${s.skipped} skipped · ${s.retired} retired`}
                   </Badge>
                 );
               })}
@@ -189,6 +190,35 @@ export default function AdminSync() {
           )}
         </CardContent>
       </Card>
+
+      {status?.lastSummary?.users && (
+        <Card className={
+          status.lastSummary.users.invalid > 0 || status.lastSummary.users.duplicates > 0
+            ? "border-red-500/30"
+            : status.lastSummary.users.unmatched > 0
+              ? "border-amber-500/30"
+              : undefined
+        }>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Directory role reconciliation</CardTitle>
+            <CardDescription>
+              Roles come from the school directory. Unmatched local accounts are reported but never removed automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p>
+              {status.lastSummary.users.inserted} inserted · {status.lastSummary.users.updated} updated ·{" "}
+              {status.lastSummary.users.unchanged} unchanged · {status.lastSummary.users.invalid} invalid ·{" "}
+              {status.lastSummary.users.duplicates} duplicate · {status.lastSummary.users.unmatched} unmatched local
+            </p>
+            {status.lastSummary.users.errors.length > 0 && (
+              <ul className="mt-3 list-disc list-inside text-red-400 space-y-1">
+                {status.lastSummary.users.errors.map(error => <li key={error}>{error}</li>)}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Current counts */}
       <div className="grid grid-cols-3 gap-4">
@@ -273,6 +303,7 @@ export default function AdminSync() {
               <p className="font-medium text-foreground mb-1">What gets synced automatically</p>
               <ul className="space-y-1 list-disc list-inside">
                 <li><strong>Courses</strong> — adds and updates sheet courses, preserves legacy relationships, and retires courses removed from the sheet</li>
+                <li><strong>Users and roles</strong> — reconciles accounts from the school directory; invalid or duplicate rows stop user changes for review</li>
                 <li><strong>Students</strong> — upserts by Student ID (name, year group, form group); no class enrolments yet — those are added per year group when ready</li>
                 <li><strong>Attendance Log</strong> — imports new records once students are enrolled in a course</li>
                 <li><strong>KPI Benchmarks</strong> — replaces attendance and punctuality thresholds each run</li>

@@ -30,6 +30,7 @@ import {
   TECHNOLOGY_STAFF_TIMETABLE,
   TECHNOLOGY_TIMETABLE_SOURCE,
 } from "./timetable-sync";
+import { syncUsersFromDirectory } from "./user-directory";
 
 const ATTENDANCE_SHEET_ID = "1eHSs1LPFM0cgMQQ4YWJQV2d20RSCm7-_xOCAWBfGLPQ";
 const COURSES_SHEET_ID    = "1C_FLnvrEZGpjHKpJ1bHOqt1JeYw07BgtlIDLvQ1aa9M";
@@ -37,8 +38,12 @@ const COURSES_SHEET_ID    = "1C_FLnvrEZGpjHKpJ1bHOqt1JeYw07BgtlIDLvQ1aa9M";
 export type SyncSummaryEntry = {
   inserted: number;
   updated:  number;
+  unchanged: number;
   skipped:  number;
   retired:  number;
+  invalid: number;
+  duplicates: number;
+  unmatched: number;
   errors:   string[];
 };
 
@@ -116,7 +121,16 @@ export async function runSync(): Promise<SyncSummary> {
   try {
     const connectors = new ReplitConnectors();
 
-    // 1. Courses — authoritative source, preserving legacy IDs and soft-retiring stale rows.
+    // 1. Users — validate the complete authoritative directory before any writes.
+    {
+      const users = await syncUsersFromDirectory();
+      summary["users"] = users;
+      if (users.invalid > 0 || users.duplicates > 0) {
+        throw new Error(`User directory validation failed: ${users.errors.join("; ")}`);
+      }
+    }
+
+    // 2. Courses — authoritative source, preserving legacy IDs and soft-retiring stale rows.
     {
       const rows = await fetchSheet(connectors, COURSES_SHEET_ID, "Sheet1");
       const parsed = parseCourseSheetRows(rows);
@@ -186,10 +200,20 @@ export async function runSync(): Promise<SyncSummary> {
         }
       });
 
-      summary["courses"] = { inserted, updated, skipped: parsed.skipped, retired, errors };
+      summary["courses"] = {
+        inserted,
+        updated,
+        unchanged: 0,
+        skipped: parsed.skipped,
+        retired,
+        invalid: parsed.errors.length,
+        duplicates: 0,
+        unmatched: 0,
+        errors,
+      };
     }
 
-    // 2. Maintained Technology staff timetable — reconcile source-owned course slots.
+    // 3. Maintained Technology staff timetable — reconcile source-owned course slots.
     {
       const courses = await db.select({
         id: coursesTable.id,
@@ -242,13 +266,17 @@ export async function runSync(): Promise<SyncSummary> {
       summary["timetable"] = {
         inserted,
         updated,
+        unchanged: 0,
         skipped: resolved.skipped,
         retired,
+        invalid: resolved.errors.length,
+        duplicates: 0,
+        unmatched: 0,
         errors: resolved.errors,
       };
     }
 
-    // 3. Students Roster — upsert by Student ID; NO course enrolments (handled separately)
+    // 4. Students Roster — upsert by Student ID; NO course enrolments (handled separately)
     {
       const rows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "Students Roster");
       const dataRows = rows.slice(1).filter(r => r[0]?.trim());
@@ -277,10 +305,20 @@ export async function runSync(): Promise<SyncSummary> {
           errors.push(`${personCode}: ${e.message}`);
         }
       }
-      summary["students"] = { inserted, updated, skipped: errors.length, retired: 0, errors };
+      summary["students"] = {
+        inserted,
+        updated,
+        unchanged: 0,
+        skipped: errors.length,
+        retired: 0,
+        invalid: errors.length,
+        duplicates: 0,
+        unmatched: 0,
+        errors,
+      };
     }
 
-    // 4. Attendance Log — insert new records only (skip if student/course not yet linked)
+    // 5. Attendance Log — insert new records only (skip if student/course not yet linked)
     {
       const rows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "Attendance Log");
       const dataRows = rows.slice(1).filter(r => r[2]?.trim() && r[1]?.trim());
@@ -321,10 +359,20 @@ export async function runSync(): Promise<SyncSummary> {
           errors.push(`${personCode}@${dateRaw}: ${e.message}`);
         }
       }
-      summary["attendance"] = { inserted, updated: 0, skipped, retired: 0, errors };
+      summary["attendance"] = {
+        inserted,
+        updated: 0,
+        unchanged: 0,
+        skipped,
+        retired: 0,
+        invalid: errors.length,
+        duplicates: 0,
+        unmatched: 0,
+        errors,
+      };
     }
 
-    // 5. KPI Benchmarks — full replace
+    // 6. KPI Benchmarks — full replace
     {
       const rows = await fetchSheet(connectors, ATTENDANCE_SHEET_ID, "KPIs");
       let currentCategory = "";
@@ -350,7 +398,17 @@ export async function runSync(): Promise<SyncSummary> {
           }
         }
       }
-      summary["kpis"] = { inserted, updated: 0, skipped: 0, retired: 0, errors };
+      summary["kpis"] = {
+        inserted,
+        updated: 0,
+        unchanged: 0,
+        skipped: 0,
+        retired: 0,
+        invalid: errors.length,
+        duplicates: 0,
+        unmatched: 0,
+        errors,
+      };
     }
 
     state.lastSummary = summary;
@@ -358,6 +416,10 @@ export async function runSync(): Promise<SyncSummary> {
     state.lastRanAt   = new Date();
     logger.info({ summary }, "Sheet sync completed");
   } catch (err: any) {
+    if (Object.keys(summary).length > 0) {
+      state.lastSummary = summary;
+      state.lastRanAt = new Date();
+    }
     state.lastError = err.message;
     logger.error({ err }, "Sheet sync failed");
     throw err;

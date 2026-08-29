@@ -5,8 +5,9 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { UserSyncSummary } from './userSyncSummary';
 
-export type SyncUsersFromSheet200 = {
+export interface UserDirectorySyncResult {
   synced: number;
-  errors: string[];
-};
+  summary: UserSyncSummary;
+}

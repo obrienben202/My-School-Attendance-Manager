@@ -14,6 +14,15 @@ function requireAdminOrHod(req: Request, res: Response): boolean {
   return true;
 }
 
+function requireAdmin(req: Request, res: Response): boolean {
+  const u = req.user as { role?: string } | undefined;
+  if (!req.isAuthenticated() || u?.role !== "admin") {
+    res.status(403).json({ error: "Admin access required" });
+    return false;
+  }
+  return true;
+}
+
 // GET /admin/sync/status — counts + last sync time + KPI benchmarks
 router.get("/admin/sync/status", async (req, res) => {
   if (!requireAdminOrHod(req, res)) return;
@@ -37,9 +46,9 @@ router.get("/admin/sync/status", async (req, res) => {
   });
 });
 
-// POST /admin/sync/sheets — manual trigger (admin/HoD only, runs the same job)
+// POST /admin/sync/sheets — manual trigger (admin only because it reconciles users)
 router.post("/admin/sync/sheets", async (req, res) => {
-  if (!requireAdminOrHod(req, res)) return;
+  if (!requireAdmin(req, res)) return;
   try {
     const summary = await runSync();
     return res.json({ ok: true, summary });

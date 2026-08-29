@@ -5,6 +5,16 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+export type AuthUserRole = typeof AuthUserRole[keyof typeof AuthUserRole];
+
+
+export const AuthUserRole = {
+  admin: 'admin',
+  hod: 'hod',
+  staff: 'staff',
+  office: 'office',
+} as const;
+
 export interface AuthUser {
   id: string;
   /** @nullable */
@@ -15,11 +25,28 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
-  role: string;
+  role: AuthUserRole;
   /** @nullable */
   username?: string | null;
   /** @nullable */
   department?: string | null;
+}
+
+export interface UserSyncSummary {
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+  retired: number;
+  invalid: number;
+  duplicates: number;
+  unmatched: number;
+  errors: string[];
+}
+
+export interface UserDirectorySyncResult {
+  synced: number;
+  summary: UserSyncSummary;
 }
 
 export interface AuthUserEnvelope {
@@ -651,10 +678,5 @@ export type LoginWithPassword200 = {
 
 export type Logout200 = {
   ok: boolean;
-};
-
-export type SyncUsersFromSheet200 = {
-  synced: number;
-  errors: string[];
 };
 

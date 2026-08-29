@@ -822,7 +822,7 @@ export const GetCurrentAuthUserResponse = zod.object({
   "firstName": zod.string().nullable(),
   "lastName": zod.string().nullable(),
   "profileImageUrl": zod.string().nullable(),
-  "role": zod.string(),
+  "role": zod.enum(['admin', 'hod', 'staff', 'office']),
   "username": zod.string().nullish(),
   "department": zod.string().nullish()
 }),zod.null()])
@@ -855,11 +855,21 @@ export const LogoutResponse = zod.object({
 
 
 /**
- * @summary Sync staff users from the Google Sheet
+ * @summary Reconcile users and roles from the school directory
  */
 export const SyncUsersFromSheetResponse = zod.object({
   "synced": zod.number(),
+  "summary": zod.object({
+  "inserted": zod.number(),
+  "updated": zod.number(),
+  "unchanged": zod.number(),
+  "skipped": zod.number(),
+  "retired": zod.number(),
+  "invalid": zod.number(),
+  "duplicates": zod.number(),
+  "unmatched": zod.number(),
   "errors": zod.array(zod.string())
+})
 })
 
 

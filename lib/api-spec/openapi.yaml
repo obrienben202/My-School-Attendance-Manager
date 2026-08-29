@@ -806,6 +806,12 @@ paths:
                     type: boolean
         '401':
           description: Invalid credentials
+        '403':
+          description: Credentials were valid, but the account has not been synchronized from the school directory.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /logout:
     post:
       tags: [Auth]
@@ -829,22 +835,32 @@ paths:
     post:
       tags: [Auth]
       operationId: syncUsersFromSheet
-      summary: Sync staff users from the Google Sheet
+      summary: Reconcile users and roles from the school directory
       responses:
         '200':
           description: Sync result
           content:
             application/json:
               schema:
-                type: object
-                required: [synced, errors]
-                properties:
-                  synced:
-                    type: integer
-                  errors:
-                    type: array
-                    items:
-                      type: string
+                $ref: '#/components/schemas/UserDirectorySyncResult'
+        '422':
+          description: Directory validation failed; no user changes were applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDirectorySyncResult'
+        '403':
+          description: Admin access required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: The school directory could not be fetched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /mobile-auth/token-exchange:
     post:
       tags: [Auth]
@@ -1073,10 +1089,33 @@ components:
           type: [string, 'null']
         role:
           type: string
+          enum: [admin, hod, staff, office]
         username:
           type: [string, 'null']
         department:
           type: [string, 'null']
+    UserSyncSummary:
+      type: object
+      required: [inserted, updated, unchanged, skipped, retired, invalid, duplicates, unmatched, errors]
+      properties:
+        inserted: { type: integer }
+        updated: { type: integer }
+        unchanged: { type: integer }
+        skipped: { type: integer }
+        retired: { type: integer }
+        invalid: { type: integer }
+        duplicates: { type: integer }
+        unmatched: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+    UserDirectorySyncResult:
+      type: object
+      required: [synced, summary]
+      properties:
+        synced: { type: integer }
+        summary:
+          $ref: '#/components/schemas/UserSyncSummary'
     AuthUserEnvelope:
       type: object
       required: [user]

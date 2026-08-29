@@ -1,6 +1,13 @@
 import { type Request, type Response, type NextFunction } from "express";
 import type { AuthUser } from "@workspace/api-zod";
-import { clearSession, getSessionId, getSession } from "../lib/auth";
+import { db, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import {
+  clearSession,
+  getSessionId,
+  getSession,
+} from "../lib/auth";
+import { resolveCurrentSessionUser } from "../lib/session-user";
 
 declare global {
   namespace Express {
@@ -39,6 +46,20 @@ export async function authMiddleware(
     return;
   }
 
-  req.user = session.user;
+  const [currentUser] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, session.user.id))
+    .limit(1);
+
+  if (!currentUser) {
+    await clearSession(res, sid);
+    next();
+    return;
+  }
+
+  // Sessions contain an intentionally stale snapshot for continuity, but
+  // authorization always uses the current database row.
+  req.user = resolveCurrentSessionUser(session.user, currentUser)!;
   next();
 }

@@ -1,15 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "@workspace/replit-auth-web";
+import type { UserSyncSummary } from "@workspace/api-client-react";
 import { useRole, type Role } from "@/hooks/use-role";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2, ShieldAlert, Users, RefreshCw } from "lucide-react";
+import { AlertCircle, Trash2, ShieldAlert, Users, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type StaffUser = {
@@ -58,6 +51,9 @@ export default function AdminUsers() {
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<StaffUser | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<UserSyncSummary | null>(null);
+  const isAdmin = role === "admin";
+  const canView = role === "admin" || role === "hod";
 
   async function handleSync() {
     setSyncing(true);
@@ -66,11 +62,23 @@ export default function AdminUsers() {
         method: "POST",
         credentials: "include",
       });
-      const data = await res.json() as { synced?: number; errors?: string[]; error?: string };
+      const data = await res.json() as {
+        synced?: number;
+        summary?: UserSyncSummary;
+        error?: string;
+      };
+      if (data.summary) setSyncResult(data.summary);
       if (!res.ok) {
-        toast({ title: data.error ?? "Sync failed", variant: "destructive" });
+        toast({
+          title: "Directory sync needs review",
+          description: data.summary?.errors[0] ?? data.error ?? "The directory was not applied.",
+          variant: "destructive",
+        });
       } else {
-        toast({ title: `Synced ${data.synced ?? 0} users from Google Sheet` });
+        toast({
+          title: "Directory roles synchronized",
+          description: `${data.summary?.inserted ?? 0} added, ${data.summary?.updated ?? 0} updated, ${data.summary?.unchanged ?? 0} unchanged.`,
+        });
         queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       }
     } catch {
@@ -87,28 +95,8 @@ export default function AdminUsers() {
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     },
-    enabled: role === "admin",
+    enabled: canView,
     refetchInterval: 5000,
-  });
-
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ id, newRole }: { id: string; newRole: string }) => {
-      const res = await fetch(`/api/admin/users/${id}/role`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
-      });
-      if (!res.ok) throw new Error("Failed to update role");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      toast({ title: "Role updated successfully" });
-    },
-    onError: () => {
-      toast({ title: "Failed to update role", variant: "destructive" });
-    },
   });
 
   const deleteUserMutation = useMutation({
@@ -129,9 +117,6 @@ export default function AdminUsers() {
       toast({ title: "Failed to remove user", variant: "destructive" });
     },
   });
-
-  const isAdmin = role === "admin";
-  const canView = role === "admin" || role === "hod";
 
   if (!canView) {
     return (
@@ -156,7 +141,7 @@ export default function AdminUsers() {
           </div>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-slate-800">User Management</h1>
-            <p className="text-sm text-slate-500">Manage staff accounts and role assignments</p>
+            <p className="text-sm text-slate-500">Directory-managed staff accounts and roles</p>
           </div>
           {isAdmin && (
             <Button
@@ -176,9 +161,40 @@ export default function AdminUsers() {
       <div className="px-6 py-6">
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 text-sm text-blue-800">
           {isAdmin
-            ? <><strong>Tip:</strong> Click <strong>Sync from Google Sheet</strong> to pull in new staff, update passwords, or change roles from the spreadsheet. Changes take effect immediately.</>
-            : <><strong>Note:</strong> You have view-only access to this page. Contact an administrator to make changes.</>}
+            ? <><strong>Directory managed:</strong> Roles cannot be changed here. Update the school directory, then sync it. Valid role changes take effect for active sessions immediately.</>
+            : <><strong>Directory managed:</strong> You have view-only access. Role changes must be made in the school directory by an administrator.</>}
         </div>
+
+        {syncResult && (
+          <div className={`rounded-lg border px-4 py-3 mb-6 text-sm ${
+            syncResult.invalid > 0 || syncResult.duplicates > 0
+              ? "bg-red-50 border-red-200 text-red-800"
+              : syncResult.unmatched > 0
+                ? "bg-amber-50 border-amber-200 text-amber-900"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}>
+            <div className="flex items-start gap-2">
+              {(syncResult.invalid > 0 || syncResult.duplicates > 0 || syncResult.unmatched > 0) && (
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              )}
+              <div>
+                <p className="font-semibold">Latest user reconciliation</p>
+                <p className="mt-1">
+                  {syncResult.inserted} inserted · {syncResult.updated} updated · {syncResult.unchanged} unchanged ·{" "}
+                  {syncResult.invalid} invalid · {syncResult.duplicates} duplicate · {syncResult.unmatched} unmatched local
+                </p>
+                {syncResult.unmatched > 0 && (
+                  <p className="mt-1">Unmatched local accounts were reported only; no accounts were automatically removed.</p>
+                )}
+                {syncResult.errors.length > 0 && (
+                  <ul className="mt-2 list-disc list-inside space-y-1">
+                    {syncResult.errors.map((error) => <li key={error}>{error}</li>)}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="text-slate-400 text-sm py-12 text-center animate-pulse">Loading users…</div>
@@ -192,8 +208,7 @@ export default function AdminUsers() {
                   <th className="px-4 py-3 font-semibold text-slate-600">Name</th>
                   <th className="px-4 py-3 font-semibold text-slate-600">Username</th>
                   <th className="px-4 py-3 font-semibold text-slate-600">Department</th>
-                  <th className="px-4 py-3 font-semibold text-slate-600">Current Role</th>
-                  <th className="px-4 py-3 font-semibold text-slate-600">Change Role</th>
+                  <th className="px-4 py-3 font-semibold text-slate-600">Directory Role</th>
                   <th className="px-4 py-3 font-semibold text-slate-600 text-right">Actions</th>
                 </tr>
               </thead>
@@ -221,29 +236,6 @@ export default function AdminUsers() {
                         >
                           {ROLE_LABELS[u.role] ?? u.role}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {isAdmin ? (
-                          <Select
-                            value={u.role}
-                            onValueChange={(val) =>
-                              updateRoleMutation.mutate({ id: u.id, newRole: val })
-                            }
-                            disabled={isSelf}
-                          >
-                            <SelectTrigger className="w-48 h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="hod">Head of Department</SelectItem>
-                              <SelectItem value="staff">Staff</SelectItem>
-                              <SelectItem value="office">Office Staff</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">View only</span>
-                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {isAdmin && (

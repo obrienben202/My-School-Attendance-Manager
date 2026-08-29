@@ -11,11 +11,13 @@ import {
   SESSION_COOKIE,
   SESSION_TTL,
 } from "../lib/auth";
+import {
+  fetchDirectoryCsv,
+  syncUsersFromDirectory,
+} from "../lib/user-directory";
+import { userToAuthUser } from "../lib/session-user";
 
 const router: IRouter = Router();
-
-const SHEET_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/1NNNADb5EBivGR_SZ8FHzvHr3dpzQZRMXLWgTg09oD24/export?format=csv";
 
 const GAS_AUTH_URL =
   "https://script.google.com/macros/s/AKfycbzURwLj_tTf7tZX7BIT4b6_NuU6WE64zCoGakr0zmwB1PQ695w-DLV8ksvJM9xsZ81E/exec";
@@ -28,14 +30,6 @@ function setSessionCookie(res: Response, sid: string) {
     path: "/",
     maxAge: SESSION_TTL,
   });
-}
-
-function mapRole(raw: string): string {
-  const r = raw.trim().toLowerCase();
-  if (r === "admin" || r === "hr") return "admin";
-  if (r === "hod") return "hod";
-  if (r === "office") return "office";
-  return "staff";
 }
 
 function requireAdmin(req: Request, res: Response): boolean {
@@ -111,11 +105,9 @@ router.post("/login", async (req: Request, res: Response) => {
 
   // ── If GAS authenticated successfully, create/update the user ─────────────
   if (gasResult?.success) {
-    const gasRole = mapRole(gasResult.role ?? "staff");
     const gasFullName = gasResult.fullName ?? normalizedUsername;
 
-    // Upsert the user: new users get the GAS role; existing users keep their
-    // locally-managed role so admins can override it via User Management.
+    // The GAS response proves the password, but the directory owns roles.
     const [existing] = await db
       .select()
       .from(usersTable)
@@ -124,7 +116,7 @@ router.post("/login", async (req: Request, res: Response) => {
     let dbUser: typeof usersTable.$inferSelect;
 
     if (existing) {
-      // Update name/department from GAS but keep admin-managed role
+      // Do not copy GAS role claims into the application account.
       const [updated] = await db
         .update(usersTable)
         .set({ firstName: gasFullName, updatedAt: new Date() })
@@ -132,34 +124,14 @@ router.post("/login", async (req: Request, res: Response) => {
         .returning();
       dbUser = updated;
     } else {
-      // First-time login — create the user with GAS-provided role
-      const [inserted] = await db
-        .insert(usersTable)
-        .values({
-          username: normalizedUsername,
-          role: gasRole,
-          firstName: gasFullName,
-          lastName: null,
-          email: null,
-          profileImageUrl: null,
-          department: null,
-        })
-        .returning();
-      dbUser = inserted;
+      // New accounts must first be introduced by a validated directory sync.
+      res.status(403).json({
+        error: "Account is not present in the school directory. Ask an administrator to sync users.",
+      });
+      return;
     }
 
-    const sid = await createSession({
-      user: {
-        id: dbUser.id,
-        email: dbUser.email,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-        profileImageUrl: dbUser.profileImageUrl,
-        role: dbUser.role,
-        username: dbUser.username,
-        department: dbUser.department,
-      },
-    });
+    const sid = await createSession({ user: userToAuthUser(dbUser) });
     setSessionCookie(res, sid);
     res.json({ ok: true });
     return;
@@ -183,18 +155,7 @@ router.post("/login", async (req: Request, res: Response) => {
   if (localUser?.passwordHash) {
     const valid = await bcrypt.compare(password, localUser.passwordHash);
     if (valid) {
-      const sid = await createSession({
-        user: {
-          id: localUser.id,
-          email: localUser.email,
-          firstName: localUser.firstName,
-          lastName: localUser.lastName,
-          profileImageUrl: localUser.profileImageUrl,
-          role: localUser.role,
-          username: localUser.username,
-          department: localUser.department,
-        },
-      });
+      const sid = await createSession({ user: userToAuthUser(localUser) });
       setSessionCookie(res, sid);
       res.json({ ok: true });
       return;
@@ -224,9 +185,7 @@ router.post("/admin/sync-users", async (req: Request, res: Response) => {
 
   let csv: string;
   try {
-    const response = await fetch(SHEET_CSV_URL);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    csv = await response.text();
+    csv = await fetchDirectoryCsv();
   } catch (err) {
     req.log.error({ err }, "Failed to fetch Google Sheet");
     res
@@ -235,53 +194,11 @@ router.post("/admin/sync-users", async (req: Request, res: Response) => {
     return;
   }
 
-  const lines = csv.trim().split(/\r?\n/).slice(1); // skip header row
-  const errors: string[] = [];
-  let synced = 0;
-
-  for (const line of lines) {
-    // Simple CSV parse: split on comma, strip surrounding quotes
-    const parts = line
-      .split(",")
-      .map((p) => p.trim().replace(/^"|"$/g, "").trim());
-    if (parts.length < 4) continue;
-    const [rawUsername, rawPassword, rawRole, fullName, department] = parts;
-    if (!rawUsername || !rawPassword) continue;
-
-    try {
-      const passwordHash = await bcrypt.hash(rawPassword, 10);
-      const role = mapRole(rawRole ?? "staff");
-      const username = rawUsername.toLowerCase();
-
-      await db
-        .insert(usersTable)
-        .values({
-          username,
-          passwordHash,
-          role,
-          firstName: fullName ?? rawUsername,
-          lastName: null,
-          department: department ?? null,
-          email: null,
-          profileImageUrl: null,
-        })
-        .onConflictDoUpdate({
-          target: usersTable.username,
-          set: {
-            passwordHash,
-            role,
-            firstName: fullName ?? rawUsername,
-            department: department ?? null,
-            updatedAt: new Date(),
-          },
-        });
-      synced++;
-    } catch (err) {
-      errors.push(`${rawUsername}: ${String(err)}`);
-    }
-  }
-
-  res.json({ synced, errors });
+  const summary = await syncUsersFromDirectory(csv);
+  res.status(summary.invalid > 0 || summary.duplicates > 0 ? 422 : 200).json({
+    synced: summary.inserted + summary.updated,
+    summary,
+  });
 });
 
 // ── Admin: User Management ────────────────────────────────────────────────────
@@ -289,7 +206,18 @@ router.post("/admin/sync-users", async (req: Request, res: Response) => {
 router.get("/admin/users", async (req: Request, res: Response) => {
   if (!requireAdminOrHod(req, res)) return;
   const users = await db
-    .select()
+    .select({
+      id: usersTable.id,
+      username: usersTable.username,
+      email: usersTable.email,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+      profileImageUrl: usersTable.profileImageUrl,
+      role: usersTable.role,
+      department: usersTable.department,
+      createdAt: usersTable.createdAt,
+      updatedAt: usersTable.updatedAt,
+    })
     .from(usersTable)
     .orderBy(usersTable.createdAt);
   res.json(users);
@@ -297,28 +225,9 @@ router.get("/admin/users", async (req: Request, res: Response) => {
 
 router.patch("/admin/users/:id/role", async (req: Request, res: Response) => {
   if (!requireAdmin(req, res)) return;
-  const id = String(req.params.id);
-  const { role } = req.body as { role?: string };
-  const allowed = ["admin", "hod", "staff", "office"];
-  if (!role || !allowed.includes(role)) {
-    res.status(400).json({ error: "Invalid role" });
-    return;
-  }
-  const me = req.user as { id?: string } | undefined;
-  if (me?.id === id) {
-    res.status(400).json({ error: "Cannot change your own role" });
-    return;
-  }
-  const [updated] = await db
-    .update(usersTable)
-    .set({ role, updatedAt: new Date() })
-    .where(eq(usersTable.id, id))
-    .returning();
-  if (!updated) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
-  res.json(updated);
+  res.status(409).json({
+    error: "Roles are managed by the school directory and cannot be changed locally.",
+  });
 });
 
 router.delete("/admin/users/:id", async (req: Request, res: Response) => {

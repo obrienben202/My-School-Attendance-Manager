@@ -61,10 +61,10 @@ import type {
   Student,
   StudentInput,
   StudentUpdate,
-  SyncUsersFromSheet200,
   Target,
   TargetInput,
-  TargetUpdate
+  TargetUpdate,
+  UserDirectorySyncResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2893,7 +2893,7 @@ export const loginWithPassword = async (loginWithPasswordBody: LoginWithPassword
 
 
 
-export const getLoginWithPasswordMutationOptions = <TError = ErrorType<void>,
+export const getLoginWithPasswordMutationOptions = <TError = ErrorType<void | ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginWithPassword>>, TError,{data: BodyType<LoginWithPasswordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof loginWithPassword>>, TError,{data: BodyType<LoginWithPasswordBody>}, TContext> => {
 
@@ -2922,12 +2922,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type LoginWithPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof loginWithPassword>>>
     export type LoginWithPasswordMutationBody = BodyType<LoginWithPasswordBody>
-    export type LoginWithPasswordMutationError = ErrorType<void>
+    export type LoginWithPasswordMutationError = ErrorType<void | ErrorEnvelope>
 
     /**
  * @summary Log in with username and password
  */
-export const useLoginWithPassword = <TError = ErrorType<void>,
+export const useLoginWithPassword = <TError = ErrorType<void | ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginWithPassword>>, TError,{data: BodyType<LoginWithPasswordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof loginWithPassword>>,
@@ -3017,11 +3017,11 @@ export const getSyncUsersFromSheetUrl = () => {
 }
 
 /**
- * @summary Sync staff users from the Google Sheet
+ * @summary Reconcile users and roles from the school directory
  */
-export const syncUsersFromSheet = async ( options?: RequestInit): Promise<SyncUsersFromSheet200> => {
+export const syncUsersFromSheet = async ( options?: RequestInit): Promise<UserDirectorySyncResult> => {
 
-  return customFetch<SyncUsersFromSheet200>(getSyncUsersFromSheetUrl(),
+  return customFetch<UserDirectorySyncResult>(getSyncUsersFromSheetUrl(),
   {
     ...options,
     method: 'POST'
@@ -3033,7 +3033,7 @@ export const syncUsersFromSheet = async ( options?: RequestInit): Promise<SyncUs
 
 
 
-export const getSyncUsersFromSheetMutationOptions = <TError = ErrorType<unknown>,
+export const getSyncUsersFromSheetMutationOptions = <TError = ErrorType<ErrorEnvelope | UserDirectorySyncResult>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncUsersFromSheet>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof syncUsersFromSheet>>, TError,void, TContext> => {
 
@@ -3062,12 +3062,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SyncUsersFromSheetMutationResult = NonNullable<Awaited<ReturnType<typeof syncUsersFromSheet>>>
 
-    export type SyncUsersFromSheetMutationError = ErrorType<unknown>
+    export type SyncUsersFromSheetMutationError = ErrorType<ErrorEnvelope | UserDirectorySyncResult>
 
     /**
- * @summary Sync staff users from the Google Sheet
+ * @summary Reconcile users and roles from the school directory
  */
-export const useSyncUsersFromSheet = <TError = ErrorType<unknown>,
+export const useSyncUsersFromSheet = <TError = ErrorType<ErrorEnvelope | UserDirectorySyncResult>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncUsersFromSheet>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof syncUsersFromSheet>>,
