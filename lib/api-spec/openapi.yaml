@@ -36,6 +36,8 @@ tags:
     description: Staff records and staff-scoped read-only views
   - name: planned-absences
     description: Authenticated planned absence requests
+  - name: safeguarding
+    description: Protected safeguarding notes for authorised staff
 
 paths:
   /healthz:
@@ -142,6 +144,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+
     post:
       operationId: createPlannedAbsence
       tags: [planned-absences]
@@ -167,6 +170,68 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "401":
           description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /safeguarding/notes:
+    get:
+      operationId: listSafeguardingNotes
+      tags: [safeguarding]
+      summary: List protected safeguarding notes
+      description: Lists safeguarding notes for authorised safeguarding staff only.
+      responses:
+        "200":
+          description: Protected safeguarding notes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSafeguardingNotesResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Safeguarding access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createSafeguardingNote
+      tags: [safeguarding]
+      summary: Create a protected safeguarding note
+      description: Creates a note attributed to the authenticated authorised staff member.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafeguardingNoteInput"
+      responses:
+        "201":
+          description: Safeguarding note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafeguardingNote"
+        "400":
+          description: Invalid note or learner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Safeguarding access denied
           content:
             application/json:
               schema:
@@ -1253,6 +1318,38 @@ components:
       properties:
         error:
           type: string
+    SafeguardingNote:
+      type: object
+      required: [id, studentId, learnerName, personCode, author, content, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        studentId: { type: integer }
+        learnerName: { type: string }
+        personCode: { type: string }
+        author: { type: string }
+        content: { type: string }
+        status:
+          type: string
+          enum: [active, archived]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ListSafeguardingNotesResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/SafeguardingNote"
+    SafeguardingNoteInput:
+      type: object
+      required: [studentId, content]
+      properties:
+        studentId: { type: integer }
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
     HealthStatus:
       type: object
       properties:

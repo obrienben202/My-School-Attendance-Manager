@@ -45,6 +45,7 @@ import type {
   ListConciergeApplicationsParams,
   ListEprogressionsParams,
   ListIlpsParams,
+  ListSafeguardingNotesResponse,
   ListStudentsParams,
   ListTargetsParams,
   LoginWithPassword200,
@@ -55,6 +56,8 @@ import type {
   MobileTokenExchangeSuccess,
   PlannedAbsence,
   PlannedAbsenceInput,
+  SafeguardingNote,
+  SafeguardingNoteInput,
   ScheduleEntry,
   StaffRecord,
   StaffRegisterHistoryResponse,
@@ -538,6 +541,156 @@ export const useCreatePlannedAbsence = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getCreatePlannedAbsenceMutationOptions(options));
+    }
+
+export const getListSafeguardingNotesUrl = () => {
+
+
+
+
+  return `/api/safeguarding/notes`
+}
+
+/**
+ * Lists safeguarding notes for authorised safeguarding staff only.
+ * @summary List protected safeguarding notes
+ */
+export const listSafeguardingNotes = async ( options?: RequestInit): Promise<ListSafeguardingNotesResponse> => {
+
+  return customFetch<ListSafeguardingNotesResponse>(getListSafeguardingNotesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSafeguardingNotesQueryKey = () => {
+    return [
+    `/api/safeguarding/notes`
+    ] as const;
+    }
+
+
+export const getListSafeguardingNotesQueryOptions = <TData = Awaited<ReturnType<typeof listSafeguardingNotes>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSafeguardingNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSafeguardingNotesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSafeguardingNotes>>> = ({ signal }) => listSafeguardingNotes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSafeguardingNotes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSafeguardingNotesQueryResult = NonNullable<Awaited<ReturnType<typeof listSafeguardingNotes>>>
+export type ListSafeguardingNotesQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List protected safeguarding notes
+ */
+
+export function useListSafeguardingNotes<TData = Awaited<ReturnType<typeof listSafeguardingNotes>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSafeguardingNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSafeguardingNotesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateSafeguardingNoteUrl = () => {
+
+
+
+
+  return `/api/safeguarding/notes`
+}
+
+/**
+ * Creates a note attributed to the authenticated authorised staff member.
+ * @summary Create a protected safeguarding note
+ */
+export const createSafeguardingNote = async (safeguardingNoteInput: SafeguardingNoteInput, options?: RequestInit): Promise<SafeguardingNote> => {
+
+  return customFetch<SafeguardingNote>(getCreateSafeguardingNoteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      safeguardingNoteInput,)
+  }
+);}
+
+
+
+
+export const getCreateSafeguardingNoteMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafeguardingNote>>, TError,{data: BodyType<SafeguardingNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSafeguardingNote>>, TError,{data: BodyType<SafeguardingNoteInput>}, TContext> => {
+
+const mutationKey = ['createSafeguardingNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSafeguardingNote>>, {data: BodyType<SafeguardingNoteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSafeguardingNote(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSafeguardingNoteMutationResult = NonNullable<Awaited<ReturnType<typeof createSafeguardingNote>>>
+    export type CreateSafeguardingNoteMutationBody = BodyType<SafeguardingNoteInput>
+    export type CreateSafeguardingNoteMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Create a protected safeguarding note
+ */
+export const useCreateSafeguardingNote = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafeguardingNote>>, TError,{data: BodyType<SafeguardingNoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSafeguardingNote>>,
+        TError,
+        {data: BodyType<SafeguardingNoteInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSafeguardingNoteMutationOptions(options));
     }
 
 export const getGetStudentUrl = (id: number,) => {

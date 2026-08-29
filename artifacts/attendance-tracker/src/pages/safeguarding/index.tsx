@@ -1,12 +1,19 @@
 import { useState, useMemo } from "react";
-import { useListStudents } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  getListSafeguardingNotesQueryKey,
+  useCreateSafeguardingNote,
+  useListSafeguardingNotes,
+  useListStudents,
+} from "@workspace/api-client-react";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Shield, Flag, Lock, ArrowUpCircle, Inbox, Archive, Search,
@@ -21,6 +28,8 @@ type InboxStatus = "active" | "archived";
 
 type SafeguardingMessage = {
   id: number;
+  studentId?: number;
+  persisted?: boolean;
   kind: MessageKind;
   learnerName: string;
   personCode: string;
@@ -69,12 +78,26 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function errorMessage(error: unknown, fallback: string) {
+  const data = (error as { data?: { error?: unknown } } | null)?.data;
+  return typeof data?.error === "string" ? data.error : fallback;
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 type NavView = "inbox" | "archived" | "search" | "add-record" | "add-note";
 
 export default function SafeguardingTutor() {
+  const queryClient = useQueryClient();
+  const { user, isLoading: authLoading } = useAuth();
+  const canAccessSafeguarding = user?.role === "staff" || user?.role === "hod";
   const { data: students = [] } = useListStudents();
+  const {
+    data: savedNotes = [],
+    isLoading: notesLoading,
+    error: notesError,
+  } = useListSafeguardingNotes();
+  const createNote = useCreateSafeguardingNote();
   const [messages, setMessages] = useState<SafeguardingMessage[]>(SAMPLE_MESSAGES);
   const [navView, setNavView] = useState<NavView>("inbox");
   const [inboxFilter, setInboxFilter] = useState("all");
@@ -82,22 +105,51 @@ export default function SafeguardingTutor() {
   const [detailMsg, setDetailMsg] = useState<SafeguardingMessage | null>(null);
   const [noteReply, setNoteReply] = useState("");
   const [noteSent, setNoteSent] = useState(false);
+  const [noteError, setNoteError] = useState("");
 
   // Learner search
   const [learnerQuery, setLearnerQuery] = useState("");
   const [selectedLearnerPC, setSelectedLearnerPC] = useState<string | null>(null);
 
   // Add record/note form
-  const [addForm, setAddForm] = useState({ learner: "", category: "Wellbeing", summary: "", detail: "", urgent: false, kind: "record" as MessageKind });
+  const [addForm, setAddForm] = useState({ studentId: null as number | null, learner: "", category: "Wellbeing", summary: "", detail: "", urgent: false, kind: "record" as MessageKind });
   const [addSubmitted, setAddSubmitted] = useState(false);
+  const [addError, setAddError] = useState("");
+
+  const savedMessages = useMemo<SafeguardingMessage[]>(() =>
+    savedNotes.map((note) => ({
+      id: 1_000_000_000 + note.id,
+      studentId: note.studentId,
+      persisted: true,
+      kind: "note",
+      learnerName: note.learnerName,
+      personCode: note.personCode,
+      category: "Safeguarding note",
+      summary: note.content.split(/\r?\n/, 1)[0].slice(0, 160),
+      detail: note.content,
+      submittedBy: note.author,
+      date: note.createdAt,
+      urgent: false,
+      locked: false,
+      escalated: false,
+      closed: note.status === "archived",
+      status: note.status,
+    })),
+    [savedNotes],
+  );
+
+  const allMessages = useMemo(
+    () => [...savedMessages, ...messages],
+    [savedMessages, messages],
+  );
 
   const activeMessages = useMemo(() =>
-    messages.filter((m) => m.status === "active"),
-    [messages]
+    allMessages.filter((m) => m.status === "active"),
+    [allMessages]
   );
   const archivedMessages = useMemo(() =>
-    messages.filter((m) => m.status === "archived"),
-    [messages]
+    allMessages.filter((m) => m.status === "archived"),
+    [allMessages]
   );
 
   const filteredInbox = useMemo(() => {
@@ -120,8 +172,8 @@ export default function SafeguardingTutor() {
 
   const learnerMessages = useMemo(() => {
     if (!selectedLearnerPC) return [];
-    return messages.filter((m) => m.personCode === selectedLearnerPC && !m.locked);
-  }, [messages, selectedLearnerPC]);
+    return allMessages.filter((m) => m.personCode === selectedLearnerPC && !m.locked);
+  }, [allMessages, selectedLearnerPC]);
 
   const filteredStudents = useMemo(() =>
     students.filter((s) =>
@@ -131,12 +183,46 @@ export default function SafeguardingTutor() {
     [students, learnerQuery]
   );
 
-  const submitAddForm = () => {
+  const addLearnerMatches = useMemo(() => {
+    const query = addForm.learner.trim().toLowerCase();
+    if (query.length < 2 || addForm.studentId) return [];
+    return students.filter((student) =>
+      `${student.forename} ${student.surname}`.toLowerCase().includes(query)
+      || `${student.surname}, ${student.forename}`.toLowerCase().includes(query)
+      || student.personCode.toLowerCase().includes(query)
+    ).slice(0, 6);
+  }, [addForm.learner, addForm.studentId, students]);
+
+  const refreshSavedNotes = () =>
+    queryClient.invalidateQueries({ queryKey: getListSafeguardingNotesQueryKey() });
+
+  const submitAddForm = async () => {
+    setAddError("");
+    if (!addForm.studentId || !addForm.summary.trim()) {
+      setAddError("Select a learner from the results and enter a summary before submitting.");
+      return;
+    }
+
+    if (addForm.kind === "note") {
+      const content = [addForm.summary.trim(), addForm.detail.trim()].filter(Boolean).join("\n\n");
+      try {
+        await createNote.mutateAsync({
+          data: { studentId: addForm.studentId, content },
+        });
+        await refreshSavedNotes();
+        setAddSubmitted(true);
+      } catch (error) {
+        setAddError(errorMessage(error, "The note could not be saved. Please try again."));
+      }
+      return;
+    }
+
     const newMsg: SafeguardingMessage = {
       id: Date.now(),
+      studentId: addForm.studentId,
       kind: addForm.kind,
       learnerName: addForm.learner,
-      personCode: "PC" + String(Math.floor(Math.random() * 9000) + 1000),
+      personCode: students.find((student) => student.id === addForm.studentId)?.personCode ?? "",
       category: addForm.category,
       summary: addForm.summary,
       detail: addForm.detail,
@@ -152,6 +238,30 @@ export default function SafeguardingTutor() {
     setAddSubmitted(true);
   };
 
+  const submitReplyNote = async () => {
+    setNoteError("");
+    const content = noteReply.trim();
+    if (!content) {
+      setNoteError("Enter a note before sending.");
+      return;
+    }
+
+    const studentId = detailMsg?.studentId
+      ?? students.find((student) => student.personCode === detailMsg?.personCode)?.id;
+    if (!studentId) {
+      setNoteError("This learner could not be matched to a current learner record.");
+      return;
+    }
+
+    try {
+      await createNote.mutateAsync({ data: { studentId, content } });
+      await refreshSavedNotes();
+      setNoteSent(true);
+    } catch (error) {
+      setNoteError(errorMessage(error, "The note could not be saved. Please try again."));
+    }
+  };
+
   const urgentCount = activeMessages.filter((m) => m.urgent && !m.escalated).length;
   const escalatedCount = activeMessages.filter((m) => m.escalated).length;
 
@@ -162,6 +272,24 @@ export default function SafeguardingTutor() {
     { view: "add-record", icon: <FileText size={14} />, label: "Add Record" },
     { view: "add-note", icon: <StickyNote size={14} />, label: "Add Note / Risk" },
   ];
+
+  if (authLoading) {
+    return <div className="p-8 text-sm text-gray-500">Checking safeguarding access…</div>;
+  }
+
+  if (!canAccessSafeguarding) {
+    return (
+      <div className="p-8 max-w-xl">
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+          <Lock size={18} className="mt-0.5 shrink-0" />
+          <div>
+            <h1 className="font-semibold">Safeguarding access required</h1>
+            <p className="mt-1 text-sm">Your account is not authorised to read or create protected safeguarding notes.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="-mx-6 -mt-6 min-h-screen bg-slate-50 flex flex-col">
@@ -194,7 +322,16 @@ export default function SafeguardingTutor() {
           {NAV_ITEMS.map(({ view, icon, label, badge }) => (
             <button
               key={view}
-              onClick={() => { setNavView(view); setAddSubmitted(false); }}
+               onClick={() => {
+                 setNavView(view);
+                 setAddSubmitted(false);
+                 setAddError("");
+                 if (view === "add-note") {
+                   setAddForm((form) => ({ ...form, kind: "note" }));
+                 } else if (view === "add-record") {
+                   setAddForm((form) => ({ ...form, kind: "record" }));
+                 }
+               }}
               className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
                 navView === view ? "bg-teal-50 text-teal-700 font-semibold border-r-2 border-teal-600" : "text-gray-600 hover:bg-gray-50"
               }`}
@@ -240,6 +377,12 @@ export default function SafeguardingTutor() {
               </div>
 
               {/* Message list */}
+              {notesLoading && <p className="mb-3 text-xs text-gray-500">Loading protected notes…</p>}
+              {notesError && (
+                <p className="mb-3 rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                  {errorMessage(notesError, "Protected notes could not be loaded.")}
+                </p>
+              )}
               <div className="space-y-2">
                 {filteredInbox.length === 0 ? (
                   <div className="py-16 text-center text-sm text-gray-400">No messages match your filter.</div>
@@ -276,14 +419,18 @@ export default function SafeguardingTutor() {
                         className="text-[10px] px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center gap-0.5">
                         <Eye size={10} /> View
                       </button>
-                      <button onClick={() => archiveMsg(msg.id)}
-                        className="text-[10px] px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center gap-0.5">
-                        <Archive size={10} /> Archive
-                      </button>
-                      <button onClick={() => deleteFromInbox(msg.id)}
-                        className="text-[10px] px-2 py-1 rounded border border-red-100 text-red-500 hover:bg-red-50 flex items-center gap-0.5">
-                        <Trash2 size={10} /> Delete
-                      </button>
+                      {!msg.persisted && (
+                        <>
+                          <button onClick={() => archiveMsg(msg.id)}
+                            className="text-[10px] px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center gap-0.5">
+                            <Archive size={10} /> Archive
+                          </button>
+                          <button onClick={() => deleteFromInbox(msg.id)}
+                            className="text-[10px] px-2 py-1 rounded border border-red-100 text-red-500 hover:bg-red-50 flex items-center gap-0.5">
+                            <Trash2 size={10} /> Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -395,7 +542,7 @@ export default function SafeguardingTutor() {
                   </div>
                   <p className="text-base font-bold text-gray-800">Submitted successfully</p>
                   <p className="text-sm text-gray-500 text-center">The {addForm.kind} has been logged and the relevant staff have been notified according to the template's distribution list.</p>
-                  <Button className="bg-teal-700 hover:bg-teal-800 mt-2" onClick={() => { setAddSubmitted(false); setAddForm({ learner: "", category: "Wellbeing", summary: "", detail: "", urgent: false, kind: navView === "add-record" ? "record" : "note" }); }}>
+                   <Button className="bg-teal-700 hover:bg-teal-800 mt-2" onClick={() => { setAddSubmitted(false); setAddForm({ studentId: null, learner: "", category: "Wellbeing", summary: "", detail: "", urgent: false, kind: navView === "add-record" ? "record" : "note" }); }}>
                     Add another
                   </Button>
                 </div>
@@ -420,7 +567,22 @@ export default function SafeguardingTutor() {
                     )}
                     <div>
                       <label className="text-xs font-semibold text-gray-600 block mb-1">Learner name <span className="text-red-500">*</span></label>
-                      <Input value={addForm.learner} onChange={(e) => setAddForm((f) => ({ ...f, learner: e.target.value }))} placeholder="Start typing learner name…" className="text-sm" />
+                       <Input value={addForm.learner} onChange={(e) => setAddForm((f) => ({ ...f, studentId: null, learner: e.target.value }))} placeholder="Start typing learner name or person code…" className="text-sm" />
+                       {addLearnerMatches.length > 0 && (
+                         <div className="mt-1 overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+                           {addLearnerMatches.map((student) => (
+                             <button
+                               key={student.id}
+                               type="button"
+                               onClick={() => setAddForm((form) => ({ ...form, studentId: student.id, learner: `${student.surname}, ${student.forename}` }))}
+                               className="flex w-full items-center justify-between border-b border-gray-100 px-3 py-2 text-left text-sm hover:bg-teal-50 last:border-b-0"
+                             >
+                               <span>{student.surname}, {student.forename}</span>
+                               <span className="font-mono text-xs text-gray-400">{student.personCode}</span>
+                             </button>
+                           ))}
+                         </div>
+                       )}
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-gray-600 block mb-1">Category <span className="text-red-500">*</span></label>
@@ -448,8 +610,9 @@ export default function SafeguardingTutor() {
                       <AlertTriangle size={12} className="mt-0.5 shrink-0" />
                       This information is confidential. It will be shared with the appropriate staff according to the notification settings for the selected category.
                     </div>
-                    <Button className="bg-teal-700 hover:bg-teal-800 gap-1.5" disabled={!addForm.learner || !addForm.summary} onClick={submitAddForm}>
-                      <Check size={13} /> Submit
+                     {addError && <p className="text-xs font-medium text-red-600" role="alert">{addError}</p>}
+                     <Button className="bg-teal-700 hover:bg-teal-800 gap-1.5" disabled={createNote.isPending} onClick={submitAddForm}>
+                       <Check size={13} /> {createNote.isPending && addForm.kind === "note" ? "Saving…" : "Submit"}
                     </Button>
                   </div>
                 </>
@@ -460,7 +623,7 @@ export default function SafeguardingTutor() {
       </div>
 
       {/* Detail dialog */}
-      <Dialog open={!!detailMsg} onOpenChange={() => { setDetailMsg(null); setNoteReply(""); setNoteSent(false); }}>
+      <Dialog open={!!detailMsg} onOpenChange={() => { setDetailMsg(null); setNoteReply(""); setNoteSent(false); setNoteError(""); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
@@ -470,6 +633,9 @@ export default function SafeguardingTutor() {
               {detailMsg?.locked && <Lock size={13} className="text-gray-500" />}
               {detailMsg?.escalated && <ArrowUpCircle size={13} className="text-amber-500" />}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              View this protected safeguarding message and add a follow-up note.
+            </DialogDescription>
           </DialogHeader>
           {detailMsg && (
             <div className="space-y-4 text-sm">
@@ -502,18 +668,19 @@ export default function SafeguardingTutor() {
                   <textarea value={noteReply} onChange={(e) => setNoteReply(e.target.value)} rows={2}
                     placeholder="Add a follow-up note…"
                     className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
+                  {noteError && <p className="mt-1 text-xs font-medium text-red-600" role="alert">{noteError}</p>}
                 </div>
               )}
               {noteSent && <p className="text-xs text-green-700 font-semibold flex items-center gap-1"><Check size={12} /> Note added.</p>}
             </div>
           )}
           <DialogFooter className="gap-2">
-            {!noteSent && noteReply.trim() && (
-              <Button className="bg-teal-700 hover:bg-teal-800 gap-1.5 text-sm" onClick={() => setNoteSent(true)}>
-                <Plus size={13} /> Add note
+            {!noteSent && (
+              <Button className="bg-teal-700 hover:bg-teal-800 gap-1.5 text-sm" disabled={createNote.isPending} onClick={submitReplyNote}>
+                <Plus size={13} /> {createNote.isPending ? "Saving…" : "Send note"}
               </Button>
             )}
-            <Button variant="outline" onClick={() => { setDetailMsg(null); setNoteReply(""); setNoteSent(false); }}>Close</Button>
+            <Button variant="outline" onClick={() => { setDetailMsg(null); setNoteReply(""); setNoteSent(false); setNoteError(""); }}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

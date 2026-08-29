@@ -15,6 +15,8 @@ import * as zod from 'zod';
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
 })
+
+
 /**
  * @summary Get dashboard summary stats
  */
@@ -116,6 +118,38 @@ export const CreatePlannedAbsenceBody = zod.object({
   "startTime": zod.string().optional(),
   "endTime": zod.string().optional(),
   "notes": zod.string().optional()
+})
+
+
+/**
+ * Lists safeguarding notes for authorised safeguarding staff only.
+ * @summary List protected safeguarding notes
+ */
+export const ListSafeguardingNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "learnerName": zod.string(),
+  "personCode": zod.string(),
+  "author": zod.string(),
+  "content": zod.string(),
+  "status": zod.enum(['active', 'archived']),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListSafeguardingNotesResponse = zod.array(ListSafeguardingNotesResponseItem)
+
+
+/**
+ * Creates a note attributed to the authenticated authorised staff member.
+ * @summary Create a protected safeguarding note
+ */
+export const createSafeguardingNoteBodyContentMax = 10000;
+
+
+
+export const CreateSafeguardingNoteBody = zod.object({
+  "studentId": zod.number(),
+  "content": zod.string().min(1).max(createSafeguardingNoteBodyContentMax)
 })
 
 
@@ -1151,6 +1185,8 @@ export const GetStaffRoomBookingsResponse = zod.object({
   "records": zod.array(zod.unknown()),
   "message": zod.string()
 })
+
+
 /**
  * @summary Get correspondence for a staff member
  */

@@ -15,6 +15,7 @@ import syncRouter from "./sync";
 import hodRouter from "./hod";
 import staffRouter from "./staff";
 import plannedAbsencesRouter from "./planned-absences";
+import safeguardingRouter from "./safeguarding";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(syncRouter);
 router.use(hodRouter);
 router.use(staffRouter);
 router.use(plannedAbsencesRouter);
+router.use(safeguardingRouter);
 
 export default router;

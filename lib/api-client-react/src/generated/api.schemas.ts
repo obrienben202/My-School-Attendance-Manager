@@ -79,6 +79,37 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export type SafeguardingNoteStatus = typeof SafeguardingNoteStatus[keyof typeof SafeguardingNoteStatus];
+
+
+export const SafeguardingNoteStatus = {
+  active: 'active',
+  archived: 'archived',
+} as const;
+
+export interface SafeguardingNote {
+  id: number;
+  studentId: number;
+  learnerName: string;
+  personCode: string;
+  author: string;
+  content: string;
+  status: SafeguardingNoteStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ListSafeguardingNotesResponse = SafeguardingNote[];
+
+export interface SafeguardingNoteInput {
+  studentId: number;
+  /**
+     * @minLength 1
+     * @maxLength 10000
+     */
+  content: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
