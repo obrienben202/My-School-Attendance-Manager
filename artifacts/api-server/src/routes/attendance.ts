@@ -7,7 +7,7 @@ import {
   scheduleTable,
   enrollmentsTable,
 } from "@workspace/db";
-import { eq, and, inArray, sql, type SQL } from "drizzle-orm";
+import { eq, and, inArray, type SQL } from "drizzle-orm";
 import {
   ListAttendanceRecordsQueryParams,
   CreateAttendanceRecordBody,
@@ -17,6 +17,7 @@ import {
   DeleteAttendanceRecordParams,
 } from "@workspace/api-zod";
 import { canManageAttendanceSchedule } from "../lib/attendance-authorization";
+import { replaceAttendanceRegister } from "../lib/attendance-register";
 
 const router = Router();
 
@@ -153,40 +154,13 @@ router.post("/attendance/register", async (req, res) => {
 
   const attendanceDate = date.toISOString().split("T")[0];
   const records = await db.transaction(async (tx) => {
-    await tx.execute(sql`
-      SELECT pg_advisory_xact_lock(
-        hashtextextended(${`${scheduleId}:${attendanceDate}`}, 0)
-      )
-    `);
-
-    await tx
-      .delete(attendanceTable)
-      .where(and(
-        eq(attendanceTable.scheduleId, scheduleId),
-        eq(attendanceTable.date, attendanceDate),
-      ));
-
-    const saved = marks.length > 0
-      ? await tx
-        .insert(attendanceTable)
-        .values(marks.map(mark => ({
-          studentId: mark.studentId,
-          courseId: schedule.courseId,
-          scheduleId,
-          date: attendanceDate,
-          status: mark.status,
-          notes: mark.notes,
-          markedBy: req.user!.id,
-        })))
-        .returning()
-      : [];
-
-    await tx
-      .update(scheduleTable)
-      .set({ registerMarked: saved.length > 0 })
-      .where(eq(scheduleTable.id, scheduleId));
-
-    return saved;
+    return replaceAttendanceRegister(tx, {
+      scheduleId,
+      courseId: schedule.courseId,
+      date: attendanceDate,
+      marks,
+      markedBy: req.user!.id,
+    });
   });
 
   return res.json(records.map(record => ({

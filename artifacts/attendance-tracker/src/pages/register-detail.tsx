@@ -22,10 +22,13 @@ import {
   X, Check, ChevronsDown, Edit, KeyRound, Info,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  STATUS_TO_API,
+  statusFromApi,
+  type RegisterStatusCode as StatusCode,
+} from "@/lib/register-status";
 
 const STATUSES = ["P", "A", "L", "O", "E", "D", "N"] as const;
-type StatusCode = typeof STATUSES[number];
-type ApiStatus = "present" | "absent" | "late" | "authorised" | "excluded" | "distance_learning";
 type RegisterStudent = {
   id: number;
   personCode: string;
@@ -34,24 +37,6 @@ type RegisterStudent = {
   atRisk: boolean;
 };
 const EMPTY_ATTENDANCE: AttendanceRecord[] = [];
-
-const STATUS_TO_API: Partial<Record<StatusCode, ApiStatus>> = {
-  P: "present",
-  A: "absent",
-  L: "late",
-  O: "authorised",
-  E: "excluded",
-  D: "distance_learning",
-};
-
-const API_TO_STATUS: Record<ApiStatus, StatusCode> = {
-  present: "P",
-  absent: "A",
-  late: "L",
-  authorised: "O",
-  excluded: "E",
-  distance_learning: "D",
-};
 
 function getLocalDate() {
   const today = new Date();
@@ -169,7 +154,7 @@ export default function RegisterDetail() {
     const nextMarkings: Record<number, StatusCode> = {};
     const nextComments: Record<number, string> = {};
     existingAttendance.forEach((record) => {
-      nextMarkings[record.studentId] = API_TO_STATUS[record.status as ApiStatus] ?? "N";
+      nextMarkings[record.studentId] = statusFromApi(record.status);
       if (record.notes) nextComments[record.studentId] = record.notes;
     });
     setMarkings(nextMarkings);
