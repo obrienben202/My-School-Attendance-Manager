@@ -5,103 +5,99 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
-import * as zod from 'zod';
-
+import * as zod from "zod";
 
 /**
  * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
-})
-
+  status: zod.string(),
+});
 
 /**
  * @summary Get dashboard summary stats
  */
 export const GetDashboardSummaryResponse = zod.object({
-  "attendancePercent": zod.number(),
-  "punctualityPercent": zod.number(),
-  "registersCount": zod.number(),
-  "atRiskCount": zod.number(),
-  "smartTargetsCount": zod.number(),
-  "ilpsCount": zod.number()
-})
-
+  attendancePercent: zod.number(),
+  punctualityPercent: zod.number(),
+  registersCount: zod.number(),
+  atRiskCount: zod.number(),
+  smartTargetsCount: zod.number(),
+  ilpsCount: zod.number(),
+});
 
 /**
  * @summary List students with optional search filters
  */
 export const ListStudentsQueryParams = zod.object({
-  "personCode": zod.coerce.string().optional(),
-  "forename": zod.coerce.string().optional(),
-  "surname": zod.coerce.string().optional(),
-  "gender": zod.coerce.string().optional(),
-  "yearGroup": zod.coerce.string().optional(),
-  "atRisk": zod.coerce.boolean().optional()
-})
+  personCode: zod.coerce.string().optional(),
+  forename: zod.coerce.string().optional(),
+  surname: zod.coerce.string().optional(),
+  gender: zod.coerce.string().optional(),
+  yearGroup: zod.coerce.string().optional(),
+  atRisk: zod.coerce.boolean().optional(),
+});
 
 export const ListStudentsResponseItem = zod.object({
-  "id": zod.number(),
-  "personCode": zod.string(),
-  "forename": zod.string(),
-  "surname": zod.string(),
-  "middleNames": zod.string().nullish(),
-  "title": zod.string().nullish(),
-  "gender": zod.string().nullish(),
-  "dateOfBirth": zod.coerce.date().nullish(),
-  "postCode": zod.string().nullish(),
-  "yearGroup": zod.string().nullish(),
-  "attendancePercent": zod.number(),
-  "punctualityPercent": zod.number(),
-  "atRisk": zod.boolean(),
-  "confirmedLearner": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-export const ListStudentsResponse = zod.array(ListStudentsResponseItem)
-
+  id: zod.number(),
+  personCode: zod.string(),
+  forename: zod.string(),
+  surname: zod.string(),
+  middleNames: zod.string().nullish(),
+  title: zod.string().nullish(),
+  gender: zod.string().nullish(),
+  dateOfBirth: zod.coerce.date().nullish(),
+  postCode: zod.string().nullish(),
+  yearGroup: zod.string().nullish(),
+  attendancePercent: zod.number(),
+  punctualityPercent: zod.number(),
+  atRisk: zod.boolean(),
+  confirmedLearner: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListStudentsResponse = zod.array(ListStudentsResponseItem);
 
 /**
  * @summary Create a new student
  */
 export const CreateStudentBody = zod.object({
-  "personCode": zod.string(),
-  "forename": zod.string(),
-  "surname": zod.string(),
-  "middleNames": zod.string().optional(),
-  "title": zod.string().optional(),
-  "gender": zod.string().optional(),
-  "dateOfBirth": zod.coerce.date().optional(),
-  "postCode": zod.string().optional(),
-  "yearGroup": zod.string().optional(),
-  "atRisk": zod.boolean().optional(),
-  "confirmedLearner": zod.boolean().optional()
-})
-
+  personCode: zod.string(),
+  forename: zod.string(),
+  surname: zod.string(),
+  middleNames: zod.string().optional(),
+  title: zod.string().optional(),
+  gender: zod.string().optional(),
+  dateOfBirth: zod.coerce.date().optional(),
+  postCode: zod.string().optional(),
+  yearGroup: zod.string().optional(),
+  atRisk: zod.boolean().optional(),
+  confirmedLearner: zod.boolean().optional(),
+});
 
 /**
  * @summary List the authenticated user's planned absence requests
  */
 export const ListPlannedAbsencesResponseItem = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "learnerName": zod.string(),
-  "personCode": zod.string(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "reason": zod.string(),
-  "partDay": zod.boolean(),
-  "startTime": zod.string().nullish(),
-  "endTime": zod.string().nullish(),
-  "notes": zod.string().nullish(),
-  "status": zod.enum(['pending']),
-  "submittedBy": zod.string(),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
-})
-export const ListPlannedAbsencesResponse = zod.array(ListPlannedAbsencesResponseItem)
-
+  id: zod.number(),
+  studentId: zod.number(),
+  learnerName: zod.string(),
+  personCode: zod.string(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  reason: zod.string(),
+  partDay: zod.boolean(),
+  startTime: zod.string().nullish(),
+  endTime: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["pending"]),
+  submittedBy: zod.string(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListPlannedAbsencesResponse = zod.array(
+  ListPlannedAbsencesResponseItem,
+);
 
 /**
  * @summary Create a planned absence request for a learner
@@ -110,34 +106,34 @@ export const ListPlannedAbsencesResponse = zod.array(ListPlannedAbsencesResponse
 export const createPlannedAbsenceBodyPartDayDefault = false;
 
 export const CreatePlannedAbsenceBody = zod.object({
-  "studentId": zod.number(),
-  "fromDate": zod.coerce.date(),
-  "toDate": zod.coerce.date(),
-  "reason": zod.string().min(1),
-  "partDay": zod.boolean().default(createPlannedAbsenceBodyPartDayDefault),
-  "startTime": zod.string().optional(),
-  "endTime": zod.string().optional(),
-  "notes": zod.string().optional()
-})
-
+  studentId: zod.number(),
+  fromDate: zod.coerce.date(),
+  toDate: zod.coerce.date(),
+  reason: zod.string().min(1),
+  partDay: zod.boolean().default(createPlannedAbsenceBodyPartDayDefault),
+  startTime: zod.string().optional(),
+  endTime: zod.string().optional(),
+  notes: zod.string().optional(),
+});
 
 /**
  * Lists safeguarding notes for authorised safeguarding staff only.
  * @summary List protected safeguarding notes
  */
 export const ListSafeguardingNotesResponseItem = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "learnerName": zod.string(),
-  "personCode": zod.string(),
-  "author": zod.string(),
-  "content": zod.string(),
-  "status": zod.enum(['active', 'archived']),
-  "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
-})
-export const ListSafeguardingNotesResponse = zod.array(ListSafeguardingNotesResponseItem)
-
+  id: zod.number(),
+  studentId: zod.number(),
+  learnerName: zod.string(),
+  personCode: zod.string(),
+  author: zod.string(),
+  content: zod.string(),
+  status: zod.enum(["active", "archived"]),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListSafeguardingNotesResponse = zod.array(
+  ListSafeguardingNotesResponseItem,
+);
 
 /**
  * Creates a note attributed to the authenticated authorised staff member.
@@ -145,1059 +141,1224 @@ export const ListSafeguardingNotesResponse = zod.array(ListSafeguardingNotesResp
  */
 export const createSafeguardingNoteBodyContentMax = 10000;
 
-
-
 export const CreateSafeguardingNoteBody = zod.object({
-  "studentId": zod.number(),
-  "content": zod.string().min(1).max(createSafeguardingNoteBodyContentMax)
-})
-
+  studentId: zod.number(),
+  content: zod.string().min(1).max(createSafeguardingNoteBodyContentMax),
+});
 
 /**
  * @summary Get a student by ID
  */
 export const GetStudentParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const GetStudentResponse = zod.object({
-  "id": zod.number(),
-  "personCode": zod.string(),
-  "forename": zod.string(),
-  "surname": zod.string(),
-  "middleNames": zod.string().nullish(),
-  "title": zod.string().nullish(),
-  "gender": zod.string().nullish(),
-  "dateOfBirth": zod.coerce.date().nullish(),
-  "postCode": zod.string().nullish(),
-  "yearGroup": zod.string().nullish(),
-  "attendancePercent": zod.number(),
-  "punctualityPercent": zod.number(),
-  "atRisk": zod.boolean(),
-  "confirmedLearner": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-
+  id: zod.number(),
+  personCode: zod.string(),
+  forename: zod.string(),
+  surname: zod.string(),
+  middleNames: zod.string().nullish(),
+  title: zod.string().nullish(),
+  gender: zod.string().nullish(),
+  dateOfBirth: zod.coerce.date().nullish(),
+  postCode: zod.string().nullish(),
+  yearGroup: zod.string().nullish(),
+  attendancePercent: zod.number(),
+  punctualityPercent: zod.number(),
+  atRisk: zod.boolean(),
+  confirmedLearner: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Update a student
  */
 export const UpdateStudentParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateStudentBody = zod.object({
-  "forename": zod.string().optional(),
-  "surname": zod.string().optional(),
-  "middleNames": zod.string().optional(),
-  "title": zod.string().optional(),
-  "gender": zod.string().optional(),
-  "dateOfBirth": zod.coerce.date().optional(),
-  "postCode": zod.string().optional(),
-  "yearGroup": zod.string().optional(),
-  "atRisk": zod.boolean().optional(),
-  "confirmedLearner": zod.boolean().optional()
-})
+  forename: zod.string().optional(),
+  surname: zod.string().optional(),
+  middleNames: zod.string().optional(),
+  title: zod.string().optional(),
+  gender: zod.string().optional(),
+  dateOfBirth: zod.coerce.date().optional(),
+  postCode: zod.string().optional(),
+  yearGroup: zod.string().optional(),
+  atRisk: zod.boolean().optional(),
+  confirmedLearner: zod.boolean().optional(),
+});
 
 export const UpdateStudentResponse = zod.object({
-  "id": zod.number(),
-  "personCode": zod.string(),
-  "forename": zod.string(),
-  "surname": zod.string(),
-  "middleNames": zod.string().nullish(),
-  "title": zod.string().nullish(),
-  "gender": zod.string().nullish(),
-  "dateOfBirth": zod.coerce.date().nullish(),
-  "postCode": zod.string().nullish(),
-  "yearGroup": zod.string().nullish(),
-  "attendancePercent": zod.number(),
-  "punctualityPercent": zod.number(),
-  "atRisk": zod.boolean(),
-  "confirmedLearner": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-
+  id: zod.number(),
+  personCode: zod.string(),
+  forename: zod.string(),
+  surname: zod.string(),
+  middleNames: zod.string().nullish(),
+  title: zod.string().nullish(),
+  gender: zod.string().nullish(),
+  dateOfBirth: zod.coerce.date().nullish(),
+  postCode: zod.string().nullish(),
+  yearGroup: zod.string().nullish(),
+  attendancePercent: zod.number(),
+  punctualityPercent: zod.number(),
+  atRisk: zod.boolean(),
+  confirmedLearner: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Delete a student
  */
 export const DeleteStudentParams = zod.object({
-  "id": zod.coerce.number()
-})
-
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary List students flagged as at risk
  */
 export const ListAtRiskStudentsResponseItem = zod.object({
-  "id": zod.number(),
-  "personCode": zod.string(),
-  "forename": zod.string(),
-  "surname": zod.string(),
-  "middleNames": zod.string().nullish(),
-  "title": zod.string().nullish(),
-  "gender": zod.string().nullish(),
-  "dateOfBirth": zod.coerce.date().nullish(),
-  "postCode": zod.string().nullish(),
-  "yearGroup": zod.string().nullish(),
-  "attendancePercent": zod.number(),
-  "punctualityPercent": zod.number(),
-  "atRisk": zod.boolean(),
-  "confirmedLearner": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-export const ListAtRiskStudentsResponse = zod.array(ListAtRiskStudentsResponseItem)
-
+  id: zod.number(),
+  personCode: zod.string(),
+  forename: zod.string(),
+  surname: zod.string(),
+  middleNames: zod.string().nullish(),
+  title: zod.string().nullish(),
+  gender: zod.string().nullish(),
+  dateOfBirth: zod.coerce.date().nullish(),
+  postCode: zod.string().nullish(),
+  yearGroup: zod.string().nullish(),
+  attendancePercent: zod.number(),
+  punctualityPercent: zod.number(),
+  atRisk: zod.boolean(),
+  confirmedLearner: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAtRiskStudentsResponse = zod.array(
+  ListAtRiskStudentsResponseItem,
+);
 
 /**
  * @summary List all courses
  */
 export const ListCoursesResponseItem = zod.object({
-  "id": zod.number(),
-  "code": zod.string(),
-  "name": zod.string(),
-  "room": zod.string().nullish(),
-  "staffName": zod.string().nullish(),
-  "headOfDepartment": zod.string().nullish(),
-  "yearGroup": zod.string().nullish(),
-  "enrolledCount": zod.number(),
-  "isActive": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-export const ListCoursesResponse = zod.array(ListCoursesResponseItem)
-
+  id: zod.number(),
+  code: zod.string(),
+  name: zod.string(),
+  room: zod.string().nullish(),
+  staffName: zod.string().nullish(),
+  headOfDepartment: zod.string().nullish(),
+  yearGroup: zod.string().nullish(),
+  enrolledCount: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListCoursesResponse = zod.array(ListCoursesResponseItem);
 
 /**
  * @summary Get a course by ID
  */
 export const GetCourseParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const GetCourseResponse = zod.object({
-  "id": zod.number(),
-  "code": zod.string(),
-  "name": zod.string(),
-  "room": zod.string().nullish(),
-  "staffName": zod.string().nullish(),
-  "headOfDepartment": zod.string().nullish(),
-  "yearGroup": zod.string().nullish(),
-  "enrolledCount": zod.number(),
-  "isActive": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-
+  id: zod.number(),
+  code: zod.string(),
+  name: zod.string(),
+  room: zod.string().nullish(),
+  staffName: zod.string().nullish(),
+  headOfDepartment: zod.string().nullish(),
+  yearGroup: zod.string().nullish(),
+  enrolledCount: zod.number(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary List attendance records
  */
 export const ListAttendanceRecordsQueryParams = zod.object({
-  "studentId": zod.coerce.number().optional(),
-  "courseId": zod.coerce.number().optional(),
-  "scheduleId": zod.coerce.number().optional(),
-  "date": zod.date().optional(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']).optional()
-})
+  studentId: zod.coerce.number().optional(),
+  courseId: zod.coerce.number().optional(),
+  scheduleId: zod.coerce.number().optional(),
+  date: zod.date().optional(),
+  status: zod
+    .enum([
+      "present",
+      "absent",
+      "late",
+      "authorised",
+      "excluded",
+      "distance_learning",
+    ])
+    .optional(),
+});
 
 export const ListAttendanceRecordsResponseItem = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "courseId": zod.number(),
-  "scheduleId": zod.number().nullable(),
-  "date": zod.coerce.date(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
-  "notes": zod.string().nullish(),
-  "studentName": zod.string().nullish(),
-  "courseName": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
-export const ListAttendanceRecordsResponse = zod.array(ListAttendanceRecordsResponseItem)
-
+  id: zod.number(),
+  studentId: zod.number(),
+  courseId: zod.number(),
+  scheduleId: zod.number().nullable(),
+  date: zod.coerce.date(),
+  status: zod.enum([
+    "present",
+    "absent",
+    "late",
+    "authorised",
+    "excluded",
+    "distance_learning",
+  ]),
+  notes: zod.string().nullish(),
+  studentName: zod.string().nullish(),
+  courseName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAttendanceRecordsResponse = zod.array(
+  ListAttendanceRecordsResponseItem,
+);
 
 /**
  * @summary Mark attendance
  */
 export const CreateAttendanceRecordBody = zod.object({
-  "studentId": zod.number(),
-  "courseId": zod.number(),
-  "scheduleId": zod.number(),
-  "date": zod.coerce.date(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
-  "notes": zod.string().optional()
-})
-
+  studentId: zod.number(),
+  courseId: zod.number(),
+  scheduleId: zod.number(),
+  date: zod.coerce.date(),
+  status: zod.enum([
+    "present",
+    "absent",
+    "late",
+    "authorised",
+    "excluded",
+    "distance_learning",
+  ]),
+  notes: zod.string().optional(),
+});
 
 /**
  * @summary Atomically submit all marks for a lesson register
  */
 export const SubmitAttendanceRegisterBody = zod.object({
-  "scheduleId": zod.number(),
-  "date": zod.coerce.date(),
-  "marks": zod.array(zod.object({
-  "studentId": zod.number(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
-  "notes": zod.string().optional()
-}))
-})
+  scheduleId: zod.number(),
+  date: zod.coerce.date(),
+  marks: zod.array(
+    zod.object({
+      studentId: zod.number(),
+      status: zod.enum([
+        "present",
+        "absent",
+        "late",
+        "authorised",
+        "excluded",
+        "distance_learning",
+      ]),
+      notes: zod.string().optional(),
+    }),
+  ),
+});
 
 export const SubmitAttendanceRegisterResponseItem = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "courseId": zod.number(),
-  "scheduleId": zod.number().nullable(),
-  "date": zod.coerce.date(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
-  "notes": zod.string().nullish(),
-  "studentName": zod.string().nullish(),
-  "courseName": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
-export const SubmitAttendanceRegisterResponse = zod.array(SubmitAttendanceRegisterResponseItem)
-
+  id: zod.number(),
+  studentId: zod.number(),
+  courseId: zod.number(),
+  scheduleId: zod.number().nullable(),
+  date: zod.coerce.date(),
+  status: zod.enum([
+    "present",
+    "absent",
+    "late",
+    "authorised",
+    "excluded",
+    "distance_learning",
+  ]),
+  notes: zod.string().nullish(),
+  studentName: zod.string().nullish(),
+  courseName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const SubmitAttendanceRegisterResponse = zod.array(
+  SubmitAttendanceRegisterResponseItem,
+);
 
 /**
  * @summary Update an attendance record
  */
 export const UpdateAttendanceRecordParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateAttendanceRecordBody = zod.object({
-  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']).optional(),
-  "notes": zod.string().optional(),
-  "scheduleId": zod.number().optional()
-})
+  status: zod
+    .enum([
+      "present",
+      "absent",
+      "late",
+      "authorised",
+      "excluded",
+      "distance_learning",
+    ])
+    .optional(),
+  notes: zod.string().optional(),
+  scheduleId: zod.number().optional(),
+});
 
 export const UpdateAttendanceRecordResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "courseId": zod.number(),
-  "scheduleId": zod.number().nullable(),
-  "date": zod.coerce.date(),
-  "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
-  "notes": zod.string().nullish(),
-  "studentName": zod.string().nullish(),
-  "courseName": zod.string().nullish(),
-  "createdAt": zod.coerce.date()
-})
-
+  id: zod.number(),
+  studentId: zod.number(),
+  courseId: zod.number(),
+  scheduleId: zod.number().nullable(),
+  date: zod.coerce.date(),
+  status: zod.enum([
+    "present",
+    "absent",
+    "late",
+    "authorised",
+    "excluded",
+    "distance_learning",
+  ]),
+  notes: zod.string().nullish(),
+  studentName: zod.string().nullish(),
+  courseName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Delete an attendance record
  */
 export const DeleteAttendanceRecordParams = zod.object({
-  "id": zod.coerce.number()
-})
-
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary List SMART targets
  */
 export const ListTargetsQueryParams = zod.object({
-  "studentId": zod.coerce.number().optional(),
-  "overdue": zod.coerce.boolean().optional()
-})
+  studentId: zod.coerce.number().optional(),
+  overdue: zod.coerce.boolean().optional(),
+});
 
 export const ListTargetsResponseItem = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "studentName": zod.string().nullish(),
-  "title": zod.string(),
-  "description": zod.string().nullish(),
-  "dueDate": zod.coerce.date().nullish(),
-  "completed": zod.boolean(),
-  "overdue": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-export const ListTargetsResponse = zod.array(ListTargetsResponseItem)
-
+  id: zod.number(),
+  studentId: zod.number(),
+  studentName: zod.string().nullish(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  completed: zod.boolean(),
+  overdue: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListTargetsResponse = zod.array(ListTargetsResponseItem);
 
 /**
  * @summary Create a SMART target
  */
 export const CreateTargetBody = zod.object({
-  "studentId": zod.number(),
-  "title": zod.string(),
-  "description": zod.string().optional(),
-  "dueDate": zod.coerce.date().optional()
-})
-
+  studentId: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  dueDate: zod.coerce.date().optional(),
+});
 
 /**
  * @summary Update a SMART target
  */
 export const UpdateTargetParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateTargetBody = zod.object({
-  "title": zod.string().optional(),
-  "description": zod.string().optional(),
-  "dueDate": zod.coerce.date().optional(),
-  "completed": zod.boolean().optional()
-})
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  dueDate: zod.coerce.date().optional(),
+  completed: zod.boolean().optional(),
+});
 
 export const UpdateTargetResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "studentName": zod.string().nullish(),
-  "title": zod.string(),
-  "description": zod.string().nullish(),
-  "dueDate": zod.coerce.date().nullish(),
-  "completed": zod.boolean(),
-  "overdue": zod.boolean(),
-  "createdAt": zod.coerce.date()
-})
-
+  id: zod.number(),
+  studentId: zod.number(),
+  studentName: zod.string().nullish(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  completed: zod.boolean(),
+  overdue: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Delete a target
  */
 export const DeleteTargetParams = zod.object({
-  "id": zod.coerce.number()
-})
-
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary List Individual Learning Plans
  */
 export const ListIlpsQueryParams = zod.object({
-  "studentId": zod.coerce.number().optional()
-})
+  studentId: zod.coerce.number().optional(),
+});
 
 export const ListIlpsResponseItem = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number(),
-  "studentName": zod.string().nullish(),
-  "title": zod.string(),
-  "content": zod.string().nullish(),
-  "status": zod.enum(['draft', 'active', 'completed']),
-  "createdAt": zod.coerce.date()
-})
-export const ListIlpsResponse = zod.array(ListIlpsResponseItem)
-
+  id: zod.number(),
+  studentId: zod.number(),
+  studentName: zod.string().nullish(),
+  title: zod.string(),
+  content: zod.string().nullish(),
+  status: zod.enum(["draft", "active", "completed"]),
+  createdAt: zod.coerce.date(),
+});
+export const ListIlpsResponse = zod.array(ListIlpsResponseItem);
 
 /**
  * @summary Create an ILP
  */
 export const CreateIlpBody = zod.object({
-  "studentId": zod.number(),
-  "title": zod.string(),
-  "content": zod.string().optional(),
-  "status": zod.enum(['draft', 'active', 'completed']).optional()
-})
-
+  studentId: zod.number(),
+  title: zod.string(),
+  content: zod.string().optional(),
+  status: zod.enum(["draft", "active", "completed"]).optional(),
+});
 
 /**
  * @summary List assessments with optional filters
  */
 export const ListAssessmentsQueryParams = zod.object({
-  "courseId": zod.coerce.number().optional()
-})
+  courseId: zod.coerce.number().optional(),
+});
 
 export const ListAssessmentsResponseItem = zod.object({
-  "id": zod.number(),
-  "courseId": zod.number(),
-  "code": zod.string(),
-  "description": zod.string(),
-  "type": zod.string(),
-  "dueDate": zod.string().nullish(),
-  "gradingScheme": zod.string(),
-  "minPassMark": zod.string().nullish(),
-  "marksOutOf": zod.number().nullish(),
-  "active": zod.number(),
-  "order": zod.number(),
-  "location": zod.string().nullish(),
-  "organisation": zod.string().nullish(),
-  "mandatory": zod.number(),
-  "allowAegrotats": zod.number(),
-  "createdAt": zod.string()
-})
-export const ListAssessmentsResponse = zod.array(ListAssessmentsResponseItem)
-
+  id: zod.number(),
+  courseId: zod.number(),
+  code: zod.string(),
+  description: zod.string(),
+  type: zod.string(),
+  dueDate: zod.string().nullish(),
+  gradingScheme: zod.string(),
+  minPassMark: zod.string().nullish(),
+  marksOutOf: zod.number().nullish(),
+  active: zod.number(),
+  order: zod.number(),
+  location: zod.string().nullish(),
+  organisation: zod.string().nullish(),
+  mandatory: zod.number(),
+  allowAegrotats: zod.number(),
+  createdAt: zod.string(),
+});
+export const ListAssessmentsResponse = zod.array(ListAssessmentsResponseItem);
 
 /**
  * @summary Create an assessment
  */
 export const CreateAssessmentBody = zod.object({
-  "courseId": zod.number(),
-  "code": zod.string(),
-  "description": zod.string(),
-  "type": zod.string().optional(),
-  "dueDate": zod.string().nullish(),
-  "gradingScheme": zod.string().optional(),
-  "minPassMark": zod.string().nullish(),
-  "marksOutOf": zod.number().nullish(),
-  "active": zod.number().optional(),
-  "order": zod.number().optional(),
-  "location": zod.string().nullish(),
-  "organisation": zod.string().nullish(),
-  "mandatory": zod.number().optional(),
-  "allowAegrotats": zod.number().optional()
-})
-
+  courseId: zod.number(),
+  code: zod.string(),
+  description: zod.string(),
+  type: zod.string().optional(),
+  dueDate: zod.string().nullish(),
+  gradingScheme: zod.string().optional(),
+  minPassMark: zod.string().nullish(),
+  marksOutOf: zod.number().nullish(),
+  active: zod.number().optional(),
+  order: zod.number().optional(),
+  location: zod.string().nullish(),
+  organisation: zod.string().nullish(),
+  mandatory: zod.number().optional(),
+  allowAegrotats: zod.number().optional(),
+});
 
 /**
  * @summary Get assessment by ID
  */
 export const GetAssessmentParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const GetAssessmentResponse = zod.object({
-  "id": zod.number(),
-  "courseId": zod.number(),
-  "code": zod.string(),
-  "description": zod.string(),
-  "type": zod.string(),
-  "dueDate": zod.string().nullish(),
-  "gradingScheme": zod.string(),
-  "minPassMark": zod.string().nullish(),
-  "marksOutOf": zod.number().nullish(),
-  "active": zod.number(),
-  "order": zod.number(),
-  "location": zod.string().nullish(),
-  "organisation": zod.string().nullish(),
-  "mandatory": zod.number(),
-  "allowAegrotats": zod.number(),
-  "createdAt": zod.string()
-})
-
+  id: zod.number(),
+  courseId: zod.number(),
+  code: zod.string(),
+  description: zod.string(),
+  type: zod.string(),
+  dueDate: zod.string().nullish(),
+  gradingScheme: zod.string(),
+  minPassMark: zod.string().nullish(),
+  marksOutOf: zod.number().nullish(),
+  active: zod.number(),
+  order: zod.number(),
+  location: zod.string().nullish(),
+  organisation: zod.string().nullish(),
+  mandatory: zod.number(),
+  allowAegrotats: zod.number(),
+  createdAt: zod.string(),
+});
 
 /**
  * @summary Update an assessment
  */
 export const UpdateAssessmentParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateAssessmentBody = zod.object({
-  "courseId": zod.number(),
-  "code": zod.string(),
-  "description": zod.string(),
-  "type": zod.string().optional(),
-  "dueDate": zod.string().nullish(),
-  "gradingScheme": zod.string().optional(),
-  "minPassMark": zod.string().nullish(),
-  "marksOutOf": zod.number().nullish(),
-  "active": zod.number().optional(),
-  "order": zod.number().optional(),
-  "location": zod.string().nullish(),
-  "organisation": zod.string().nullish(),
-  "mandatory": zod.number().optional(),
-  "allowAegrotats": zod.number().optional()
-})
+  courseId: zod.number(),
+  code: zod.string(),
+  description: zod.string(),
+  type: zod.string().optional(),
+  dueDate: zod.string().nullish(),
+  gradingScheme: zod.string().optional(),
+  minPassMark: zod.string().nullish(),
+  marksOutOf: zod.number().nullish(),
+  active: zod.number().optional(),
+  order: zod.number().optional(),
+  location: zod.string().nullish(),
+  organisation: zod.string().nullish(),
+  mandatory: zod.number().optional(),
+  allowAegrotats: zod.number().optional(),
+});
 
 export const UpdateAssessmentResponse = zod.object({
-  "id": zod.number(),
-  "courseId": zod.number(),
-  "code": zod.string(),
-  "description": zod.string(),
-  "type": zod.string(),
-  "dueDate": zod.string().nullish(),
-  "gradingScheme": zod.string(),
-  "minPassMark": zod.string().nullish(),
-  "marksOutOf": zod.number().nullish(),
-  "active": zod.number(),
-  "order": zod.number(),
-  "location": zod.string().nullish(),
-  "organisation": zod.string().nullish(),
-  "mandatory": zod.number(),
-  "allowAegrotats": zod.number(),
-  "createdAt": zod.string()
-})
-
+  id: zod.number(),
+  courseId: zod.number(),
+  code: zod.string(),
+  description: zod.string(),
+  type: zod.string(),
+  dueDate: zod.string().nullish(),
+  gradingScheme: zod.string(),
+  minPassMark: zod.string().nullish(),
+  marksOutOf: zod.number().nullish(),
+  active: zod.number(),
+  order: zod.number(),
+  location: zod.string().nullish(),
+  organisation: zod.string().nullish(),
+  mandatory: zod.number(),
+  allowAegrotats: zod.number(),
+  createdAt: zod.string(),
+});
 
 /**
  * @summary Delete an assessment
  */
 export const DeleteAssessmentParams = zod.object({
-  "id": zod.coerce.number()
-})
-
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary List assessment results
  */
 export const ListAssessmentResultsQueryParams = zod.object({
-  "assessmentId": zod.coerce.number().optional(),
-  "studentId": zod.coerce.number().optional()
-})
+  assessmentId: zod.coerce.number().optional(),
+  studentId: zod.coerce.number().optional(),
+});
 
 export const ListAssessmentResultsResponseItem = zod.object({
-  "id": zod.number(),
-  "assessmentId": zod.number(),
-  "studentId": zod.number(),
-  "result": zod.string().nullish(),
-  "adjustedResult": zod.string().nullish(),
-  "attempt": zod.number(),
-  "reasonForZeroMark": zod.string().nullish(),
-  "mitigatingCircs": zod.string().nullish(),
-  "dateSubmitted": zod.string().nullish(),
-  "dateMarked": zod.string().nullish(),
-  "confirmed": zod.number(),
-  "status": zod.string(),
-  "createdAt": zod.string()
-})
-export const ListAssessmentResultsResponse = zod.array(ListAssessmentResultsResponseItem)
-
+  id: zod.number(),
+  assessmentId: zod.number(),
+  studentId: zod.number(),
+  result: zod.string().nullish(),
+  adjustedResult: zod.string().nullish(),
+  attempt: zod.number(),
+  reasonForZeroMark: zod.string().nullish(),
+  mitigatingCircs: zod.string().nullish(),
+  dateSubmitted: zod.string().nullish(),
+  dateMarked: zod.string().nullish(),
+  confirmed: zod.number(),
+  status: zod.string(),
+  createdAt: zod.string(),
+});
+export const ListAssessmentResultsResponse = zod.array(
+  ListAssessmentResultsResponseItem,
+);
 
 /**
  * @summary Create or upsert an assessment result
  */
 export const CreateAssessmentResultBody = zod.object({
-  "assessmentId": zod.number(),
-  "studentId": zod.number(),
-  "result": zod.string().nullish(),
-  "adjustedResult": zod.string().nullish(),
-  "attempt": zod.number().optional(),
-  "reasonForZeroMark": zod.string().nullish(),
-  "mitigatingCircs": zod.string().nullish(),
-  "dateSubmitted": zod.string().nullish(),
-  "dateMarked": zod.string().nullish(),
-  "confirmed": zod.number().optional(),
-  "status": zod.string().optional()
-})
-
+  assessmentId: zod.number(),
+  studentId: zod.number(),
+  result: zod.string().nullish(),
+  adjustedResult: zod.string().nullish(),
+  attempt: zod.number().optional(),
+  reasonForZeroMark: zod.string().nullish(),
+  mitigatingCircs: zod.string().nullish(),
+  dateSubmitted: zod.string().nullish(),
+  dateMarked: zod.string().nullish(),
+  confirmed: zod.number().optional(),
+  status: zod.string().optional(),
+});
 
 /**
  * @summary Update an assessment result
  */
 export const UpdateAssessmentResultParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateAssessmentResultBody = zod.object({
-  "assessmentId": zod.number(),
-  "studentId": zod.number(),
-  "result": zod.string().nullish(),
-  "adjustedResult": zod.string().nullish(),
-  "attempt": zod.number().optional(),
-  "reasonForZeroMark": zod.string().nullish(),
-  "mitigatingCircs": zod.string().nullish(),
-  "dateSubmitted": zod.string().nullish(),
-  "dateMarked": zod.string().nullish(),
-  "confirmed": zod.number().optional(),
-  "status": zod.string().optional()
-})
+  assessmentId: zod.number(),
+  studentId: zod.number(),
+  result: zod.string().nullish(),
+  adjustedResult: zod.string().nullish(),
+  attempt: zod.number().optional(),
+  reasonForZeroMark: zod.string().nullish(),
+  mitigatingCircs: zod.string().nullish(),
+  dateSubmitted: zod.string().nullish(),
+  dateMarked: zod.string().nullish(),
+  confirmed: zod.number().optional(),
+  status: zod.string().optional(),
+});
 
 export const UpdateAssessmentResultResponse = zod.object({
-  "id": zod.number(),
-  "assessmentId": zod.number(),
-  "studentId": zod.number(),
-  "result": zod.string().nullish(),
-  "adjustedResult": zod.string().nullish(),
-  "attempt": zod.number(),
-  "reasonForZeroMark": zod.string().nullish(),
-  "mitigatingCircs": zod.string().nullish(),
-  "dateSubmitted": zod.string().nullish(),
-  "dateMarked": zod.string().nullish(),
-  "confirmed": zod.number(),
-  "status": zod.string(),
-  "createdAt": zod.string()
-})
-
+  id: zod.number(),
+  assessmentId: zod.number(),
+  studentId: zod.number(),
+  result: zod.string().nullish(),
+  adjustedResult: zod.string().nullish(),
+  attempt: zod.number(),
+  reasonForZeroMark: zod.string().nullish(),
+  mitigatingCircs: zod.string().nullish(),
+  dateSubmitted: zod.string().nullish(),
+  dateMarked: zod.string().nullish(),
+  confirmed: zod.number(),
+  status: zod.string(),
+  createdAt: zod.string(),
+});
 
 /**
  * @summary List eProgressions
  */
 export const ListEprogressionsQueryParams = zod.object({
-  "studentId": zod.coerce.number().optional(),
-  "courseId": zod.coerce.number().optional(),
-  "status": zod.coerce.string().optional()
-})
+  studentId: zod.coerce.number().optional(),
+  courseId: zod.coerce.number().optional(),
+  status: zod.coerce.string().optional(),
+});
 
 export const ListEprogressionsResponseItem = zod.object({
-  "id": zod.number(),
-  "type": zod.string(),
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "courseCode": zod.string(),
-  "calOccCode": zod.string().nullish(),
-  "currentProgressCode": zod.string().nullish(),
-  "newProgressCode": zod.string(),
-  "progressDate": zod.string(),
-  "comments": zod.string().nullish(),
-  "reason": zod.string().nullish(),
-  "status": zod.string(),
-  "submittedBy": zod.string().nullish(),
-  "submittedAt": zod.string()
-})
-export const ListEprogressionsResponse = zod.array(ListEprogressionsResponseItem)
-
+  id: zod.number(),
+  type: zod.string(),
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  courseCode: zod.string(),
+  calOccCode: zod.string().nullish(),
+  currentProgressCode: zod.string().nullish(),
+  newProgressCode: zod.string(),
+  progressDate: zod.string(),
+  comments: zod.string().nullish(),
+  reason: zod.string().nullish(),
+  status: zod.string(),
+  submittedBy: zod.string().nullish(),
+  submittedAt: zod.string(),
+});
+export const ListEprogressionsResponse = zod.array(
+  ListEprogressionsResponseItem,
+);
 
 /**
  * @summary Submit eProgression(s)
  */
 export const CreateEprogressionBody = zod.object({
-  "type": zod.string().optional(),
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "courseCode": zod.string(),
-  "calOccCode": zod.string().nullish(),
-  "currentProgressCode": zod.string().nullish(),
-  "newProgressCode": zod.string(),
-  "progressDate": zod.string(),
-  "comments": zod.string().nullish(),
-  "reason": zod.string().nullish(),
-  "status": zod.string().optional(),
-  "submittedBy": zod.string().nullish()
-})
-
+  type: zod.string().optional(),
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  courseCode: zod.string(),
+  calOccCode: zod.string().nullish(),
+  currentProgressCode: zod.string().nullish(),
+  newProgressCode: zod.string(),
+  progressDate: zod.string(),
+  comments: zod.string().nullish(),
+  reason: zod.string().nullish(),
+  status: zod.string().optional(),
+  submittedBy: zod.string().nullish(),
+});
 
 /**
  * @summary Update eProgression status (authorise/reject)
  */
 export const UpdateEprogressionParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateEprogressionBody = zod.object({
-  "type": zod.string().optional(),
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "courseCode": zod.string(),
-  "calOccCode": zod.string().nullish(),
-  "currentProgressCode": zod.string().nullish(),
-  "newProgressCode": zod.string(),
-  "progressDate": zod.string(),
-  "comments": zod.string().nullish(),
-  "reason": zod.string().nullish(),
-  "status": zod.string().optional(),
-  "submittedBy": zod.string().nullish()
-})
+  type: zod.string().optional(),
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  courseCode: zod.string(),
+  calOccCode: zod.string().nullish(),
+  currentProgressCode: zod.string().nullish(),
+  newProgressCode: zod.string(),
+  progressDate: zod.string(),
+  comments: zod.string().nullish(),
+  reason: zod.string().nullish(),
+  status: zod.string().optional(),
+  submittedBy: zod.string().nullish(),
+});
 
 export const UpdateEprogressionResponse = zod.object({
-  "id": zod.number(),
-  "type": zod.string(),
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "courseCode": zod.string(),
-  "calOccCode": zod.string().nullish(),
-  "currentProgressCode": zod.string().nullish(),
-  "newProgressCode": zod.string(),
-  "progressDate": zod.string(),
-  "comments": zod.string().nullish(),
-  "reason": zod.string().nullish(),
-  "status": zod.string(),
-  "submittedBy": zod.string().nullish(),
-  "submittedAt": zod.string()
-})
-
+  id: zod.number(),
+  type: zod.string(),
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  courseCode: zod.string(),
+  calOccCode: zod.string().nullish(),
+  currentProgressCode: zod.string().nullish(),
+  newProgressCode: zod.string(),
+  progressDate: zod.string(),
+  comments: zod.string().nullish(),
+  reason: zod.string().nullish(),
+  status: zod.string(),
+  submittedBy: zod.string().nullish(),
+  submittedAt: zod.string(),
+});
 
 /**
  * @summary Delete an eProgression
  */
 export const DeleteEprogressionParams = zod.object({
-  "id": zod.coerce.number()
-})
-
+  id: zod.coerce.number(),
+});
 
 /**
  * @summary List all concierge applications
  */
 export const ListConciergeApplicationsQueryParams = zod.object({
-  "status": zod.coerce.string().optional(),
-  "search": zod.coerce.string().optional()
-})
+  status: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+});
 
 export const ListConciergeApplicationsResponseItem = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "forename": zod.string().nullish(),
-  "surname": zod.string().nullish(),
-  "email": zod.string().nullish(),
-  "status": zod.string(),
-  "interviewDate": zod.string().nullish(),
-  "interviewNotes": zod.string().nullish(),
-  "interviewStatus": zod.string().nullish(),
-  "offerType": zod.string().nullish(),
-  "offerStatus": zod.string().nullish(),
-  "progressNotes": zod.string().nullish(),
-  "qualifications": zod.string().nullish(),
-  "requirements": zod.string().nullish(),
-  "createdAt": zod.string()
-})
-export const ListConciergeApplicationsResponse = zod.array(ListConciergeApplicationsResponseItem)
-
+  id: zod.number(),
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  forename: zod.string().nullish(),
+  surname: zod.string().nullish(),
+  email: zod.string().nullish(),
+  status: zod.string(),
+  interviewDate: zod.string().nullish(),
+  interviewNotes: zod.string().nullish(),
+  interviewStatus: zod.string().nullish(),
+  offerType: zod.string().nullish(),
+  offerStatus: zod.string().nullish(),
+  progressNotes: zod.string().nullish(),
+  qualifications: zod.string().nullish(),
+  requirements: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListConciergeApplicationsResponse = zod.array(
+  ListConciergeApplicationsResponseItem,
+);
 
 /**
  * @summary Create a new concierge application
  */
 export const CreateConciergeApplicationBody = zod.object({
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "forename": zod.string().nullish(),
-  "surname": zod.string().nullish(),
-  "email": zod.string().nullish(),
-  "status": zod.string(),
-  "interviewDate": zod.string().nullish(),
-  "interviewNotes": zod.string().nullish(),
-  "interviewStatus": zod.string().nullish(),
-  "offerType": zod.string().nullish(),
-  "offerStatus": zod.string().nullish(),
-  "progressNotes": zod.string().nullish(),
-  "qualifications": zod.string().nullish(),
-  "requirements": zod.string().nullish()
-})
-
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  forename: zod.string().nullish(),
+  surname: zod.string().nullish(),
+  email: zod.string().nullish(),
+  status: zod.string(),
+  interviewDate: zod.string().nullish(),
+  interviewNotes: zod.string().nullish(),
+  interviewStatus: zod.string().nullish(),
+  offerType: zod.string().nullish(),
+  offerStatus: zod.string().nullish(),
+  progressNotes: zod.string().nullish(),
+  qualifications: zod.string().nullish(),
+  requirements: zod.string().nullish(),
+});
 
 /**
  * @summary Get a single concierge application
  */
 export const GetConciergeApplicationParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const GetConciergeApplicationResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "forename": zod.string().nullish(),
-  "surname": zod.string().nullish(),
-  "email": zod.string().nullish(),
-  "status": zod.string(),
-  "interviewDate": zod.string().nullish(),
-  "interviewNotes": zod.string().nullish(),
-  "interviewStatus": zod.string().nullish(),
-  "offerType": zod.string().nullish(),
-  "offerStatus": zod.string().nullish(),
-  "progressNotes": zod.string().nullish(),
-  "qualifications": zod.string().nullish(),
-  "requirements": zod.string().nullish(),
-  "createdAt": zod.string()
-})
-
+  id: zod.number(),
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  forename: zod.string().nullish(),
+  surname: zod.string().nullish(),
+  email: zod.string().nullish(),
+  status: zod.string(),
+  interviewDate: zod.string().nullish(),
+  interviewNotes: zod.string().nullish(),
+  interviewStatus: zod.string().nullish(),
+  offerType: zod.string().nullish(),
+  offerStatus: zod.string().nullish(),
+  progressNotes: zod.string().nullish(),
+  qualifications: zod.string().nullish(),
+  requirements: zod.string().nullish(),
+  createdAt: zod.string(),
+});
 
 /**
  * @summary Update a concierge application
  */
 export const UpdateConciergeApplicationParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
 export const UpdateConciergeApplicationBody = zod.object({
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "forename": zod.string().nullish(),
-  "surname": zod.string().nullish(),
-  "email": zod.string().nullish(),
-  "status": zod.string(),
-  "interviewDate": zod.string().nullish(),
-  "interviewNotes": zod.string().nullish(),
-  "interviewStatus": zod.string().nullish(),
-  "offerType": zod.string().nullish(),
-  "offerStatus": zod.string().nullish(),
-  "progressNotes": zod.string().nullish(),
-  "qualifications": zod.string().nullish(),
-  "requirements": zod.string().nullish()
-})
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  forename: zod.string().nullish(),
+  surname: zod.string().nullish(),
+  email: zod.string().nullish(),
+  status: zod.string(),
+  interviewDate: zod.string().nullish(),
+  interviewNotes: zod.string().nullish(),
+  interviewStatus: zod.string().nullish(),
+  offerType: zod.string().nullish(),
+  offerStatus: zod.string().nullish(),
+  progressNotes: zod.string().nullish(),
+  qualifications: zod.string().nullish(),
+  requirements: zod.string().nullish(),
+});
 
 export const UpdateConciergeApplicationResponse = zod.object({
-  "id": zod.number(),
-  "studentId": zod.number().nullish(),
-  "courseId": zod.number().nullish(),
-  "forename": zod.string().nullish(),
-  "surname": zod.string().nullish(),
-  "email": zod.string().nullish(),
-  "status": zod.string(),
-  "interviewDate": zod.string().nullish(),
-  "interviewNotes": zod.string().nullish(),
-  "interviewStatus": zod.string().nullish(),
-  "offerType": zod.string().nullish(),
-  "offerStatus": zod.string().nullish(),
-  "progressNotes": zod.string().nullish(),
-  "qualifications": zod.string().nullish(),
-  "requirements": zod.string().nullish(),
-  "createdAt": zod.string()
-})
-
+  id: zod.number(),
+  studentId: zod.number().nullish(),
+  courseId: zod.number().nullish(),
+  forename: zod.string().nullish(),
+  surname: zod.string().nullish(),
+  email: zod.string().nullish(),
+  status: zod.string(),
+  interviewDate: zod.string().nullish(),
+  interviewNotes: zod.string().nullish(),
+  interviewStatus: zod.string().nullish(),
+  offerType: zod.string().nullish(),
+  offerStatus: zod.string().nullish(),
+  progressNotes: zod.string().nullish(),
+  qualifications: zod.string().nullish(),
+  requirements: zod.string().nullish(),
+  createdAt: zod.string(),
+});
 
 /**
  * @summary Delete a concierge application
  */
 export const DeleteConciergeApplicationParams = zod.object({
-  "id": zod.coerce.number()
-})
+  id: zod.coerce.number(),
+});
 
+/**
+ * @summary List learner enrolments
+ */
+export const ListConciergeEnrolmentsResponseItem = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  courseId: zod.number(),
+  forename: zod.string(),
+  surname: zod.string(),
+  email: zod.string().email().nullish(),
+  courseCode: zod.string(),
+  course: zod.string(),
+  progressCode: zod.string(),
+  photoObjectPath: zod.string().nullish(),
+  photoContentType: zod.string().nullish(),
+  photoUpdatedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListConciergeEnrolmentsResponse = zod.array(
+  ListConciergeEnrolmentsResponseItem,
+);
+
+/**
+ * @summary Complete a learner enrolment
+ */
+
+export const CreateConciergeEnrolmentBody = zod.object({
+  applicationId: zod.number().optional(),
+  studentId: zod.number().optional(),
+  courseId: zod.number(),
+  forename: zod.string().min(1),
+  surname: zod.string().min(1),
+  email: zod.string().email(),
+  dateOfBirth: zod.coerce.date().optional(),
+  gender: zod.string().optional(),
+  postCode: zod.string().optional(),
+});
+
+/**
+ * @summary Get a learner enrolment
+ */
+export const GetConciergeEnrolmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetConciergeEnrolmentResponse = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  courseId: zod.number(),
+  forename: zod.string(),
+  surname: zod.string(),
+  email: zod.string().email().nullish(),
+  courseCode: zod.string(),
+  course: zod.string(),
+  progressCode: zod.string(),
+  photoObjectPath: zod.string().nullish(),
+  photoContentType: zod.string().nullish(),
+  photoUpdatedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Associate an uploaded learner photo with an enrolment
+ */
+export const AssociateConciergeEnrolmentPhotoParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const associateConciergeEnrolmentPhotoBodyObjectPathRegExp = new RegExp(
+  "^\/objects",
+);
+
+export const AssociateConciergeEnrolmentPhotoBody = zod.object({
+  objectPath: zod
+    .string()
+    .regex(associateConciergeEnrolmentPhotoBodyObjectPathRegExp),
+  contentType: zod.enum(["image/jpeg", "image/png"]),
+});
+
+export const AssociateConciergeEnrolmentPhotoResponse = zod.object({
+  id: zod.number(),
+  studentId: zod.number(),
+  courseId: zod.number(),
+  forename: zod.string(),
+  surname: zod.string(),
+  email: zod.string().email().nullish(),
+  courseCode: zod.string(),
+  course: zod.string(),
+  progressCode: zod.string(),
+  photoObjectPath: zod.string().nullish(),
+  photoContentType: zod.string().nullish(),
+  photoUpdatedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * Returns a presigned URL for a direct image upload. The client sends metadata here, then uploads the file directly to storage.
+ * @summary Request a presigned URL for file upload
+ */
+
+export const requestUploadUrlBodySizeMax = 5242880;
+
+export const RequestUploadUrlBody = zod.object({
+  enrolmentId: zod.number(),
+  name: zod.string().min(1),
+  size: zod.number().min(1).max(requestUploadUrlBodySizeMax),
+  contentType: zod.enum(["image/jpeg", "image/png"]),
+});
+
+export const requestUploadUrlResponseMetadataSizeMax = 5242880;
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string().url(),
+  objectPath: zod.string(),
+  metadata: zod.object({
+    enrolmentId: zod.number(),
+    name: zod.string().min(1),
+    size: zod.number().min(1).max(requestUploadUrlResponseMetadataSizeMax),
+    contentType: zod.enum(["image/jpeg", "image/png"]),
+  }),
+});
+
+/**
+ * @summary Serve an uploaded object
+ */
+export const GetStorageObjectParams = zod.object({
+  objectPath: zod.coerce.string(),
+});
 
 /**
  * @summary Get the currently authenticated user
  */
 export const GetCurrentAuthUserHeader = zod.object({
-  "Authorization": zod.string().optional().describe('Opaque session token — Bearer <sid>.')
-})
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — Bearer <sid>."),
+});
 
 export const GetCurrentAuthUserResponse = zod.object({
-  "user": zod.union([zod.object({
-  "id": zod.string(),
-  "email": zod.string().email().nullable(),
-  "firstName": zod.string().nullable(),
-  "lastName": zod.string().nullable(),
-  "profileImageUrl": zod.string().nullable(),
-  "role": zod.enum(['admin', 'hod', 'staff', 'office']),
-  "username": zod.string().nullish(),
-  "department": zod.string().nullish()
-}),zod.null()])
-})
-
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().email().nullable(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      profileImageUrl: zod.string().nullable(),
+      role: zod.enum(["admin", "hod", "staff", "office"]),
+      username: zod.string().nullish(),
+      department: zod.string().nullish(),
+    }),
+    zod.null(),
+  ]),
+});
 
 /**
  * @summary Log in with username and password
  */
 export const LoginWithPasswordBody = zod.object({
-  "username": zod.string(),
-  "password": zod.string()
-})
+  username: zod.string(),
+  password: zod.string(),
+});
 
 export const LoginWithPasswordResponse = zod.object({
-  "ok": zod.boolean()
-})
-
+  ok: zod.boolean(),
+});
 
 /**
  * @summary Clear the session and log out
  */
 export const LogoutHeader = zod.object({
-  "Authorization": zod.string().optional().describe('Opaque session token — Bearer <sid>.')
-})
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — Bearer <sid>."),
+});
 
 export const LogoutResponse = zod.object({
-  "ok": zod.boolean()
-})
-
+  ok: zod.boolean(),
+});
 
 /**
  * @summary Reconcile users and roles from the school directory
  */
 export const SyncUsersFromSheetResponse = zod.object({
-  "synced": zod.number(),
-  "summary": zod.object({
-  "inserted": zod.number(),
-  "updated": zod.number(),
-  "unchanged": zod.number(),
-  "skipped": zod.number(),
-  "retired": zod.number(),
-  "invalid": zod.number(),
-  "duplicates": zod.number(),
-  "unmatched": zod.number(),
-  "errors": zod.array(zod.string())
-})
-})
-
+  synced: zod.number(),
+  summary: zod.object({
+    inserted: zod.number(),
+    updated: zod.number(),
+    unchanged: zod.number(),
+    skipped: zod.number(),
+    retired: zod.number(),
+    invalid: zod.number(),
+    duplicates: zod.number(),
+    unmatched: zod.number(),
+    errors: zod.array(zod.string()),
+  }),
+});
 
 /**
  * @summary Exchange a mobile OIDC code for a session token
  */
 
-
-
-
-
-
-
 export const ExchangeMobileAuthorizationCodeBody = zod.object({
-  "code": zod.string().min(1),
-  "code_verifier": zod.string().min(1),
-  "redirect_uri": zod.string().url().min(1),
-  "state": zod.string().min(1),
-  "nonce": zod.string().min(1).optional()
-})
+  code: zod.string().min(1),
+  code_verifier: zod.string().min(1),
+  redirect_uri: zod.string().url().min(1),
+  state: zod.string().min(1),
+  nonce: zod.string().min(1).optional(),
+});
 
 export const ExchangeMobileAuthorizationCodeResponse = zod.object({
-  "token": zod.string()
-})
-
+  token: zod.string(),
+});
 
 /**
  * @summary Delete a mobile session token
  */
 export const LogoutMobileSessionHeader = zod.object({
-  "Authorization": zod.string().optional().describe('Opaque session token — Bearer <sid>.')
-})
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — Bearer <sid>."),
+});
 
 export const LogoutMobileSessionResponse = zod.object({
-  "success": zod.boolean()
-})
-
+  success: zod.boolean(),
+});
 
 /**
  * @summary Get today's schedule/registers
  */
 export const GetTodayScheduleResponseItem = zod.object({
-  "id": zod.number(),
-  "courseId": zod.number(),
-  "startTime": zod.string(),
-  "endTime": zod.string(),
-  "courseCode": zod.string(),
-  "courseName": zod.string(),
-  "room": zod.string().nullish(),
-  "staffName": zod.string().nullish(),
-  "day": zod.string().nullish(),
-  "occurrenceDate": zod.coerce.date(),
-  "registerMarked": zod.boolean()
-})
-export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)
-
+  id: zod.number(),
+  courseId: zod.number(),
+  startTime: zod.string(),
+  endTime: zod.string(),
+  courseCode: zod.string(),
+  courseName: zod.string(),
+  room: zod.string().nullish(),
+  staffName: zod.string().nullish(),
+  day: zod.string().nullish(),
+  occurrenceDate: zod.coerce.date(),
+  registerMarked: zod.boolean(),
+});
+export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem);
 
 /**
  * @summary List staff records
  */
 export const ListStaffResponseItem = zod.object({
-  "id": zod.string(),
-  "fullName": zod.string(),
-  "firstName": zod.string().nullish(),
-  "lastName": zod.string().nullish(),
-  "staffCode": zod.string().nullish(),
-  "personCode": zod.string().nullish(),
-  "title": zod.string().nullish(),
-  "email": zod.string().email().nullish(),
-  "phone": zod.string().nullish(),
-  "organisation": zod.string().nullish(),
-  "position": zod.string().nullish(),
-  "role": zod.string().nullish()
-})
-export const ListStaffResponse = zod.array(ListStaffResponseItem)
-
+  id: zod.string(),
+  fullName: zod.string(),
+  firstName: zod.string().nullish(),
+  lastName: zod.string().nullish(),
+  staffCode: zod.string().nullish(),
+  personCode: zod.string().nullish(),
+  title: zod.string().nullish(),
+  email: zod.string().email().nullish(),
+  phone: zod.string().nullish(),
+  organisation: zod.string().nullish(),
+  position: zod.string().nullish(),
+  role: zod.string().nullish(),
+});
+export const ListStaffResponse = zod.array(ListStaffResponseItem);
 
 /**
  * @summary Get a staff record and assigned courses
  */
 export const GetStaffParams = zod.object({
-  "id": zod.coerce.string()
-})
+  id: zod.coerce.string(),
+});
 
-export const GetStaffResponse = zod.object({
-  "id": zod.string(),
-  "fullName": zod.string(),
-  "firstName": zod.string().nullish(),
-  "lastName": zod.string().nullish(),
-  "staffCode": zod.string().nullish(),
-  "personCode": zod.string().nullish(),
-  "title": zod.string().nullish(),
-  "email": zod.string().email().nullish(),
-  "phone": zod.string().nullish(),
-  "organisation": zod.string().nullish(),
-  "position": zod.string().nullish(),
-  "role": zod.string().nullish()
-}).and(zod.object({
-  "courses": zod.array(zod.object({
-  "id": zod.number(),
-  "code": zod.string(),
-  "name": zod.string(),
-  "room": zod.string().nullish(),
-  "staffName": zod.string().nullish(),
-  "yearGroup": zod.string().nullish(),
-  "enrolledCount": zod.number(),
-  "isActive": zod.boolean()
-}))
-}))
-
+export const GetStaffResponse = zod
+  .object({
+    id: zod.string(),
+    fullName: zod.string(),
+    firstName: zod.string().nullish(),
+    lastName: zod.string().nullish(),
+    staffCode: zod.string().nullish(),
+    personCode: zod.string().nullish(),
+    title: zod.string().nullish(),
+    email: zod.string().email().nullish(),
+    phone: zod.string().nullish(),
+    organisation: zod.string().nullish(),
+    position: zod.string().nullish(),
+    role: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      courses: zod.array(
+        zod.object({
+          id: zod.number(),
+          code: zod.string(),
+          name: zod.string(),
+          room: zod.string().nullish(),
+          staffName: zod.string().nullish(),
+          yearGroup: zod.string().nullish(),
+          enrolledCount: zod.number(),
+          isActive: zod.boolean(),
+        }),
+      ),
+    }),
+  );
 
 /**
  * @summary Get a staff member's timetable
  */
 export const GetStaffTimetableParams = zod.object({
-  "id": zod.coerce.string()
-})
+  id: zod.coerce.string(),
+});
 
 export const GetStaffTimetableResponse = zod.object({
-  "staffId": zod.string(),
-  "staffName": zod.string(),
-  "records": zod.array(zod.object({
-  "id": zod.string(),
-  "source": zod.enum(['course', 'staff']),
-  "courseId": zod.number().nullish(),
-  "courseCode": zod.string().nullish(),
-  "courseName": zod.string().nullish(),
-  "day": zod.string().nullable(),
-  "startTime": zod.string(),
-  "endTime": zod.string(),
-  "room": zod.string().nullish(),
-  "weekPattern": zod.string().nullish(),
-  "description": zod.string().nullish(),
-  "groupLabel": zod.string().nullish(),
-  "registerMarked": zod.boolean().nullish()
-}))
-})
-
+  staffId: zod.string(),
+  staffName: zod.string(),
+  records: zod.array(
+    zod.object({
+      id: zod.string(),
+      source: zod.enum(["course", "staff"]),
+      courseId: zod.number().nullish(),
+      courseCode: zod.string().nullish(),
+      courseName: zod.string().nullish(),
+      day: zod.string().nullable(),
+      startTime: zod.string(),
+      endTime: zod.string(),
+      room: zod.string().nullish(),
+      weekPattern: zod.string().nullish(),
+      description: zod.string().nullish(),
+      groupLabel: zod.string().nullish(),
+      registerMarked: zod.boolean().nullish(),
+    }),
+  ),
+});
 
 /**
  * @summary Get register history scoped to a staff member
  */
 export const GetStaffRegisterHistoryParams = zod.object({
-  "id": zod.coerce.string()
-})
+  id: zod.coerce.string(),
+});
 
 export const GetStaffRegisterHistoryResponse = zod.object({
-  "staffId": zod.string(),
-  "staffName": zod.string(),
-  "sessions": zod.array(zod.object({
-  "id": zod.string(),
-  "scope": zod.enum(['exact-session']),
-  "scheduleId": zod.number(),
-  "sessionDate": zod.coerce.date(),
-  "courseId": zod.number(),
-  "courseCode": zod.string(),
-  "courseName": zod.string(),
-  "day": zod.string().nullish(),
-  "startTime": zod.string(),
-  "endTime": zod.string(),
-  "room": zod.string().nullish(),
-  "weekPattern": zod.string().nullish(),
-  "attendanceRecords": zod.number(),
-  "present": zod.number(),
-  "absent": zod.number(),
-  "late": zod.number(),
-  "authorised": zod.number()
-})),
-  "records": zod.array(zod.object({
-  "id": zod.number(),
-  "scope": zod.enum(['legacy-course-level']),
-  "courseId": zod.number(),
-  "courseCode": zod.string(),
-  "courseName": zod.string(),
-  "room": zod.string().nullish(),
-  "scheduleCount": zod.number(),
-  "markedScheduleCount": zod.number(),
-  "attendanceRecords": zod.number(),
-  "present": zod.number(),
-  "absent": zod.number(),
-  "late": zod.number(),
-  "authorised": zod.number(),
-  "lastAttendanceDate": zod.coerce.date().nullish()
-}))
-})
-
+  staffId: zod.string(),
+  staffName: zod.string(),
+  sessions: zod.array(
+    zod.object({
+      id: zod.string(),
+      scope: zod.enum(["exact-session"]),
+      scheduleId: zod.number(),
+      sessionDate: zod.coerce.date(),
+      courseId: zod.number(),
+      courseCode: zod.string(),
+      courseName: zod.string(),
+      day: zod.string().nullish(),
+      startTime: zod.string(),
+      endTime: zod.string(),
+      room: zod.string().nullish(),
+      weekPattern: zod.string().nullish(),
+      attendanceRecords: zod.number(),
+      present: zod.number(),
+      absent: zod.number(),
+      late: zod.number(),
+      authorised: zod.number(),
+    }),
+  ),
+  records: zod.array(
+    zod.object({
+      id: zod.number(),
+      scope: zod.enum(["legacy-course-level"]),
+      courseId: zod.number(),
+      courseCode: zod.string(),
+      courseName: zod.string(),
+      room: zod.string().nullish(),
+      scheduleCount: zod.number(),
+      markedScheduleCount: zod.number(),
+      attendanceRecords: zod.number(),
+      present: zod.number(),
+      absent: zod.number(),
+      late: zod.number(),
+      authorised: zod.number(),
+      lastAttendanceDate: zod.coerce.date().nullish(),
+    }),
+  ),
+});
 
 /**
  * @summary Get room bookings for a staff member
  */
 export const GetStaffRoomBookingsParams = zod.object({
-  "id": zod.coerce.string()
-})
+  id: zod.coerce.string(),
+});
 
 export const GetStaffRoomBookingsResponse = zod.object({
-  "staffId": zod.string(),
-  "staffName": zod.string(),
-  "sourceAvailable": zod.boolean(),
-  "records": zod.array(zod.unknown()),
-  "message": zod.string()
-})
-
+  staffId: zod.string(),
+  staffName: zod.string(),
+  sourceAvailable: zod.boolean(),
+  records: zod.array(zod.unknown()),
+  message: zod.string(),
+});
 
 /**
  * @summary Get correspondence for a staff member
  */
 export const GetStaffCorrespondenceParams = zod.object({
-  "id": zod.coerce.string()
-})
+  id: zod.coerce.string(),
+});
 
 export const GetStaffCorrespondenceResponse = zod.object({
-  "staffId": zod.string(),
-  "staffName": zod.string(),
-  "sourceAvailable": zod.boolean(),
-  "records": zod.array(zod.unknown()),
-  "message": zod.string()
-})
+  staffId: zod.string(),
+  staffName: zod.string(),
+  sourceAvailable: zod.boolean(),
+  records: zod.array(zod.unknown()),
+  message: zod.string(),
+});

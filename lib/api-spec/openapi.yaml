@@ -30,6 +30,8 @@ tags:
     description: Assessment and marking operations
   - name: concierge
     description: Concierge applicant and application operations
+  - name: Storage
+    description: Object storage upload and serving endpoints.
   - name: eprogressions
     description: eProgression submission and pending queue
   - name: staff
@@ -915,6 +917,146 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /concierge/enrolments:
+    get:
+      operationId: listConciergeEnrolments
+      tags: [concierge]
+      summary: List learner enrolments
+      responses:
+        "200":
+          description: Learner enrolments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConciergeEnrolment"
+    post:
+      operationId: createConciergeEnrolment
+      tags: [concierge]
+      summary: Complete a learner enrolment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeEnrolmentInput"
+      responses:
+        "201":
+          description: Completed learner enrolment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeEnrolment"
+        "400":
+          description: Invalid enrolment details
+        "401":
+          description: Authentication required
+        "403":
+          description: Concierge access required
+        "404":
+          description: Application, learner, or course not found
+
+  /concierge/enrolments/{id}:
+    get:
+      operationId: getConciergeEnrolment
+      tags: [concierge]
+      summary: Get a learner enrolment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Learner enrolment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeEnrolment"
+        "404":
+          description: Enrolment not found
+
+  /concierge/enrolments/{id}/photo:
+    post:
+      operationId: associateConciergeEnrolmentPhoto
+      tags: [concierge]
+      summary: Associate an uploaded learner photo with an enrolment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeEnrolmentPhotoInput"
+      responses:
+        "200":
+          description: Enrolment with saved photo reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeEnrolment"
+        "400":
+          description: Invalid photo reference
+        "401":
+          description: Authentication required
+        "404":
+          description: Enrolment or uploaded object not found
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      description: Returns a presigned URL for a direct image upload. The client sends metadata here, then uploads the file directly to storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Missing or invalid required fields
+        "401":
+          description: Authentication required
+        "500":
+          description: Failed to generate upload URL
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an uploaded object
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Object not found
 
   /auth/user:
     get:
@@ -2260,3 +2402,113 @@ components:
           type: ["string", "null"]
       required:
         - status
+
+    ConciergeEnrolment:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        courseId:
+          type: integer
+        forename:
+          type: string
+        surname:
+          type: string
+        email:
+          type: ["string", "null"]
+          format: email
+        courseCode:
+          type: string
+        course:
+          type: string
+        progressCode:
+          type: string
+        photoObjectPath:
+          type: ["string", "null"]
+        photoContentType:
+          type: ["string", "null"]
+        photoUpdatedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - studentId
+        - courseId
+        - forename
+        - surname
+        - courseCode
+        - course
+        - progressCode
+        - createdAt
+
+    ConciergeEnrolmentPhotoInput:
+      type: object
+      required: [objectPath, contentType]
+      properties:
+        objectPath:
+          type: string
+          pattern: "^/objects/"
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png]
+
+    ConciergeEnrolmentInput:
+      type: object
+      required: [courseId, forename, surname, email]
+      properties:
+        applicationId:
+          type: integer
+        studentId:
+          type: integer
+        courseId:
+          type: integer
+        forename:
+          type: string
+          minLength: 1
+        surname:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+        postCode:
+          type: string
+
+    UploadUrlRequest:
+      type: object
+      required: [enrolmentId, name, size, contentType]
+      properties:
+        enrolmentId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+          maximum: 5242880
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png]
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath, metadata]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"

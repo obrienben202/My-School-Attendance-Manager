@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useListConciergeEnrolments } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,71 +11,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ArrowLeft, Search, Plus, ChevronRight } from "lucide-react";
-
-const MOCK_ENROLMENTS = [
-  {
-    id: 1,
-    learner: "Emma Davies",
-    courseCode: "AMAT01",
-    course: "A-Level Mathematics",
-    startDate: "2026-09-01",
-    endDate: "2027-06-30",
-    progressCode: "A",
-    status: "Enrolled",
-  },
-  {
-    id: 2,
-    learner: "James Wilson",
-    courseCode: "ENG-FS",
-    course: "English Functional Skills Level 2",
-    startDate: "2026-09-01",
-    endDate: "2027-05-31",
-    progressCode: "A",
-    status: "Enrolled",
-  },
-  {
-    id: 3,
-    learner: "Aisha Patel",
-    courseCode: "BUS-A",
-    course: "A-Level Business Studies",
-    startDate: "2026-09-01",
-    endDate: "2027-06-30",
-    progressCode: "B",
-    status: "Enrolled",
-  },
-];
-
-const statusColor = (s: string) => {
-  const m: Record<string, string> = {
-    Enrolled: "bg-green-100 text-green-700",
-    Withdrawn: "bg-gray-100 text-gray-700",
-    Completed: "bg-blue-100 text-blue-700",
-    Suspended: "bg-red-100 text-red-700",
-  };
-  return m[s] ?? "bg-gray-100 text-gray-700";
-};
 
 export default function EnrolmentsList() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const { data: enrolments = [], isLoading, error } = useListConciergeEnrolments();
 
-  const filtered = MOCK_ENROLMENTS.filter((e) => {
+  const filtered = enrolments.filter((e) => {
+    const learner = `${e.forename} ${e.surname}`;
     const matchSearch =
       !search ||
-      e.learner.toLowerCase().includes(search.toLowerCase()) ||
+      learner.toLowerCase().includes(search.toLowerCase()) ||
       e.courseCode.toLowerCase().includes(search.toLowerCase()) ||
       e.course.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || e.status === statusFilter;
-    return matchSearch && matchStatus;
+    return matchSearch;
   });
 
   return (
@@ -97,18 +48,6 @@ export default function EnrolmentsList() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="Enrolled">Enrolled</SelectItem>
-              <SelectItem value="Withdrawn">Withdrawn</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-              <SelectItem value="Suspended">Suspended</SelectItem>
-            </SelectContent>
-          </Select>
           <Button className="gap-2" onClick={() => setLocation("/concierge/enrolments/new")}>
             <Plus size={16} /> New Enrolment
           </Button>
@@ -125,17 +64,28 @@ export default function EnrolmentsList() {
             <TableRow className="bg-gray-50">
               <TableHead>Learner</TableHead>
               <TableHead>Course</TableHead>
-              <TableHead>Start Date</TableHead>
-              <TableHead>End Date</TableHead>
+               <TableHead>Enrolled</TableHead>
               <TableHead>Progress Code</TableHead>
               <TableHead>Status</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-gray-400">
+                <TableCell colSpan={6} className="text-center py-8 text-gray-400">
+                  Loading enrolments…
+                </TableCell>
+              </TableRow>
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-red-600">
+                  Enrolments could not be loaded. Try refreshing the page.
+                </TableCell>
+              </TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-400">
                   No enrolments found
                 </TableCell>
               </TableRow>
@@ -146,23 +96,20 @@ export default function EnrolmentsList() {
                   className="cursor-pointer hover:bg-gray-50"
                   onClick={() => setLocation(`/concierge/enrolments/${e.id}`)}
                 >
-                  <TableCell className="font-medium">{e.learner}</TableCell>
+                  <TableCell className="font-medium">{e.forename} {e.surname}</TableCell>
                   <TableCell>
                     <div className="text-sm">{e.course}</div>
                     <div className="text-xs text-gray-400 font-mono">{e.courseCode}</div>
                   </TableCell>
                   <TableCell className="text-sm text-gray-600">
-                    {new Date(e.startDate).toLocaleDateString("en-GB")}
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    {new Date(e.endDate).toLocaleDateString("en-GB")}
+                     {new Date(e.createdAt).toLocaleDateString("en-GB")}
                   </TableCell>
                   <TableCell>
                     <span className="font-mono font-semibold text-sm">{e.progressCode}</span>
                   </TableCell>
                   <TableCell>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(e.status)}`}>
-                      {e.status}
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700">
+                      Enrolled
                     </span>
                   </TableCell>
                   <TableCell>

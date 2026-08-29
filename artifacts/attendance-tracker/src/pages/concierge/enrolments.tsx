@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useGetConciergeApplication, useListStudents } from "@workspace/api-client-react";
+import {
+  useCreateConciergeEnrolment,
+  useGetConciergeApplication,
+  useListCourses,
+  useListStudents,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +43,7 @@ type FormData = {
   postcode: string;
   phone: string;
   email: string;
+  courseId: string;
   // Further
   ethnicity: string;
   disability: string;
@@ -64,7 +70,7 @@ type FormData = {
 
 const DEFAULTS: FormData = {
   forename: "", surname: "", dateOfBirth: "", gender: "", address1: "", address2: "",
-  city: "", postcode: "", phone: "", email: "",
+  city: "", postcode: "", phone: "", email: "", courseId: "",
   ethnicity: "", disability: "No known disability", householdSituation: "", supportNeeds: "", employmentStatus: "",
   learningPurpose: "", learningOutcome: "",
   universalCredit: false, jobseekers: false, incomeSupport: false,
@@ -81,65 +87,76 @@ export default function EnrolmentsWizard() {
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(DEFAULTS);
-  const [complete, setComplete] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const { data: application } = useGetConciergeApplication(
     applicationId ? Number(applicationId) : 0,
     { query: { enabled: !!applicationId } as any }
   );
   const { data: students = [] } = useListStudents({} as any);
+  const { data: courses = [] } = useListCourses({} as any);
+  const { mutateAsync: createEnrolment, isPending: isSaving } = useCreateConciergeEnrolment();
 
   const applicant =
     application
       ? students.find((s) => s.id === application.studentId)
       : null;
 
-  // Pre-fill from applicant if available
-  const prefilled = !form.forename && (applicant || application);
-  if (prefilled) {
-    setForm((f) => ({
-      ...f,
-      forename: applicant?.forename ?? application?.forename ?? "",
-      surname: applicant?.surname ?? application?.surname ?? "",
-      email: application?.email ?? "",
+  useEffect(() => {
+    if (!application || form.forename) return;
+    setForm((current) => ({
+      ...current,
+      forename: applicant?.forename ?? application.forename ?? "",
+      surname: applicant?.surname ?? application.surname ?? "",
+      email: application.email ?? "",
+      courseId: application.courseId ? String(application.courseId) : "",
     }));
-  }
+  }, [applicant, application, form.forename]);
 
   const set = (field: keyof FormData, value: string | boolean) =>
     setForm((f) => ({ ...f, [field]: value }));
 
   const stepName = STEPS[step];
 
-  const handleNext = () => {
-    if (step < STEPS.length - 1) setStep(step + 1);
-    else setComplete(true);
+  const handleNext = async () => {
+    setSaveError("");
+    if (step < STEPS.length - 1) {
+      setStep(step + 1);
+      return;
+    }
+    if (!form.forename.trim() || !form.surname.trim() || !form.email.trim() || !form.courseId) {
+      setSaveError("Add the learner's name, email address, and course before completing the enrolment.");
+      setStep(0);
+      return;
+    }
+    try {
+      const created = await createEnrolment({
+        data: {
+          applicationId: applicationId ? Number(applicationId) : undefined,
+          studentId: applicant?.id,
+          courseId: Number(form.courseId),
+          forename: form.forename.trim(),
+          surname: form.surname.trim(),
+          email: form.email.trim(),
+          dateOfBirth: form.dateOfBirth || undefined,
+          gender: form.gender || undefined,
+          postCode: form.postcode.trim() || undefined,
+        },
+      });
+      setLocation(`/concierge/enrolments/${created.id}`);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "The enrolment could not be saved. Check the details and try again.",
+      );
+    }
   };
 
   const handleBack = () => {
     if (step > 0) setStep(step - 1);
     else setLocation(applicationId ? `/concierge/applications/${applicationId}` : "/concierge/enrolments");
   };
-
-  if (complete) {
-    return (
-      <div className="p-6 max-w-2xl mx-auto text-center">
-        <div className="bg-white border border-gray-200 rounded-lg p-10">
-          <CheckCircle size={48} className="text-green-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Enrolment Successful</h2>
-          <p className="text-gray-600 mb-6">
-            The enrolment for <strong>{form.forename} {form.surname}</strong> has been completed successfully.
-            The learner will receive a confirmation.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => setLocation("/concierge/enrolments")}>
-              View All Enrolments
-            </Button>
-            <Button onClick={() => setLocation("/concierge")}>Back to Concierge</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -194,6 +211,20 @@ export default function EnrolmentsWizard() {
             </Field>
             <Field label="Email Address"><Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
             <Field label="Phone"><Input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
+            <div className="col-span-2">
+              <Field label="Course *">
+                <Select value={form.courseId} onValueChange={(value) => set("courseId", value)}>
+                  <SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger>
+                  <SelectContent>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={String(course.id)}>
+                        {course.code} — {course.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
             <div className="col-span-2">
               <Field label="Address Line 1"><Input value={form.address1} onChange={(e) => set("address1", e.target.value)} /></Field>
             </div>
@@ -420,15 +451,20 @@ export default function EnrolmentsWizard() {
       </div>
 
       {/* Navigation */}
+      {saveError && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {saveError}
+        </div>
+      )}
       <div className="flex justify-between mt-4">
         <Button variant="outline" onClick={handleBack}>
           {step === 0 ? "Cancel" : "Back"}
         </Button>
         <Button
           onClick={handleNext}
-          disabled={stepName === "Data Protection" && !form.dataConsent}
+          disabled={isSaving || (stepName === "Data Protection" && !form.dataConsent)}
         >
-          {step === STEPS.length - 1 ? "Confirm & Complete Enrolment" : "Next"}
+          {isSaving ? "Saving Enrolment…" : step === STEPS.length - 1 ? "Confirm & Complete Enrolment" : "Next"}
           {step < STEPS.length - 1 && <ChevronRight size={16} className="ml-1" />}
         </Button>
       </div>

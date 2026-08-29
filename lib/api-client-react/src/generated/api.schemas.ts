@@ -755,6 +755,80 @@ export interface ConciergeApplicationInput {
   requirements?: string | null;
 }
 
+export interface ConciergeEnrolment {
+  id: number;
+  studentId: number;
+  courseId: number;
+  forename: string;
+  surname: string;
+  /** @nullable */
+  email?: string | null;
+  courseCode: string;
+  course: string;
+  progressCode: string;
+  /** @nullable */
+  photoObjectPath?: string | null;
+  /** @nullable */
+  photoContentType?: string | null;
+  /** @nullable */
+  photoUpdatedAt?: string | null;
+  createdAt: string;
+}
+
+export type ConciergeEnrolmentPhotoInputContentType = typeof ConciergeEnrolmentPhotoInputContentType[keyof typeof ConciergeEnrolmentPhotoInputContentType];
+
+
+export const ConciergeEnrolmentPhotoInputContentType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+} as const;
+
+export interface ConciergeEnrolmentPhotoInput {
+  /** @pattern ^/objects/ */
+  objectPath: string;
+  contentType: ConciergeEnrolmentPhotoInputContentType;
+}
+
+export interface ConciergeEnrolmentInput {
+  applicationId?: number;
+  studentId?: number;
+  courseId: number;
+  /** @minLength 1 */
+  forename: string;
+  /** @minLength 1 */
+  surname: string;
+  email: string;
+  dateOfBirth?: string;
+  gender?: string;
+  postCode?: string;
+}
+
+export type UploadUrlRequestContentType = typeof UploadUrlRequestContentType[keyof typeof UploadUrlRequestContentType];
+
+
+export const UploadUrlRequestContentType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+} as const;
+
+export interface UploadUrlRequest {
+  enrolmentId: number;
+  /** @minLength 1 */
+  name: string;
+  /**
+     * @minimum 1
+     * @maximum 5242880
+     */
+  size: number;
+  contentType: UploadUrlRequestContentType;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata: UploadUrlRequest;
+}
+
 /**
  * Opaque session token — Bearer <sid>.
  */

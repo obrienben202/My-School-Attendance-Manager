@@ -31,6 +31,9 @@ import type {
   AuthUserEnvelope,
   ConciergeApplication,
   ConciergeApplicationInput,
+  ConciergeEnrolment,
+  ConciergeEnrolmentInput,
+  ConciergeEnrolmentPhotoInput,
   Course,
   DashboardSummary,
   Eprogression,
@@ -70,6 +73,8 @@ import type {
   Target,
   TargetInput,
   TargetUpdate,
+  UploadUrlRequest,
+  UploadUrlResponse,
   UserDirectorySyncResult
 } from './api.schemas';
 
@@ -3234,6 +3239,452 @@ export const useDeleteConciergeApplication = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getDeleteConciergeApplicationMutationOptions(options));
     }
+
+export const getListConciergeEnrolmentsUrl = () => {
+
+
+
+
+  return `/api/concierge/enrolments`
+}
+
+/**
+ * @summary List learner enrolments
+ */
+export const listConciergeEnrolments = async ( options?: RequestInit): Promise<ConciergeEnrolment[]> => {
+
+  return customFetch<ConciergeEnrolment[]>(getListConciergeEnrolmentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListConciergeEnrolmentsQueryKey = () => {
+    return [
+    `/api/concierge/enrolments`
+    ] as const;
+    }
+
+
+export const getListConciergeEnrolmentsQueryOptions = <TData = Awaited<ReturnType<typeof listConciergeEnrolments>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listConciergeEnrolments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListConciergeEnrolmentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listConciergeEnrolments>>> = ({ signal }) => listConciergeEnrolments({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listConciergeEnrolments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListConciergeEnrolmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listConciergeEnrolments>>>
+export type ListConciergeEnrolmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List learner enrolments
+ */
+
+export function useListConciergeEnrolments<TData = Awaited<ReturnType<typeof listConciergeEnrolments>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listConciergeEnrolments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListConciergeEnrolmentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateConciergeEnrolmentUrl = () => {
+
+
+
+
+  return `/api/concierge/enrolments`
+}
+
+/**
+ * @summary Complete a learner enrolment
+ */
+export const createConciergeEnrolment = async (conciergeEnrolmentInput: ConciergeEnrolmentInput, options?: RequestInit): Promise<ConciergeEnrolment> => {
+
+  return customFetch<ConciergeEnrolment>(getCreateConciergeEnrolmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      conciergeEnrolmentInput,)
+  }
+);}
+
+
+
+
+export const getCreateConciergeEnrolmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createConciergeEnrolment>>, TError,{data: BodyType<ConciergeEnrolmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createConciergeEnrolment>>, TError,{data: BodyType<ConciergeEnrolmentInput>}, TContext> => {
+
+const mutationKey = ['createConciergeEnrolment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createConciergeEnrolment>>, {data: BodyType<ConciergeEnrolmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createConciergeEnrolment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateConciergeEnrolmentMutationResult = NonNullable<Awaited<ReturnType<typeof createConciergeEnrolment>>>
+    export type CreateConciergeEnrolmentMutationBody = BodyType<ConciergeEnrolmentInput>
+    export type CreateConciergeEnrolmentMutationError = ErrorType<void>
+
+    /**
+ * @summary Complete a learner enrolment
+ */
+export const useCreateConciergeEnrolment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createConciergeEnrolment>>, TError,{data: BodyType<ConciergeEnrolmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createConciergeEnrolment>>,
+        TError,
+        {data: BodyType<ConciergeEnrolmentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateConciergeEnrolmentMutationOptions(options));
+    }
+
+export const getGetConciergeEnrolmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/concierge/enrolments/${id}`
+}
+
+/**
+ * @summary Get a learner enrolment
+ */
+export const getConciergeEnrolment = async (id: number, options?: RequestInit): Promise<ConciergeEnrolment> => {
+
+  return customFetch<ConciergeEnrolment>(getGetConciergeEnrolmentUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConciergeEnrolmentQueryKey = (id: number,) => {
+    return [
+    `/api/concierge/enrolments/${id}`
+    ] as const;
+    }
+
+
+export const getGetConciergeEnrolmentQueryOptions = <TData = Awaited<ReturnType<typeof getConciergeEnrolment>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConciergeEnrolment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConciergeEnrolmentQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConciergeEnrolment>>> = ({ signal }) => getConciergeEnrolment(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConciergeEnrolment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConciergeEnrolmentQueryResult = NonNullable<Awaited<ReturnType<typeof getConciergeEnrolment>>>
+export type GetConciergeEnrolmentQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a learner enrolment
+ */
+
+export function useGetConciergeEnrolment<TData = Awaited<ReturnType<typeof getConciergeEnrolment>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConciergeEnrolment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConciergeEnrolmentQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAssociateConciergeEnrolmentPhotoUrl = (id: number,) => {
+
+
+
+
+  return `/api/concierge/enrolments/${id}/photo`
+}
+
+/**
+ * @summary Associate an uploaded learner photo with an enrolment
+ */
+export const associateConciergeEnrolmentPhoto = async (id: number,
+    conciergeEnrolmentPhotoInput: ConciergeEnrolmentPhotoInput, options?: RequestInit): Promise<ConciergeEnrolment> => {
+
+  return customFetch<ConciergeEnrolment>(getAssociateConciergeEnrolmentPhotoUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      conciergeEnrolmentPhotoInput,)
+  }
+);}
+
+
+
+
+export const getAssociateConciergeEnrolmentPhotoMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof associateConciergeEnrolmentPhoto>>, TError,{id: number;data: BodyType<ConciergeEnrolmentPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof associateConciergeEnrolmentPhoto>>, TError,{id: number;data: BodyType<ConciergeEnrolmentPhotoInput>}, TContext> => {
+
+const mutationKey = ['associateConciergeEnrolmentPhoto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof associateConciergeEnrolmentPhoto>>, {id: number;data: BodyType<ConciergeEnrolmentPhotoInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  associateConciergeEnrolmentPhoto(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssociateConciergeEnrolmentPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof associateConciergeEnrolmentPhoto>>>
+    export type AssociateConciergeEnrolmentPhotoMutationBody = BodyType<ConciergeEnrolmentPhotoInput>
+    export type AssociateConciergeEnrolmentPhotoMutationError = ErrorType<void>
+
+    /**
+ * @summary Associate an uploaded learner photo with an enrolment
+ */
+export const useAssociateConciergeEnrolmentPhoto = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof associateConciergeEnrolmentPhoto>>, TError,{id: number;data: BodyType<ConciergeEnrolmentPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof associateConciergeEnrolmentPhoto>>,
+        TError,
+        {id: number;data: BodyType<ConciergeEnrolmentPhotoInput>},
+        TContext
+      > => {
+      return useMutation(getAssociateConciergeEnrolmentPhotoMutationOptions(options));
+    }
+
+export const getRequestUploadUrlUrl = () => {
+
+
+
+
+  return `/api/storage/uploads/request-url`
+}
+
+/**
+ * Returns a presigned URL for a direct image upload. The client sends metadata here, then uploads the file directly to storage.
+ * @summary Request a presigned URL for file upload
+ */
+export const requestUploadUrl = async (uploadUrlRequest: UploadUrlRequest, options?: RequestInit): Promise<UploadUrlResponse> => {
+
+  return customFetch<UploadUrlResponse>(getRequestUploadUrlUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      uploadUrlRequest,)
+  }
+);}
+
+
+
+
+export const getRequestUploadUrlMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext> => {
+
+const mutationKey = ['requestUploadUrl'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestUploadUrl>>, {data: BodyType<UploadUrlRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestUploadUrl(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestUploadUrlMutationResult = NonNullable<Awaited<ReturnType<typeof requestUploadUrl>>>
+    export type RequestUploadUrlMutationBody = BodyType<UploadUrlRequest>
+    export type RequestUploadUrlMutationError = ErrorType<void>
+
+    /**
+ * @summary Request a presigned URL for file upload
+ */
+export const useRequestUploadUrl = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestUploadUrl>>,
+        TError,
+        {data: BodyType<UploadUrlRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestUploadUrlMutationOptions(options));
+    }
+
+export const getGetStorageObjectUrl = (objectPath: string,) => {
+
+
+
+
+  return `/api/storage/objects/${objectPath}`
+}
+
+/**
+ * @summary Serve an uploaded object
+ */
+export const getStorageObject = async (objectPath: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetStorageObjectUrl(objectPath),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStorageObjectQueryKey = (objectPath: string,) => {
+    return [
+    `/api/storage/objects/${objectPath}`
+    ] as const;
+    }
+
+
+export const getGetStorageObjectQueryOptions = <TData = Awaited<ReturnType<typeof getStorageObject>>, TError = ErrorType<void>>(objectPath: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStorageObject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStorageObjectQueryKey(objectPath);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStorageObject>>> = ({ signal }) => getStorageObject(objectPath, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(objectPath), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStorageObject>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStorageObjectQueryResult = NonNullable<Awaited<ReturnType<typeof getStorageObject>>>
+export type GetStorageObjectQueryError = ErrorType<void>
+
+
+/**
+ * @summary Serve an uploaded object
+ */
+
+export function useGetStorageObject<TData = Awaited<ReturnType<typeof getStorageObject>>, TError = ErrorType<void>>(
+ objectPath: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStorageObject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStorageObjectQueryOptions(objectPath,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetCurrentAuthUserUrl = () => {
 
