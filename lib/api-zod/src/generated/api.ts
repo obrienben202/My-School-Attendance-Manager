@@ -710,6 +710,14 @@ export const UpdateIlpResponse = zod.object({
 
 
 /**
+ * @summary Delete an Individual Learning Plan
+ */
+export const DeleteIlpParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary List assessments with optional filters
  */
 export const ListAssessmentsQueryParams = zod.object({

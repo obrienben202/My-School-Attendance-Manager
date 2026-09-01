@@ -5,6 +5,7 @@ import { eq, and, type SQL } from "drizzle-orm";
 import {
   ListIlpsQueryParams,
   CreateIlpBody,
+  DeleteIlpParams,
   UpdateIlpBody,
   UpdateIlpParams,
 } from "@workspace/api-zod";
@@ -122,6 +123,19 @@ router.patch("/ilps/:id", async (req, res) => {
     createdAt: ilp.createdAt.toISOString(),
     updatedAt: ilp.updatedAt.toISOString(),
   });
+});
+
+router.delete("/ilps/:id", async (req, res) => {
+  if (!requireMaintainer(req, res)) return;
+  const params = DeleteIlpParams.safeParse({ id: Number(req.params.id) });
+  if (!params.success) return res.status(400).json({ error: "Invalid id" });
+
+  const deleted = await db
+    .delete(ilpsTable)
+    .where(eq(ilpsTable.id, params.data.id))
+    .returning({ id: ilpsTable.id });
+  if (!deleted.length) return res.status(404).json({ error: "Not found" });
+  return res.status(204).send();
 });
 
 export default router;

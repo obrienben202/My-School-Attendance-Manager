@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useListStudents } from "@workspace/api-client-react";
+import { useAuth } from "@workspace/replit-auth-web";
+import {
+  getListIlpsQueryKey,
+  useListIlps,
+  useListStudents,
+  useUpdateIlp,
+  type Ilp,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { IlpTutorNav } from "./_nav";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +18,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Star, AlertTriangle, Clock, CheckCircle2, ExternalLink } from "lucide-react";
+import { formatIlpDate, getIlpTutorName, getReviewStatus, isIlpOpen, isTutorOwner } from "@/lib/ilp";
 
 type ReviewStatus = "Overdue" | "In Progress" | "In Review";
 
@@ -42,16 +51,6 @@ const STATUS_CHART_COLORS: Record<ReviewStatus, string> = {
   "In Review":   "bg-blue-400",
 };
 
-const MOCK_REVIEWS: Omit<Review, "learnerName" | "learnerId">[] = [
-  { id: 1, reviewName: "Mid-Year Review", dueDate: "2025-01-15", status: "Overdue",     ownedByMe: true,  ownerName: "You" },
-  { id: 2, reviewName: "Target Check-In", dueDate: "2025-02-28", status: "In Progress", ownedByMe: true,  ownerName: "You" },
-  { id: 3, reviewName: "Mid-Year Review", dueDate: "2025-02-01", status: "Overdue",     ownedByMe: false, ownerName: "Ms. Harper" },
-  { id: 4, reviewName: "Initial Review",  dueDate: "2025-03-10", status: "In Review",   ownedByMe: true,  ownerName: "You" },
-  { id: 5, reviewName: "End-of-Year",     dueDate: "2025-05-30", status: "In Progress", ownedByMe: false, ownerName: "Mr. Davies" },
-  { id: 6, reviewName: "Target Check-In", dueDate: "2025-01-20", status: "Overdue",     ownedByMe: true,  ownerName: "You" },
-  { id: 7, reviewName: "Mid-Year Review", dueDate: "2025-03-15", status: "In Review",   ownedByMe: true,  ownerName: "You" },
-];
-
 const ALL_STATUSES: ReviewStatus[] = ["Overdue", "In Progress", "In Review"];
 
 export default function IlpTutorReviews() {
@@ -59,29 +58,47 @@ export default function IlpTutorReviews() {
   const searchStr = useSearch();
   const params = new URLSearchParams(searchStr);
   const initialLearner = params.get("learnerId") ?? "all";
+  const initialIlpId = params.get("ilpId");
 
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: ilpRecords = [], isLoading, isError } = useListIlps();
   const { data: students = [] } = useListStudents();
+  const updateIlp = useUpdateIlp();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [learnerFilter, setLearnerFilter] = useState<string>(initialLearner);
   const [excludeOthers, setExcludeOthers] = useState(false);
   const [chartFilter, setChartFilter] = useState<ReviewStatus | null>(null);
-  const [reviews, setReviews] = useState<Review[]>(
-    MOCK_REVIEWS.map((r, i) => {
-      const s = students[i % Math.max(students.length, 1)] ?? { id: i + 1, forename: "Learner", surname: String(i + 1) };
-      return { ...r, learnerName: `${s.forename} ${s.surname}`, learnerId: s.id };
-    })
-  );
 
-  const takeOwnership = (id: number) => {
-    setReviews((prev) => prev.map((r) => r.id === id ? { ...r, ownedByMe: true, ownerName: "You" } : r));
+  const userName = `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "Staff Member";
+  const studentById = new Map(students.map((student) => [student.id, student]));
+  const learnerName = (ilp: Ilp) => ilp.studentName ?? (() => {
+    const student = studentById.get(ilp.studentId);
+    return student ? `${student.forename} ${student.surname}` : "Unknown learner";
+  })();
+  const reviews: Review[] = ilpRecords.filter(isIlpOpen).map((ilp) => ({
+    id: ilp.id,
+    learnerName: learnerName(ilp),
+    learnerId: ilp.studentId,
+    reviewName: ilp.title,
+    dueDate: ilp.nextReviewDue ?? ilp.lastReviewDate ?? ilp.createdAt,
+    status: getReviewStatus(ilp),
+    ownedByMe: isTutorOwner(ilp.tutor, userName),
+    ownerName: getIlpTutorName(ilp.tutor),
+  }));
+
+  const takeOwnership = async (id: number) => {
+    await updateIlp.mutateAsync({ id, data: { tutor: userName } });
+    await queryClient.invalidateQueries({ queryKey: getListIlpsQueryKey() });
   };
 
   const filtered = reviews.filter((r) => {
     const matchStatus = statusFilter === "all" ? true : r.status === statusFilter;
     const matchLearner = learnerFilter === "all" ? true : String(r.learnerId) === learnerFilter;
+    const matchIlp = initialIlpId ? String(r.id) === initialIlpId : true;
     const matchOwner = !excludeOthers ? true : r.ownedByMe;
     const matchChart = !chartFilter ? true : r.status === chartFilter;
-    return matchStatus && matchLearner && matchOwner && matchChart;
+    return matchStatus && matchLearner && matchIlp && matchOwner && matchChart;
   });
 
   // Chart data
@@ -190,7 +207,11 @@ export default function IlpTutorReviews() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <tr><td colSpan={6} className="text-center py-12 text-gray-400 text-sm">Loading reviews…</td></tr>
+              ) : isError ? (
+                <tr><td colSpan={6} className="text-center py-12 text-red-600 text-sm">Reviews could not be loaded.</td></tr>
+              ) : filtered.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-12 text-gray-400 text-sm">No reviews match your filters.</td></tr>
               ) : filtered.map((r) => {
                 const Icon = STATUS_ICONS[r.status];
@@ -204,7 +225,7 @@ export default function IlpTutorReviews() {
                     </td>
                     <td className="px-4 py-2.5 text-gray-700 text-xs font-medium">{r.reviewName}</td>
                     <td className={`px-4 py-2.5 text-xs ${isOverdue ? "text-red-600 font-semibold" : "text-gray-500"}`}>
-                      {new Date(r.dueDate).toLocaleDateString("en-GB")}
+                       {formatIlpDate(r.dueDate)}
                     </td>
                     <td className="px-4 py-2.5">
                       <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border font-medium ${STATUS_STYLES[r.status]}`}>
@@ -224,7 +245,7 @@ export default function IlpTutorReviews() {
                             <ExternalLink size={13} className="mr-2" /> Open review
                           </DropdownMenuItem>
                           {!r.ownedByMe && (
-                            <DropdownMenuItem onClick={() => takeOwnership(r.id)}>
+                             <DropdownMenuItem onClick={() => takeOwnership(r.id)} disabled={updateIlp.isPending}>
                               <Star size={13} className="mr-2" /> Make me owner
                             </DropdownMenuItem>
                           )}

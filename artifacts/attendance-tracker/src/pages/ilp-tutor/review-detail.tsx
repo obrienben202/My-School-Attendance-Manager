@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
+import { useListIlps } from "@workspace/api-client-react";
 import { IlpTutorNav } from "./_nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, ChevronsRight, Paperclip, CheckCircle2, Clock, Upload, Star } from "lucide-react";
+import { formatIlpDate, getReviewStatus } from "@/lib/ilp";
 
 type QuestionType = "text" | "yesno" | "rating" | "dropdown" | "date" | "number";
 
@@ -34,18 +36,12 @@ const REVIEW_QUESTIONS: Question[] = [
   { id: 7, section: "Next Steps", text: "Next review due date:", type: "date" },
 ];
 
-const MOCK_REVIEW_META = {
-  learnerName: "Jordan Patel",
-  reviewName: "Mid-Year Review",
-  status: "In Progress" as const,
-  dueDate: "2025-01-15",
-};
-
 type Tab = "review" | "files";
 
 export default function ReviewDetail() {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
+  const { data: ilps = [], isLoading, isError } = useListIlps();
   const [tab, setTab] = useState<Tab>("review");
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answer>({});
@@ -59,6 +55,13 @@ export default function ReviewDetail() {
   const total = REVIEW_QUESTIONS.length;
   const isLast = step === total - 1;
   const progress = Math.round(((step + 1) / total) * 100);
+  const ilp = ilps.find((record) => record.id === Number(params.id));
+  const reviewMeta = ilp ? {
+    learnerName: ilp.studentName ?? "Unknown learner",
+    reviewName: ilp.title,
+    status: getReviewStatus(ilp),
+    dueDate: ilp.nextReviewDue ?? ilp.lastReviewDate ?? ilp.createdAt,
+  } : null;
 
   const setAnswer = (id: number, val: string) => setAnswers((prev) => ({ ...prev, [id]: val }));
   const setComment = (id: number, val: string) => setComments((prev) => ({ ...prev, [id]: val }));
@@ -75,6 +78,14 @@ export default function ReviewDetail() {
     setFiles((prev) => [...prev, ...picked]);
   };
 
+  if (isLoading) {
+    return <div className="p-12 text-center text-sm text-gray-400">Loading review…</div>;
+  }
+
+  if (isError || !reviewMeta) {
+    return <div className="p-12 text-center text-sm text-red-600">This ILP review could not be loaded.</div>;
+  }
+
   if (submitted) {
     return (
       <div className="flex -mx-6 -mt-6 min-h-screen bg-slate-50">
@@ -83,7 +94,7 @@ export default function ReviewDetail() {
           <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">Review Submitted</h2>
           <p className="text-sm text-gray-500 mb-6">
-            The <strong>{MOCK_REVIEW_META.reviewName}</strong> for <strong>{MOCK_REVIEW_META.learnerName}</strong> has been submitted. Changes are now visible to the learner.
+             The <strong>{reviewMeta.reviewName}</strong> for <strong>{reviewMeta.learnerName}</strong> has been submitted. Changes are now visible to the learner.
           </p>
           <Button className="bg-indigo-700 hover:bg-indigo-800" onClick={() => navigate("/ilp-tutor/reviews")}>
             Back to Reviews
@@ -104,17 +115,21 @@ export default function ReviewDetail() {
               <ChevronLeft size={18} />
             </button>
             <div>
-              <p className="font-bold text-gray-900 text-sm">{MOCK_REVIEW_META.reviewName}</p>
+              <p className="font-bold text-gray-900 text-sm">{reviewMeta.reviewName}</p>
               <p className="text-xs text-gray-500 flex items-center gap-1">
                 <Star size={10} className="text-amber-400" />
-                {MOCK_REVIEW_META.learnerName} · Due {new Date(MOCK_REVIEW_META.dueDate).toLocaleDateString("en-GB")}
+                {reviewMeta.learnerName} · Due {formatIlpDate(reviewMeta.dueDate)}
               </p>
             </div>
           </div>
           <span className={`text-xs px-2 py-0.5 rounded border font-medium ${
-            MOCK_REVIEW_META.status === "In Progress" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-blue-100 text-blue-700 border-blue-200"
+            reviewMeta.status === "Overdue"
+              ? "bg-red-100 text-red-700 border-red-200"
+              : reviewMeta.status === "In Progress"
+                ? "bg-amber-100 text-amber-700 border-amber-200"
+                : "bg-blue-100 text-blue-700 border-blue-200"
           }`}>
-            <Clock size={10} className="inline mr-1" />{MOCK_REVIEW_META.status}
+            <Clock size={10} className="inline mr-1" />{reviewMeta.status}
           </span>
         </div>
 
@@ -296,7 +311,7 @@ export default function ReviewDetail() {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Complete Review Submission?</DialogTitle></DialogHeader>
           <p className="text-sm text-gray-600">
-            Submit the <strong>{MOCK_REVIEW_META.reviewName}</strong> for <strong>{MOCK_REVIEW_META.learnerName}</strong>?
+             Submit the <strong>{reviewMeta.reviewName}</strong> for <strong>{reviewMeta.learnerName}</strong>?
           </p>
           <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded p-2 mt-1">
             Changes are visible to the learner once the review screen is saved.

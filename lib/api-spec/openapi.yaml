@@ -823,6 +823,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Ilp"
+    delete:
+      operationId: deleteIlp
+      tags: [ilps]
+      summary: Delete an Individual Learning Plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   /assessments:
     get:

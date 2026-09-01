@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useListStudents } from "@workspace/api-client-react";
+import { useListIlps, useListStudents } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -8,16 +8,22 @@ import {
 } from "@/components/ui/select";
 import { IlpAdminNav } from "./_nav";
 import { Search, Users } from "lucide-react";
+import { formatIlpDate, formatIlpStatus, getIlpTutorName, getSectionProgressLabel, latestIlpByStudent } from "@/lib/ilp";
 
-const ILP_STATUSES = ["Active", "Draft", "Completed", "No ILP"];
+const ILP_STATUSES = [
+  { value: "active", label: "Active" },
+  { value: "draft", label: "Draft" },
+  { value: "completed", label: "Completed" },
+  { value: "none", label: "No ILP" },
+];
 const YEAR_GROUPS = ["Year 12", "Year 13", "Adult", "Access"];
 const COURSES_FILTER = ["Level 3 BTEC", "GCSE Resit", "A Level", "Access to HE"];
 
 const STATUS_STYLES: Record<string, string> = {
-  "Active":    "bg-green-100 text-green-700 border-green-200",
-  "Draft":     "bg-gray-100 text-gray-600 border-gray-200",
-  "Completed": "bg-blue-100 text-blue-700 border-blue-200",
-  "No ILP":    "bg-red-50 text-red-500 border-red-100",
+  active:    "bg-green-100 text-green-700 border-green-200",
+  draft:     "bg-gray-100 text-gray-600 border-gray-200",
+  completed: "bg-blue-100 text-blue-700 border-blue-200",
+  none:      "bg-red-50 text-red-500 border-red-100",
 };
 
 export default function ManageLearnerIlps() {
@@ -29,14 +35,14 @@ export default function ManageLearnerIlps() {
   const [courseFilter, setCourseFilter] = useState("all");
   const [ilpStatus, setIlpStatus] = useState("all");
 
-  const { data: students = [] } = useListStudents();
+  const { data: students = [], isLoading: studentsLoading } = useListStudents();
+  const { data: ilps = [], isLoading: ilpsLoading, isError: ilpsError } = useListIlps();
 
-  // Deterministic pseudo-ILP status per student
-  const withStatus = students.map((s, i) => ({
+  const ilpByStudent = latestIlpByStudent(ilps);
+  const withStatus = students.map((s) => ({
     ...s,
-    ilpStatus: ILP_STATUSES[i % ILP_STATUSES.length],
-    tutor: ["Ms. Harper", "Mr. Davies", "Dr. Ellis", "Ms. Nguyen"][i % 4],
-    lastReview: i % 3 === 0 ? "2024-11-15" : i % 3 === 1 ? "2024-10-22" : null,
+    ilp: ilpByStudent.get(s.id),
+    ilpStatus: ilpByStudent.get(s.id)?.status ?? "none",
   }));
 
   const nameFiltered = !searched ? [] : withStatus.filter((s) => {
@@ -116,14 +122,18 @@ export default function ManageLearnerIlps() {
               <SelectTrigger className="w-36 h-8 text-sm"><SelectValue placeholder="ILP status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All ILP statuses</SelectItem>
-                {ILP_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                 {ILP_STATUSES.map((status) => <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
         )}
 
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {(activeTab === "name" && !searched) ? (
+          {studentsLoading || ilpsLoading ? (
+            <div className="p-14 text-center text-sm text-gray-400">Loading learner ILPs…</div>
+          ) : ilpsError ? (
+            <div className="p-14 text-center text-sm text-red-600">Learner ILPs could not be loaded.</div>
+          ) : (activeTab === "name" && !searched) ? (
             <div className="p-14 flex flex-col items-center text-gray-400">
               <Search className="w-10 h-10 mb-3 opacity-20" />
               <p className="text-sm">Enter a learner name and click <strong>Show learners</strong>.</p>
@@ -139,9 +149,10 @@ export default function ManageLearnerIlps() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Learner Name</th>
                   <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Person Code</th>
-                  <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Year Group</th>
+                   <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">ILP / Academic Year</th>
                   <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Tutor</th>
-                  <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Last Review</th>
+                   <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Review Dates</th>
+                   <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Section Progress</th>
                   <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">ILP Status</th>
                   <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Actions</th>
                 </tr>
@@ -155,14 +166,19 @@ export default function ManageLearnerIlps() {
                       </button>
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 font-mono text-xs">{s.personCode}</td>
-                    <td className="px-4 py-2.5 text-gray-500 text-xs">{s.yearGroup ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-gray-500 text-xs">{s.tutor}</td>
+                     <td className="px-4 py-2.5 text-gray-500 text-xs">
+                       <div>{s.ilp?.title ?? "No ILP"}</div>
+                       <div className="text-[10px] text-gray-400">{s.ilp?.academicYear ?? s.yearGroup ?? "—"}</div>
+                     </td>
+                     <td className="px-4 py-2.5 text-gray-500 text-xs">{getIlpTutorName(s.ilp?.tutor)}</td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs">
-                      {s.lastReview ? new Date(s.lastReview).toLocaleDateString("en-GB") : "Never"}
+                       <div>Last {formatIlpDate(s.ilp?.lastReviewDate)}</div>
+                       <div className="text-[10px] text-gray-400">Next {formatIlpDate(s.ilp?.nextReviewDue)}</div>
                     </td>
+                     <td className="px-4 py-2.5 text-gray-500 text-xs">{s.ilp ? getSectionProgressLabel(s.ilp) : "—"}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs px-2 py-0.5 rounded border font-medium ${STATUS_STYLES[s.ilpStatus]}`}>
-                        {s.ilpStatus}
+                         {s.ilp ? formatIlpStatus(s.ilp.status) : "No ILP"}
                       </span>
                     </td>
                     <td className="px-4 py-2.5">

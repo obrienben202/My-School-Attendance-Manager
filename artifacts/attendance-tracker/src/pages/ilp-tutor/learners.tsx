@@ -1,12 +1,21 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useListStudents } from "@workspace/api-client-react";
+import { useListIlps, useListStudents, type Ilp } from "@workspace/api-client-react";
 import { IlpTutorNav } from "./_nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Users, Star, Target, ChevronDown, ChevronUp, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import {
+  formatIlpDate,
+  formatIlpStatus,
+  getIlpTutorName,
+  getReviewStatus,
+  getSectionProgressLabel,
+  latestIlpByStudent,
+} from "@/lib/ilp";
 
 type ReviewSummary = {
+  id: number;
   reviewName: string;
   status: "Overdue" | "In Progress" | "In Review";
   dueDate: string;
@@ -23,8 +32,7 @@ type LearnerDetail = {
   surname: string;
   personCode: string;
   yearGroup?: string | null;
-  ilpTitle: string;
-  ilpStatus: string;
+  ilp?: Ilp;
   reviews: ReviewSummary[];
   targets: TargetSummary[];
 };
@@ -38,27 +46,6 @@ const STATUS_STYLES: Record<string, string> = {
   "Achieved":    "bg-emerald-100 text-emerald-700 border-emerald-200",
 };
 
-const MOCK_REVIEWS: ReviewSummary[][] = [
-  [
-    { reviewName: "Mid-Year Review", status: "Overdue", dueDate: "2025-01-15" },
-    { reviewName: "Target Check-In", status: "In Progress", dueDate: "2025-03-01" },
-  ],
-  [
-    { reviewName: "Initial Review", status: "In Review", dueDate: "2025-02-20" },
-  ],
-  [
-    { reviewName: "End-of-Year Review", status: "In Progress", dueDate: "2025-05-30" },
-    { reviewName: "Mid-Year Review", status: "Overdue", dueDate: "2025-01-10" },
-  ],
-  [
-    { reviewName: "Mid-Year Review", status: "In Review", dueDate: "2025-03-15" },
-  ],
-  [
-    { reviewName: "Target Check-In", status: "Overdue", dueDate: "2025-01-20" },
-    { reviewName: "Initial Review", status: "In Progress", dueDate: "2025-02-28" },
-  ],
-];
-
 const MOCK_TARGETS: TargetSummary[][] = [
   [{ title: "Improve Maths grade to C", status: "On Track" }, { title: "Complete EPQ project", status: "At Risk" }],
   [{ title: "Submit all coursework on time", status: "Achieved" }],
@@ -67,21 +54,13 @@ const MOCK_TARGETS: TargetSummary[][] = [
   [{ title: "Apply for apprenticeship", status: "At Risk" }, { title: "Achieve D* in BTEC", status: "On Track" }],
 ];
 
-const ILP_TITLES = [
-  "Level 3 BTEC ILP 2024",
-  "GCSE Resit Support Plan",
-  "Access to HE ILP 2024",
-  "Level 2 Functional Skills",
-  "English GCSE ILP",
-];
-const ILP_STATUSES = ["active", "active", "in-progress", "active", "in-progress"];
-
 export default function IlpTutorLearners() {
   const [, navigate] = useLocation();
   const searchStr = useSearch();
   const params = new URLSearchParams(searchStr);
 
   const { data: students = [] } = useListStudents();
+  const { data: ilps = [], isLoading, isError } = useListIlps();
   const [search, setSearch] = useState(params.get("name") ?? "");
   const [searched, setSearched] = useState(!!params.get("name"));
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -90,15 +69,24 @@ export default function IlpTutorLearners() {
     if (params.get("name")) { setSearch(params.get("name")!); setSearched(true); }
   }, []);
 
-  const learnerDetails: LearnerDetail[] = students.slice(0, 5).map((s, i) => ({
+  const latestByStudent = latestIlpByStudent(ilps);
+  const ilpsByStudent = ilps.reduce((result, ilp) => {
+    result.set(ilp.studentId, [...(result.get(ilp.studentId) ?? []), ilp]);
+    return result;
+  }, new Map<number, Ilp[]>());
+  const learnerDetails: LearnerDetail[] = students.map((s, i) => ({
     id: s.id,
     forename: s.forename,
     surname: s.surname,
     personCode: s.personCode ?? `PC00${i + 1}`,
     yearGroup: s.yearGroup,
-    ilpTitle: ILP_TITLES[i % ILP_TITLES.length],
-    ilpStatus: ILP_STATUSES[i % ILP_STATUSES.length],
-    reviews: MOCK_REVIEWS[i % MOCK_REVIEWS.length],
+    ilp: latestByStudent.get(s.id),
+    reviews: (ilpsByStudent.get(s.id) ?? []).map((ilp) => ({
+      id: ilp.id,
+      reviewName: ilp.title,
+      status: getReviewStatus(ilp),
+      dueDate: ilp.nextReviewDue ?? ilp.lastReviewDate ?? ilp.createdAt,
+    })),
     targets: MOCK_TARGETS[i % MOCK_TARGETS.length],
   }));
 
@@ -134,7 +122,11 @@ export default function IlpTutorLearners() {
           </Button>
         </div>
 
-        {!searched ? (
+        {isLoading ? (
+          <div className="bg-white border border-gray-200 rounded-lg p-14 text-center text-sm text-gray-400">Loading learner ILPs…</div>
+        ) : isError ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-14 text-center text-sm text-red-600">Learner ILPs could not be loaded.</div>
+        ) : !searched ? (
           <div className="bg-white border border-gray-200 rounded-lg p-14 flex flex-col items-center text-gray-400">
             <Users className="w-12 h-12 mb-3 opacity-20" />
             <p className="text-sm">Enter a name or person code to search.</p>
@@ -180,7 +172,16 @@ export default function IlpTutorLearners() {
                     <div className="border-t border-gray-100 bg-gray-50 px-4 py-4">
                       <div className="mb-3">
                         <p className="text-xs text-gray-500 mb-1">Current ILP</p>
-                        <p className="text-sm font-semibold text-gray-800">{l.ilpTitle}</p>
+                         <p className="text-sm font-semibold text-gray-800">{l.ilp?.title ?? "No ILP assigned"}</p>
+                         {l.ilp && (
+                           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                             <span>Status: {formatIlpStatus(l.ilp.status)}</span>
+                             <span>Tutor: {getIlpTutorName(l.ilp.tutor)}</span>
+                             <span>Academic year: {l.ilp.academicYear ?? "—"}</span>
+                             <span>Sections: {getSectionProgressLabel(l.ilp)}</span>
+                             <span>Last review: {formatIlpDate(l.ilp.lastReviewDate)}</span>
+                           </div>
+                         )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -194,11 +195,11 @@ export default function IlpTutorLearners() {
                               <div
                                 key={i}
                                 className="flex items-center justify-between bg-white border border-gray-200 rounded px-3 py-2 text-xs cursor-pointer hover:border-indigo-300"
-                                onClick={() => navigate(`/ilp-tutor/review/${l.id * 10 + i + 1}`)}
+                                 onClick={() => navigate(`/ilp-tutor/review/${r.id}`)}
                               >
                                 <div>
                                   <p className="font-medium text-gray-700">{r.reviewName}</p>
-                                  <p className="text-gray-400">Due {new Date(r.dueDate).toLocaleDateString("en-GB")}</p>
+                                   <p className="text-gray-400">Due {formatIlpDate(r.dueDate)}</p>
                                 </div>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${STATUS_STYLES[r.status]}`}>{r.status}</span>
                               </div>

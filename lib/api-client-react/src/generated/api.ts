@@ -2467,6 +2467,76 @@ export const useUpdateIlp = <TError = ErrorType<unknown>,
       return useMutation(getUpdateIlpMutationOptions(options));
     }
 
+export const getDeleteIlpUrl = (id: number,) => {
+
+
+
+
+  return `/api/ilps/${id}`
+}
+
+/**
+ * @summary Delete an Individual Learning Plan
+ */
+export const deleteIlp = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteIlpUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteIlpMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIlp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteIlp>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteIlp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteIlp>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteIlp(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteIlpMutationResult = NonNullable<Awaited<ReturnType<typeof deleteIlp>>>
+
+    export type DeleteIlpMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an Individual Learning Plan
+ */
+export const useDeleteIlp = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIlp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteIlp>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteIlpMutationOptions(options));
+    }
+
 export const getListAssessmentsUrl = (params?: ListAssessmentsParams,) => {
   const normalizedParams = new URLSearchParams();
 
