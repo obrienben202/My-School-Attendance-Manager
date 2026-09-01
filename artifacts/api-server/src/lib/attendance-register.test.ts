@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   replaceAttendanceRegister,
+  assertAttendanceRegisterMutable,
+  SubmittedRegisterLockedError,
+  resolveAttendanceRegisterStatus,
   type AttendanceRegisterMark,
   type AttendanceRegisterTransaction,
 } from "./attendance-register";
@@ -13,6 +16,7 @@ type FakeRow = {
   scheduleId: number;
   date: string;
   status: string;
+  minutesLate: number | null;
   notes: string | null;
   markedBy: string | null;
   createdAt: Date;
@@ -30,6 +34,7 @@ function row(id: number, studentId: number, status: string): FakeRow {
     scheduleId,
     date,
     status,
+    minutesLate: null,
     notes: null,
     markedBy: "previous-user",
     createdAt: new Date("2026-08-29T09:00:00.000Z"),
@@ -77,6 +82,7 @@ class FakeTransaction {
         scheduleId: number;
         date: string;
         status: string;
+        minutesLate?: number;
         notes?: string;
         markedBy: string;
       }>) => ({
@@ -86,6 +92,7 @@ class FakeTransaction {
             ...value,
             id: this.database.allocateId(),
             notes: value.notes ?? null,
+            minutesLate: value.minutesLate ?? null,
             markedBy: value.markedBy,
             createdAt: new Date("2026-08-29T10:00:00.000Z"),
           }));
@@ -211,4 +218,20 @@ test("the register replacement operation can clear a register and its marked fla
 
   assert.deepEqual(database.rows, []);
   assert.equal(database.registerMarked, false);
+});
+
+test("submitted register state rejects direct attendance mutation until explicitly reopened", () => {
+  assert.throws(
+    () => assertAttendanceRegisterMutable("submitted"),
+    SubmittedRegisterLockedError,
+  );
+  assert.doesNotThrow(() => assertAttendanceRegisterMutable("draft"));
+  assert.doesNotThrow(() => assertAttendanceRegisterMutable(undefined));
+});
+
+test("register status falls back only to attendance on the exact occurrence", () => {
+  assert.equal(resolveAttendanceRegisterStatus("submitted", false), "submitted");
+  assert.equal(resolveAttendanceRegisterStatus("draft", false), "draft");
+  assert.equal(resolveAttendanceRegisterStatus(undefined, true), "draft");
+  assert.equal(resolveAttendanceRegisterStatus(undefined, false), "open");
 });

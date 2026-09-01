@@ -1,6 +1,7 @@
 export * from "./students";
 export * from "./courses";
 export * from "./attendance";
+export * from "./attendance-registers";
 export * from "./enrollments";
 export * from "./kpi-benchmarks";
 export * from "./targets";

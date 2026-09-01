@@ -15,6 +15,12 @@ export interface AttendanceRecord {
   scheduleId: number | null;
   date: Date;
   status: AttendanceRecordStatus;
+  /**
+     * @minimum 0
+     * @maximum 60
+     * @nullable
+     */
+  minutesLate?: number | null;
   /** @nullable */
   notes?: string | null;
   /** @nullable */

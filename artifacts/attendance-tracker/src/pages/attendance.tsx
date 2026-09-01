@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { useGetTodaySchedule, useListAttendanceRecords, useListCourses } from "@workspace/api-client-react";
+import { useGetTodaySchedule, useListCourses } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,17 +32,15 @@ export default function ERegisters() {
 
   const { data: courses = [], isLoading } = useListCourses();
   const { data: schedule = [], isLoading: isScheduleLoading } = useGetTodaySchedule();
-  const { data: attendance = [], isLoading: isAttendanceLoading } = useListAttendanceRecords();
 
   const registers = useMemo(() => {
     return schedule.map((entry) => {
       const course = courses.find((c) => c.id === entry.courseId);
-      const sessionAttendance = attendance.filter(
-        (record) => record.scheduleId === entry.id && record.date === entry.occurrenceDate,
-      );
-      const status: RegisterStatus = sessionAttendance.length > 0
+      const status: RegisterStatus = entry.registerStatus === "submitted"
         ? "Submitted"
-        : "Open";
+        : entry.registerStatus === "draft"
+          ? "Marked"
+          : "Open";
 
       return {
         id: entry.id,
@@ -59,7 +57,7 @@ export default function ERegisters() {
         enrolled: course?.enrolledCount ?? 0,
       };
     });
-  }, [schedule, courses, attendance]);
+  }, [schedule, courses]);
 
   function registerPath(id: number, occurrenceDate: string) {
     return `/registers/${id}?date=${encodeURIComponent(occurrenceDate)}`;
@@ -158,7 +156,7 @@ export default function ERegisters() {
 
       {/* Registers table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {isLoading || isScheduleLoading || isAttendanceLoading ? (
+        {isLoading || isScheduleLoading ? (
           <div className="p-6 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-8 w-full" />

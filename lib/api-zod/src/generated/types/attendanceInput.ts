@@ -13,5 +13,10 @@ export interface AttendanceInput {
   scheduleId: number;
   date: Date;
   status: AttendanceInputStatus;
+  /**
+     * @minimum 0
+     * @maximum 60
+     */
+  minutesLate?: number;
   notes?: string;
 }

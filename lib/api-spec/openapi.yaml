@@ -411,7 +411,7 @@ paths:
     post:
       operationId: submitAttendanceRegister
       tags: [attendance]
-      summary: Atomically submit all marks for a lesson register
+      summary: Save a draft or submit all marks for a lesson register
       requestBody:
         required: true
         content:
@@ -420,15 +420,159 @@ paths:
               $ref: "#/components/schemas/AttendanceRegisterInput"
       responses:
         "200":
-          description: Authoritative saved register marks
+          description: Authoritative saved register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRegister"
+        "400":
+          description: Invalid register data, including a date whose weekday does not match the selected schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/audit:
+    get:
+      operationId: listAttendanceRegisterAudit
+      tags: [attendance]
+      summary: List persisted audit events for one register occurrence
+      parameters:
+        - name: scheduleId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Register audit history
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/AttendanceRecord"
+                  $ref: "#/components/schemas/AttendanceRegisterAudit"
         "400":
-          description: Invalid register data, including a date whose weekday does not match the selected schedule
+          description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/contacts:
+    get:
+      operationId: listAttendanceRegisterContacts
+      tags: [attendance]
+      summary: List contact addresses for learners on an authorised register
+      parameters:
+        - name: scheduleId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Learner contact addresses for the register
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRegisterContact"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/state:
+    get:
+      operationId: getAttendanceRegisterState
+      tags: [attendance]
+      summary: Get lifecycle state for one exact register occurrence
+      parameters:
+        - name: scheduleId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Exact occurrence lifecycle state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRegisterOccurrenceState"
+        "400":
+          description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/reopen:
+    post:
+      operationId: reopenAttendanceRegister
+      tags: [attendance]
+      summary: Explicitly reopen a submitted register as an editable draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceRegisterOccurrenceInput"
+      responses:
+        "200":
+          description: Reopened register state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRegisterLifecycle"
+        "400":
+          description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Register is not currently submitted
           content:
             application/json:
               schema:
@@ -1686,6 +1830,10 @@ components:
         status:
           type: string
           enum: [present, absent, late, authorised, excluded, distance_learning]
+        minutesLate:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 60
         notes:
           type: ["string", "null"]
         studentName:
@@ -1719,6 +1867,10 @@ components:
         status:
           type: string
           enum: [present, absent, late, authorised, excluded, distance_learning]
+        minutesLate:
+          type: integer
+          minimum: 0
+          maximum: 60
         notes:
           type: string
       required:
@@ -1734,6 +1886,10 @@ components:
         status:
           type: string
           enum: [present, absent, late, authorised, excluded, distance_learning]
+        minutesLate:
+          type: integer
+          minimum: 0
+          maximum: 60
         notes:
           type: string
         scheduleId:
@@ -1741,17 +1897,30 @@ components:
 
     AttendanceRegisterInput:
       type: object
-      required: [scheduleId, date, marks]
+      required: [scheduleId, date, status, marks]
       properties:
         scheduleId:
           type: integer
         date:
           type: string
           format: date
+        status:
+          type: string
+          enum: [draft, submitted]
         marks:
           type: array
           items:
             $ref: "#/components/schemas/AttendanceRegisterMark"
+
+    AttendanceRegisterOccurrenceInput:
+      type: object
+      required: [scheduleId, date]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
 
     AttendanceRegisterMark:
       type: object
@@ -1762,8 +1931,104 @@ components:
         status:
           type: string
           enum: [present, absent, late, authorised, excluded, distance_learning]
+        minutesLate:
+          type: integer
+          minimum: 0
+          maximum: 60
         notes:
           type: string
+
+    AttendanceRegister:
+      type: object
+      required: [scheduleId, date, status, updatedAt, marks]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [draft, submitted]
+        updatedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+        marks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttendanceRecord"
+
+    AttendanceRegisterLifecycle:
+      type: object
+      required: [scheduleId, date, status, updatedAt]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [draft, submitted]
+        updatedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    AttendanceRegisterOccurrenceState:
+      type: object
+      required: [scheduleId, date, status]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [open, draft, submitted]
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    AttendanceRegisterContact:
+      type: object
+      required: [studentId, contactEmail]
+      properties:
+        studentId:
+          type: integer
+        contactEmail:
+          type: ["string", "null"]
+
+    AttendanceRegisterAudit:
+      type: object
+      required: [id, scheduleId, date, action, actorName, details, createdAt]
+      properties:
+        id:
+          type: integer
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        action:
+          type: string
+          enum: [saved_draft, submitted, reopened]
+        actorName:
+          type: string
+        details:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
 
     PlannedAbsence:
       type: object
@@ -2121,6 +2386,15 @@ components:
           format: date
         registerMarked:
           type: boolean
+        registerStatus:
+          type: string
+          enum: [open, draft, submitted]
+        registerUpdatedAt:
+          type: ["string", "null"]
+          format: date-time
+        registerSubmittedAt:
+          type: ["string", "null"]
+          format: date-time
       required:
         - id
         - courseId
@@ -2130,6 +2404,9 @@ components:
         - courseName
         - occurrenceDate
         - registerMarked
+        - registerStatus
+        - registerUpdatedAt
+        - registerSubmittedAt
 
     StaffSource:
       type: object

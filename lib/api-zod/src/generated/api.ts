@@ -299,6 +299,11 @@ export const ListAttendanceRecordsQueryParams = zod.object({
   "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']).optional()
 })
 
+export const listAttendanceRecordsResponseMinutesLateMin = 0;
+export const listAttendanceRecordsResponseMinutesLateMax = 60;
+
+
+
 export const ListAttendanceRecordsResponseItem = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
@@ -306,6 +311,7 @@ export const ListAttendanceRecordsResponseItem = zod.object({
   "scheduleId": zod.number().nullable(),
   "date": zod.coerce.date(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
+  "minutesLate": zod.number().min(listAttendanceRecordsResponseMinutesLateMin).max(listAttendanceRecordsResponseMinutesLateMax).nullish(),
   "notes": zod.string().nullish(),
   "studentName": zod.string().nullish(),
   "courseName": zod.string().nullish(),
@@ -317,42 +323,136 @@ export const ListAttendanceRecordsResponse = zod.array(ListAttendanceRecordsResp
 /**
  * @summary Mark attendance
  */
+export const createAttendanceRecordBodyMinutesLateMin = 0;
+export const createAttendanceRecordBodyMinutesLateMax = 60;
+
+
+
 export const CreateAttendanceRecordBody = zod.object({
   "studentId": zod.number(),
   "courseId": zod.number(),
   "scheduleId": zod.number(),
   "date": zod.coerce.date(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
+  "minutesLate": zod.number().min(createAttendanceRecordBodyMinutesLateMin).max(createAttendanceRecordBodyMinutesLateMax).optional(),
   "notes": zod.string().optional()
 })
 
 
 /**
- * @summary Atomically submit all marks for a lesson register
+ * @summary Save a draft or submit all marks for a lesson register
  */
+export const submitAttendanceRegisterBodyMarksItemMinutesLateMin = 0;
+export const submitAttendanceRegisterBodyMarksItemMinutesLateMax = 60;
+
+
+
 export const SubmitAttendanceRegisterBody = zod.object({
   "scheduleId": zod.number(),
   "date": zod.coerce.date(),
+  "status": zod.enum(['draft', 'submitted']),
   "marks": zod.array(zod.object({
   "studentId": zod.number(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
+  "minutesLate": zod.number().min(submitAttendanceRegisterBodyMarksItemMinutesLateMin).max(submitAttendanceRegisterBodyMarksItemMinutesLateMax).optional(),
   "notes": zod.string().optional()
 }))
 })
 
-export const SubmitAttendanceRegisterResponseItem = zod.object({
+export const submitAttendanceRegisterResponseMarksItemMinutesLateMin = 0;
+export const submitAttendanceRegisterResponseMarksItemMinutesLateMax = 60;
+
+
+
+export const SubmitAttendanceRegisterResponse = zod.object({
+  "scheduleId": zod.number(),
+  "date": zod.coerce.date(),
+  "status": zod.enum(['draft', 'submitted']),
+  "updatedAt": zod.coerce.date(),
+  "submittedAt": zod.coerce.date().nullish(),
+  "marks": zod.array(zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
   "courseId": zod.number(),
   "scheduleId": zod.number().nullable(),
   "date": zod.coerce.date(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
+  "minutesLate": zod.number().min(submitAttendanceRegisterResponseMarksItemMinutesLateMin).max(submitAttendanceRegisterResponseMarksItemMinutesLateMax).nullish(),
   "notes": zod.string().nullish(),
   "studentName": zod.string().nullish(),
   "courseName": zod.string().nullish(),
   "createdAt": zod.coerce.date()
+}))
 })
-export const SubmitAttendanceRegisterResponse = zod.array(SubmitAttendanceRegisterResponseItem)
+
+
+/**
+ * @summary List persisted audit events for one register occurrence
+ */
+export const ListAttendanceRegisterAuditQueryParams = zod.object({
+  "scheduleId": zod.coerce.number(),
+  "date": zod.date()
+})
+
+export const ListAttendanceRegisterAuditResponseItem = zod.object({
+  "id": zod.number(),
+  "scheduleId": zod.number(),
+  "date": zod.coerce.date(),
+  "action": zod.enum(['saved_draft', 'submitted', 'reopened']),
+  "actorName": zod.string(),
+  "details": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListAttendanceRegisterAuditResponse = zod.array(ListAttendanceRegisterAuditResponseItem)
+
+
+/**
+ * @summary List contact addresses for learners on an authorised register
+ */
+export const ListAttendanceRegisterContactsQueryParams = zod.object({
+  "scheduleId": zod.coerce.number(),
+  "date": zod.date()
+})
+
+export const ListAttendanceRegisterContactsResponseItem = zod.object({
+  "studentId": zod.number(),
+  "contactEmail": zod.string().nullable()
+})
+export const ListAttendanceRegisterContactsResponse = zod.array(ListAttendanceRegisterContactsResponseItem)
+
+
+/**
+ * @summary Get lifecycle state for one exact register occurrence
+ */
+export const GetAttendanceRegisterStateQueryParams = zod.object({
+  "scheduleId": zod.coerce.number(),
+  "date": zod.date()
+})
+
+export const GetAttendanceRegisterStateResponse = zod.object({
+  "scheduleId": zod.number(),
+  "date": zod.coerce.date(),
+  "status": zod.enum(['open', 'draft', 'submitted']),
+  "updatedAt": zod.coerce.date().nullish(),
+  "submittedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Explicitly reopen a submitted register as an editable draft
+ */
+export const ReopenAttendanceRegisterBody = zod.object({
+  "scheduleId": zod.number(),
+  "date": zod.coerce.date()
+})
+
+export const ReopenAttendanceRegisterResponse = zod.object({
+  "scheduleId": zod.number(),
+  "date": zod.coerce.date(),
+  "status": zod.enum(['draft', 'submitted']),
+  "updatedAt": zod.coerce.date(),
+  "submittedAt": zod.coerce.date().nullish()
+})
 
 
 /**
@@ -362,11 +462,22 @@ export const UpdateAttendanceRecordParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updateAttendanceRecordBodyMinutesLateMin = 0;
+export const updateAttendanceRecordBodyMinutesLateMax = 60;
+
+
+
 export const UpdateAttendanceRecordBody = zod.object({
   "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']).optional(),
+  "minutesLate": zod.number().min(updateAttendanceRecordBodyMinutesLateMin).max(updateAttendanceRecordBodyMinutesLateMax).optional(),
   "notes": zod.string().optional(),
   "scheduleId": zod.number().optional()
 })
+
+export const updateAttendanceRecordResponseMinutesLateMin = 0;
+export const updateAttendanceRecordResponseMinutesLateMax = 60;
+
+
 
 export const UpdateAttendanceRecordResponse = zod.object({
   "id": zod.number(),
@@ -375,6 +486,7 @@ export const UpdateAttendanceRecordResponse = zod.object({
   "scheduleId": zod.number().nullable(),
   "date": zod.coerce.date(),
   "status": zod.enum(['present', 'absent', 'late', 'authorised', 'excluded', 'distance_learning']),
+  "minutesLate": zod.number().min(updateAttendanceRecordResponseMinutesLateMin).max(updateAttendanceRecordResponseMinutesLateMax).nullish(),
   "notes": zod.string().nullish(),
   "studentName": zod.string().nullish(),
   "courseName": zod.string().nullish(),
@@ -1166,7 +1278,10 @@ export const GetTodayScheduleResponseItem = zod.object({
   "staffName": zod.string().nullish(),
   "day": zod.string().nullish(),
   "occurrenceDate": zod.coerce.date(),
-  "registerMarked": zod.boolean()
+  "registerMarked": zod.boolean(),
+  "registerStatus": zod.enum(['open', 'draft', 'submitted']),
+  "registerUpdatedAt": zod.coerce.date().nullable(),
+  "registerSubmittedAt": zod.coerce.date().nullable()
 })
 export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)
 

@@ -5,10 +5,12 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { AttendanceRegisterInputStatus } from './attendanceRegisterInputStatus';
 import type { AttendanceRegisterMark } from './attendanceRegisterMark';
 
 export interface AttendanceRegisterInput {
   scheduleId: number;
   date: Date;
+  status: AttendanceRegisterInputStatus;
   marks: AttendanceRegisterMark[];
 }

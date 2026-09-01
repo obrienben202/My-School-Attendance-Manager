@@ -6,18 +6,30 @@ import {
   coursesTable,
   scheduleTable,
   enrollmentsTable,
+  attendanceRegistersTable,
+  attendanceRegisterAuditTable,
+  usersTable,
 } from "@workspace/db";
-import { eq, and, inArray, type SQL } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, type SQL } from "drizzle-orm";
 import {
   ListAttendanceRecordsQueryParams,
+  ListAttendanceRegisterAuditQueryParams,
+  ListAttendanceRegisterContactsQueryParams,
+  GetAttendanceRegisterStateQueryParams,
   CreateAttendanceRecordBody,
   SubmitAttendanceRegisterBody,
+  ReopenAttendanceRegisterBody,
   UpdateAttendanceRecordParams,
   UpdateAttendanceRecordBody,
   DeleteAttendanceRecordParams,
 } from "@workspace/api-zod";
 import { canManageAttendanceSchedule } from "../lib/attendance-authorization";
-import { replaceAttendanceRegister } from "../lib/attendance-register";
+import {
+  assertAttendanceRegisterMutable,
+  replaceAttendanceRegister,
+  resolveAttendanceRegisterStatus,
+  SubmittedRegisterLockedError,
+} from "../lib/attendance-register";
 import { attendanceDateMatchesScheduleDay } from "../lib/schedule-day";
 
 const router = Router();
@@ -85,6 +97,7 @@ router.get("/attendance", async (req, res) => {
       scheduleId: attendanceTable.scheduleId,
       date: attendanceTable.date,
       status: attendanceTable.status,
+      minutesLate: attendanceTable.minutesLate,
       notes: attendanceTable.notes,
       createdAt: attendanceTable.createdAt,
       studentName: studentsTable.forename,
@@ -124,11 +137,40 @@ router.post("/attendance", async (req, res) => {
     return res.status(400).json({ error: "Learner is not enrolled on this lesson's course" });
   }
 
-  const [record] = await db.insert(attendanceTable).values({
-    ...restAttendance,
-    scheduleId,
-    date: date instanceof Date ? date.toISOString().split("T")[0] : date,
-  }).returning();
+  const attendanceDate = date instanceof Date ? date.toISOString().split("T")[0] : date;
+  let record;
+  try {
+    [record] = await db.transaction(async (tx) => {
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(${`${scheduleId}:${attendanceDate}`}, 0)
+        )
+      `);
+      const [register] = await tx
+        .select({ status: attendanceRegistersTable.status })
+        .from(attendanceRegistersTable)
+        .where(and(
+          eq(attendanceRegistersTable.scheduleId, scheduleId),
+          eq(attendanceRegistersTable.date, attendanceDate),
+        ))
+        .limit(1);
+      assertAttendanceRegisterMutable(register?.status);
+
+      return tx
+        .insert(attendanceTable)
+        .values({
+          ...restAttendance,
+          scheduleId,
+          date: attendanceDate,
+        })
+        .returning();
+    });
+  } catch (error) {
+    if (error instanceof SubmittedRegisterLockedError) {
+      return res.status(409).json({ error: "Submitted registers must be reopened before marks can be added" });
+    }
+    throw error;
+  }
   return res.status(201).json({
     ...record,
     studentName: null,
@@ -141,7 +183,7 @@ router.post("/attendance/register", async (req, res) => {
   const parsed = SubmitAttendanceRegisterBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
-  const { scheduleId, date, marks } = parsed.data;
+  const { scheduleId, date, status, marks } = parsed.data;
   const uniqueStudentIds = new Set(marks.map(mark => mark.studentId));
   if (uniqueStudentIds.size !== marks.length) {
     return res.status(400).json({ error: "Each learner can only be marked once per register" });
@@ -161,22 +203,270 @@ router.post("/attendance/register", async (req, res) => {
   }
 
   const attendanceDate = date.toISOString().split("T")[0];
-  const records = await db.transaction(async (tx) => {
-    return replaceAttendanceRegister(tx, {
-      scheduleId,
-      courseId: schedule.courseId,
-      date: attendanceDate,
-      marks,
-      markedBy: req.user!.id,
+  const now = new Date();
+  let result;
+  try {
+    result = await db.transaction(async (tx) => {
+      await tx.execute(sql`
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(${`${scheduleId}:${attendanceDate}`}, 0)
+        )
+      `);
+      const [existingRegister] = await tx
+        .select({ status: attendanceRegistersTable.status })
+        .from(attendanceRegistersTable)
+        .where(and(
+          eq(attendanceRegistersTable.scheduleId, scheduleId),
+          eq(attendanceRegistersTable.date, attendanceDate),
+        ))
+        .limit(1);
+      assertAttendanceRegisterMutable(existingRegister?.status);
+
+      const records = await replaceAttendanceRegister(tx, {
+        scheduleId,
+        courseId: schedule.courseId,
+        date: attendanceDate,
+        marks,
+        markedBy: req.user!.id,
+      });
+
+      const [register] = await tx
+        .insert(attendanceRegistersTable)
+        .values({
+          scheduleId,
+          date: attendanceDate,
+          status,
+          updatedBy: req.user!.id,
+          submittedAt: status === "submitted" ? now : null,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [attendanceRegistersTable.scheduleId, attendanceRegistersTable.date],
+          set: {
+            status,
+            updatedBy: req.user!.id,
+            submittedAt: status === "submitted" ? now : null,
+            updatedAt: now,
+          },
+        })
+        .returning();
+
+      await tx.insert(attendanceRegisterAuditTable).values({
+        scheduleId,
+        date: attendanceDate,
+        action: status === "submitted" ? "submitted" : "saved_draft",
+        userId: req.user!.id,
+        details: `${status === "submitted" ? "Submitted" : "Saved draft with"} ${marks.length} learner mark${marks.length === 1 ? "" : "s"}`,
+        createdAt: now,
+      });
+
+      return { records, register };
     });
+  } catch (error) {
+    if (error instanceof SubmittedRegisterLockedError) {
+      return res.status(409).json({ error: "Submitted registers must be explicitly reopened before they can be changed" });
+    }
+    throw error;
+  }
+
+  return res.json({
+    scheduleId,
+    date: attendanceDate,
+    status: result.register.status,
+    updatedAt: result.register.updatedAt.toISOString(),
+    submittedAt: result.register.submittedAt?.toISOString() ?? null,
+    marks: result.records.map(record => ({
+      ...record,
+      studentName: null,
+      courseName: null,
+      createdAt: record.createdAt.toISOString(),
+    })),
   });
+});
+
+router.get("/attendance/register/audit", async (req, res) => {
+  const queryDate = typeof req.query.date === "string"
+    ? new Date(`${req.query.date}T00:00:00`)
+    : req.query.date;
+  const parsed = ListAttendanceRegisterAuditQueryParams.safeParse({
+    ...req.query,
+    date: queryDate,
+  });
+  if (!parsed.success) return res.status(400).json({ error: "Invalid register occurrence" });
+
+  const schedule = await getScheduleAssignment(parsed.data.scheduleId);
+  if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!canManageAttendanceSchedule(req.user!, schedule)) {
+    return res.status(403).json({ error: "You are not assigned to this lesson register" });
+  }
+
+  const attendanceDate = parsed.data.date.toISOString().split("T")[0];
+  const records = await db
+    .select({
+      id: attendanceRegisterAuditTable.id,
+      scheduleId: attendanceRegisterAuditTable.scheduleId,
+      date: attendanceRegisterAuditTable.date,
+      action: attendanceRegisterAuditTable.action,
+      details: attendanceRegisterAuditTable.details,
+      createdAt: attendanceRegisterAuditTable.createdAt,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+      username: usersTable.username,
+    })
+    .from(attendanceRegisterAuditTable)
+    .leftJoin(usersTable, eq(attendanceRegisterAuditTable.userId, usersTable.id))
+    .where(and(
+      eq(attendanceRegisterAuditTable.scheduleId, parsed.data.scheduleId),
+      eq(attendanceRegisterAuditTable.date, attendanceDate),
+    ))
+    .orderBy(desc(attendanceRegisterAuditTable.createdAt));
 
   return res.json(records.map(record => ({
-    ...record,
-    studentName: null,
-    courseName: null,
+    id: record.id,
+    scheduleId: record.scheduleId,
+    date: record.date,
+    action: record.action,
+    actorName: [record.firstName, record.lastName].filter(Boolean).join(" ")
+      || record.username
+      || "Unknown user",
+    details: record.details,
     createdAt: record.createdAt.toISOString(),
   })));
+});
+
+router.get("/attendance/register/contacts", async (req, res) => {
+  const queryDate = typeof req.query.date === "string"
+    ? new Date(`${req.query.date}T00:00:00`)
+    : req.query.date;
+  const parsed = ListAttendanceRegisterContactsQueryParams.safeParse({
+    ...req.query,
+    date: queryDate,
+  });
+  if (!parsed.success) return res.status(400).json({ error: "Invalid register occurrence" });
+
+  const schedule = await getScheduleAssignment(parsed.data.scheduleId);
+  if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!canManageAttendanceSchedule(req.user!, schedule)) {
+    return res.status(403).json({ error: "You are not assigned to this lesson register" });
+  }
+
+  const contacts = await db
+    .select({
+      studentId: enrollmentsTable.studentId,
+      contactEmail: enrollmentsTable.contactEmail,
+    })
+    .from(enrollmentsTable)
+    .where(eq(enrollmentsTable.courseId, schedule.courseId));
+
+  return res.json(contacts);
+});
+
+router.get("/attendance/register/state", async (req, res) => {
+  const queryDate = typeof req.query.date === "string"
+    ? new Date(`${req.query.date}T00:00:00`)
+    : req.query.date;
+  const parsed = GetAttendanceRegisterStateQueryParams.safeParse({
+    ...req.query,
+    date: queryDate,
+  });
+  if (!parsed.success) return res.status(400).json({ error: "Invalid register occurrence" });
+
+  const schedule = await getScheduleAssignment(parsed.data.scheduleId);
+  if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!canManageAttendanceSchedule(req.user!, schedule)) {
+    return res.status(403).json({ error: "You are not assigned to this lesson register" });
+  }
+
+  const attendanceDate = parsed.data.date.toISOString().split("T")[0];
+  const [register] = await db
+    .select()
+    .from(attendanceRegistersTable)
+    .where(and(
+      eq(attendanceRegistersTable.scheduleId, parsed.data.scheduleId),
+      eq(attendanceRegistersTable.date, attendanceDate),
+    ))
+    .limit(1);
+  const [legacyMark] = register
+    ? []
+    : await db
+      .select({ id: attendanceTable.id })
+      .from(attendanceTable)
+      .where(and(
+        eq(attendanceTable.scheduleId, parsed.data.scheduleId),
+        eq(attendanceTable.date, attendanceDate),
+      ))
+      .limit(1);
+
+  return res.json({
+    scheduleId: parsed.data.scheduleId,
+    date: attendanceDate,
+    status: resolveAttendanceRegisterStatus(register?.status, Boolean(legacyMark)),
+    updatedAt: register?.updatedAt.toISOString() ?? null,
+    submittedAt: register?.submittedAt?.toISOString() ?? null,
+  });
+});
+
+router.post("/attendance/register/reopen", async (req, res) => {
+  const parsed = ReopenAttendanceRegisterBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
+
+  const { scheduleId, date } = parsed.data;
+  const schedule = await getScheduleAssignment(scheduleId);
+  if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!canManageAttendanceSchedule(req.user!, schedule)) {
+    return res.status(403).json({ error: "You are not assigned to this lesson register" });
+  }
+
+  const attendanceDate = date.toISOString().split("T")[0];
+  const now = new Date();
+  const register = await db.transaction(async (tx) => {
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${`${scheduleId}:${attendanceDate}`}, 0)
+      )
+    `);
+    const [existingRegister] = await tx
+      .select()
+      .from(attendanceRegistersTable)
+      .where(and(
+        eq(attendanceRegistersTable.scheduleId, scheduleId),
+        eq(attendanceRegistersTable.date, attendanceDate),
+      ))
+      .limit(1);
+    if (!existingRegister || existingRegister.status !== "submitted") return null;
+
+    const [reopened] = await tx
+      .update(attendanceRegistersTable)
+      .set({
+        status: "draft",
+        updatedBy: req.user!.id,
+        submittedAt: null,
+        updatedAt: now,
+      })
+      .where(eq(attendanceRegistersTable.id, existingRegister.id))
+      .returning();
+
+    await tx.insert(attendanceRegisterAuditTable).values({
+      scheduleId,
+      date: attendanceDate,
+      action: "reopened",
+      userId: req.user!.id,
+      details: "Reopened submitted register for correction",
+      createdAt: now,
+    });
+    return reopened;
+  });
+
+  if (!register) {
+    return res.status(409).json({ error: "Only a submitted register can be reopened" });
+  }
+  return res.json({
+    scheduleId,
+    date: attendanceDate,
+    status: "draft",
+    updatedAt: register.updatedAt.toISOString(),
+    submittedAt: null,
+  });
 });
 
 router.patch("/attendance/:id", async (req, res) => {
@@ -190,6 +480,7 @@ router.patch("/attendance/:id", async (req, res) => {
     .select({
       courseId: attendanceTable.courseId,
       scheduleId: attendanceTable.scheduleId,
+      date: attendanceTable.date,
     })
     .from(attendanceTable)
     .where(eq(attendanceTable.id, paramsParsed.data.id))
@@ -217,11 +508,37 @@ router.patch("/attendance/:id", async (req, res) => {
     return res.status(400).json({ error: "Attendance records cannot be moved between lesson sessions" });
   }
 
-  const [record] = await db
-    .update(attendanceTable)
-    .set(bodyParsed.data)
-    .where(eq(attendanceTable.id, paramsParsed.data.id))
-    .returning();
+  let record;
+  try {
+    [record] = await db.transaction(async (tx) => {
+      if (existing.scheduleId != null) {
+        await tx.execute(sql`
+          SELECT pg_advisory_xact_lock(
+            hashtextextended(${`${existing.scheduleId}:${existing.date}`}, 0)
+          )
+        `);
+        const [register] = await tx
+          .select({ status: attendanceRegistersTable.status })
+          .from(attendanceRegistersTable)
+          .where(and(
+            eq(attendanceRegistersTable.scheduleId, existing.scheduleId),
+            eq(attendanceRegistersTable.date, existing.date),
+          ))
+          .limit(1);
+        assertAttendanceRegisterMutable(register?.status);
+      }
+      return tx
+        .update(attendanceTable)
+        .set(bodyParsed.data)
+        .where(eq(attendanceTable.id, paramsParsed.data.id))
+        .returning();
+    });
+  } catch (error) {
+    if (error instanceof SubmittedRegisterLockedError) {
+      return res.status(409).json({ error: "Submitted registers must be reopened before individual marks can be changed" });
+    }
+    throw error;
+  }
   if (!record) return res.status(404).json({ error: "Not found" });
 
   return res.json({
@@ -237,7 +554,10 @@ router.delete("/attendance/:id", async (req, res) => {
   if (!paramsParsed.success) return res.status(400).json({ error: "Invalid id" });
 
   const [existing] = await db
-    .select({ scheduleId: attendanceTable.scheduleId })
+    .select({
+      scheduleId: attendanceTable.scheduleId,
+      date: attendanceTable.date,
+    })
     .from(attendanceTable)
     .where(eq(attendanceTable.id, paramsParsed.data.id))
     .limit(1);
@@ -254,10 +574,36 @@ router.delete("/attendance/:id", async (req, res) => {
     }
   }
 
-  const [record] = await db
-    .delete(attendanceTable)
-    .where(eq(attendanceTable.id, paramsParsed.data.id))
-    .returning({ id: attendanceTable.id });
+  let record;
+  try {
+    [record] = await db.transaction(async (tx) => {
+      if (existing.scheduleId != null) {
+        await tx.execute(sql`
+          SELECT pg_advisory_xact_lock(
+            hashtextextended(${`${existing.scheduleId}:${existing.date}`}, 0)
+          )
+        `);
+        const [register] = await tx
+          .select({ status: attendanceRegistersTable.status })
+          .from(attendanceRegistersTable)
+          .where(and(
+            eq(attendanceRegistersTable.scheduleId, existing.scheduleId),
+            eq(attendanceRegistersTable.date, existing.date),
+          ))
+          .limit(1);
+        assertAttendanceRegisterMutable(register?.status);
+      }
+      return tx
+        .delete(attendanceTable)
+        .where(eq(attendanceTable.id, paramsParsed.data.id))
+        .returning({ id: attendanceTable.id });
+    });
+  } catch (error) {
+    if (error instanceof SubmittedRegisterLockedError) {
+      return res.status(409).json({ error: "Submitted registers must be reopened before marks can be deleted" });
+    }
+    throw error;
+  }
   if (!record) return res.status(404).json({ error: "Not found" });
 
   return res.status(204).send();

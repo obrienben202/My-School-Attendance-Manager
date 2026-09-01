@@ -5,6 +5,7 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { ScheduleEntryRegisterStatus } from './scheduleEntryRegisterStatus';
 
 export interface ScheduleEntry {
   id: number;
@@ -21,4 +22,9 @@ export interface ScheduleEntry {
   day?: string | null;
   occurrenceDate: Date;
   registerMarked: boolean;
+  registerStatus: ScheduleEntryRegisterStatus;
+  /** @nullable */
+  registerUpdatedAt: Date | null;
+  /** @nullable */
+  registerSubmittedAt: Date | null;
 }

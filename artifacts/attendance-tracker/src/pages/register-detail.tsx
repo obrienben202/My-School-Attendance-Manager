@@ -3,8 +3,12 @@ import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   useGetTodaySchedule,
+  useGetAttendanceRegisterState,
   useListAttendanceRecords,
+  useListAttendanceRegisterAudit,
+  useListAttendanceRegisterContacts,
   useListCourses,
+  useReopenAttendanceRegister,
   useSubmitAttendanceRegister,
   type AttendanceRecord,
 } from "@workspace/api-client-react";
@@ -13,13 +17,14 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertTriangle, Save, Send, Printer, Mail, ChevronLeft, ChevronRight,
-  X, Check, ChevronsDown, Edit, KeyRound, Info,
+  X, Check, ChevronsDown, Edit, Info,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -76,28 +81,49 @@ export default function RegisterDetail() {
   const id = parseInt(params.id || "0", 10);
   const staffContext = new URLSearchParams(window.location.search).get("staff");
   const { data: courses, isLoading: isCoursesLoading } = useListCourses();
-  const { data: schedule = [], isLoading: isScheduleLoading } = useGetTodaySchedule();
+  const {
+    data: schedule = [],
+    isLoading: isScheduleLoading,
+    refetch: refetchSchedule,
+  } = useGetTodaySchedule();
 
   const [saved, setSaved] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [editing, setEditing] = useState(false);  // editing a submitted register
   const [showEmailPanel, setShowEmailPanel] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const [emailPrepared, setEmailPrepared] = useState(false);
   const [activeLink, setActiveLink] = useState("Session Summary");
   const [markings, setMarkings] = useState<Record<number, StatusCode>>({});
   const [minutesLate, setMinutesLate] = useState<Record<number, string>>({});
   const [comments, setComments] = useState<Record<number, string>>({});
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showEditConfirm, setShowEditConfirm] = useState(false);
-  const [showPinPanel, setShowPinPanel] = useState(false);
   const [preserveOnFill, setPreserveOnFill] = useState(true);
   const [isPersisting, setIsPersisting] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
 
   const scheduleEntry = schedule.find((entry) => entry.id === id);
-  const scheduleIndex = schedule.findIndex((entry) => entry.id === id);
   const requestedDate = new URLSearchParams(window.location.search).get("date");
   const sessionDate = requestedDate || scheduleEntry?.occurrenceDate || getLocalDate();
+  const chronologicalOccurrences = useMemo(
+    () => schedule
+      .filter(entry => entry.courseId === scheduleEntry?.courseId)
+      .sort((left, right) => {
+        const leftKey = `${left.occurrenceDate}T${left.startTime}`;
+        const rightKey = `${right.occurrenceDate}T${right.startTime}`;
+        return leftKey.localeCompare(rightKey) || left.id - right.id;
+      }),
+    [schedule, scheduleEntry?.courseId],
+  );
+  const occurrenceIndex = chronologicalOccurrences.findIndex(
+    entry => entry.id === id && entry.occurrenceDate === sessionDate,
+  );
+  const previousOccurrence = occurrenceIndex > 0
+    ? chronologicalOccurrences[occurrenceIndex - 1]
+    : undefined;
+  const nextOccurrence = occurrenceIndex >= 0 && occurrenceIndex < chronologicalOccurrences.length - 1
+    ? chronologicalOccurrences[occurrenceIndex + 1]
+    : undefined;
   const course = courses?.find((c) => c.id === scheduleEntry?.courseId);
   const {
     data: attendance = EMPTY_ATTENDANCE,
@@ -107,7 +133,29 @@ export default function RegisterDetail() {
     { scheduleId: id, date: sessionDate },
     { query: { enabled: id > 0 && !!scheduleEntry } as any },
   );
+  const {
+    data: auditEntries = [],
+    isLoading: isAuditLoading,
+    isError: isAuditError,
+    refetch: refetchAudit,
+  } = useListAttendanceRegisterAudit(
+    { scheduleId: id, date: sessionDate },
+    { query: { enabled: id > 0 && !!scheduleEntry } as any },
+  );
+  const {
+    data: registerState,
+    isLoading: isRegisterStateLoading,
+    refetch: refetchRegisterState,
+  } = useGetAttendanceRegisterState(
+    { scheduleId: id, date: sessionDate },
+    { query: { enabled: id > 0 && !!scheduleEntry } as any },
+  );
+  const { data: registerContacts = [] } = useListAttendanceRegisterContacts(
+    { scheduleId: id, date: sessionDate },
+    { query: { enabled: id > 0 && !!scheduleEntry } as any },
+  );
   const submitAttendance = useSubmitAttendanceRegister();
+  const reopenAttendance = useReopenAttendanceRegister();
   const {
     data: registerStudents = [],
     isLoading: isRosterLoading,
@@ -136,9 +184,17 @@ export default function RegisterDetail() {
     [attendance, sessionDate],
   );
   const absentStudents = registerStudents.filter((s) => markings[s.id] === "A");
-
-  // Deterministic PIN for the session (4-digit)
-  const sessionPin = useMemo(() => String((id * 7 + 1337) % 9000 + 1000), [id]);
+  const contactEmailByStudent = new Map(
+    registerContacts.map(contact => [contact.studentId, contact.contactEmail]),
+  );
+  const absentRecipients = Array.from(new Set(
+    absentStudents
+      .map(student => contactEmailByStudent.get(student.id)?.trim())
+      .filter((email): email is string => Boolean(email)),
+  ));
+  const absentWithoutEmail = absentStudents.filter(
+    student => !contactEmailByStudent.get(student.id)?.trim(),
+  );
 
   const isLocked = submitted && !editing;
 
@@ -153,15 +209,25 @@ export default function RegisterDetail() {
 
     const nextMarkings: Record<number, StatusCode> = {};
     const nextComments: Record<number, string> = {};
+    const nextMinutesLate: Record<number, string> = {};
     existingAttendance.forEach((record) => {
       nextMarkings[record.studentId] = statusFromApi(record.status);
       if (record.notes) nextComments[record.studentId] = record.notes;
+      if (record.minutesLate !== null && record.minutesLate !== undefined) {
+        nextMinutesLate[record.studentId] = String(record.minutesLate);
+      }
     });
     setMarkings(nextMarkings);
     setComments(nextComments);
-    setSubmitted(existingAttendance.length > 0);
-    setSaved(existingAttendance.length > 0);
+    setMinutesLate(nextMinutesLate);
   }, [existingAttendance, isAttendanceLoading]);
+
+  useEffect(() => {
+    if (!registerState) return;
+    setSubmitted(registerState.status === "submitted");
+    setSaved(registerState.status !== "open");
+    setEditing(false);
+  }, [registerState]);
 
   function setMark(studentId: number, val: StatusCode) {
     if (isLocked) return;
@@ -191,7 +257,7 @@ export default function RegisterDetail() {
     setSaved(false);
   }
 
-  async function persistRegister() {
+  async function persistRegister(status: "draft" | "submitted") {
     if (!scheduleEntry) return false;
 
     setIsPersisting(true);
@@ -202,17 +268,26 @@ export default function RegisterDetail() {
         const apiStatus = mark ? STATUS_TO_API[mark] : undefined;
         if (!apiStatus) return [];
         const notes = comments[student.id]?.trim();
+        const lateMinutes = mark === "L" && minutesLate[student.id] !== undefined
+          ? Number(minutesLate[student.id])
+          : undefined;
         return [{
           studentId: student.id,
           status: apiStatus,
+          ...(Number.isFinite(lateMinutes) ? { minutesLate: lateMinutes } : {}),
           ...(notes ? { notes } : {}),
         }];
       });
 
       await submitAttendance.mutateAsync({
-        data: { scheduleId: id, date: sessionDate, marks },
+        data: { scheduleId: id, date: sessionDate, status, marks },
       });
-      await refetchAttendance();
+      await Promise.all([
+        refetchAttendance(),
+        refetchSchedule(),
+        refetchAudit(),
+        refetchRegisterState(),
+      ]);
       return true;
     } catch (error) {
       setPersistenceError(error instanceof Error ? error.message : "The register could not be saved.");
@@ -223,25 +298,49 @@ export default function RegisterDetail() {
   }
 
   async function handleSave() {
-    if (await persistRegister()) setSaved(true);
+    if (await persistRegister("draft")) {
+      setSaved(true);
+      setSubmitted(false);
+      setEditing(false);
+    }
   }
 
   async function handleSubmitFinal() {
-    if (!(await persistRegister())) return;
+    if (!(await persistRegister("submitted"))) return;
     setSaved(true);
     setSubmitted(true);
     setEditing(false);
     setShowSubmitConfirm(false);
   }
 
-  function handleEditRegister() {
-    setEditing(true);
-    setShowEditConfirm(false);
+  async function handleEditRegister() {
+    setPersistenceError(null);
+    try {
+      await reopenAttendance.mutateAsync({
+        data: { scheduleId: id, date: sessionDate },
+      });
+      await Promise.all([refetchSchedule(), refetchAudit(), refetchRegisterState()]);
+      setSubmitted(false);
+      setSaved(true);
+      setEditing(true);
+      setShowEditConfirm(false);
+    } catch (error) {
+      setPersistenceError(error instanceof Error ? error.message : "The register could not be reopened.");
+    }
   }
 
-  function handleSendEmails() {
-    setEmailSent(true);
-    setTimeout(() => { setShowEmailPanel(false); setEmailSent(false); }, 2500);
+  function handlePrepareEmail() {
+    if (absentRecipients.length === 0) return;
+    const subject = `Attendance follow-up: ${course?.code ?? "register"} on ${sessionDate}`;
+    const body = [
+      `This email concerns the following learner${absentStudents.length === 1 ? "" : "s"} marked absent from ${course?.name ?? "the session"} on ${sessionDate}:`,
+      "",
+      ...absentStudents.map(student => `- ${student.forename} ${student.surname}`),
+      "",
+      "Please review and personalise this message before sending.",
+    ].join("\n");
+    window.location.href = `mailto:?bcc=${encodeURIComponent(absentRecipients.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setEmailPrepared(true);
   }
 
   const REGISTER_LINKS = [
@@ -249,19 +348,20 @@ export default function RegisterDetail() {
     { label: "View Full Course", action: () => navigate(`/courses/${course?.id ?? id}`) },
     {
       label: "Previous Session",
-      action: () => scheduleIndex > 0 && navigate(registerPath(
-        schedule[scheduleIndex - 1].id,
-        schedule[scheduleIndex - 1].occurrenceDate,
+      disabled: !previousOccurrence,
+      action: () => previousOccurrence && navigate(registerPath(
+        previousOccurrence.id,
+        previousOccurrence.occurrenceDate,
       )),
     },
     {
       label: "Next Session",
-      action: () => scheduleIndex >= 0 && scheduleIndex < schedule.length - 1 && navigate(registerPath(
-        schedule[scheduleIndex + 1].id,
-        schedule[scheduleIndex + 1].occurrenceDate,
+      disabled: !nextOccurrence,
+      action: () => nextOccurrence && navigate(registerPath(
+        nextOccurrence.id,
+        nextOccurrence.occurrenceDate,
       )),
     },
-    { label: "Lesson Plan", action: () => setActiveLink("Lesson Plan") },
     { label: "Register Audit", action: () => setActiveLink("Register Audit") },
     { label: "eRegisters List", action: () => navigate("/attendance") },
   ];
@@ -272,7 +372,13 @@ export default function RegisterDetail() {
   const other = Object.values(markings).filter((v) => !["P", "A", "L"].includes(v)).length;
   const unmarked = registerStudents.length - Object.keys(markings).length;
 
-  if (isCoursesLoading || isRosterLoading || isScheduleLoading || isAttendanceLoading) {
+  if (
+    isCoursesLoading ||
+    isRosterLoading ||
+    isScheduleLoading ||
+    isAttendanceLoading ||
+    isRegisterStateLoading
+  ) {
     return <div className="space-y-4 p-6"><Skeleton className="h-8 w-64" /><Skeleton className="h-48 w-full" /></div>;
   }
   if (isRosterError) {
@@ -289,11 +395,12 @@ export default function RegisterDetail() {
         <div className="px-3 py-3 border-b border-slate-100">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Register Links</p>
         </div>
-        {REGISTER_LINKS.map(({ label, action }) => (
+        {REGISTER_LINKS.map(({ label, action, disabled }) => (
           <button
             key={label}
             onClick={action}
-            className={`w-full text-left text-xs px-4 py-2 border-b border-slate-100 transition-colors flex items-center gap-1.5 ${
+            disabled={disabled}
+            className={`w-full text-left text-xs px-4 py-2 border-b border-slate-100 transition-colors flex items-center gap-1.5 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-white ${
               activeLink === label && !["View Full Course", "Previous Session", "Next Session", "eRegisters List"].includes(label)
                 ? "bg-teal-700 text-white font-semibold"
                 : "text-slate-700 hover:bg-slate-50"
@@ -352,19 +459,16 @@ export default function RegisterDetail() {
                 </>
               )}
               <button
-                onClick={() => setShowPinPanel(true)}
-                className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"
-              >
-                <KeyRound className="w-3 h-3" /> Show PIN
-              </button>
-              <button
                 onClick={() => window.print()}
                 className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"
               >
                 <Printer className="w-3 h-3" /> Print
               </button>
               <button
-                onClick={() => setShowEmailPanel(true)}
+                onClick={() => {
+                  setEmailPrepared(false);
+                  setShowEmailPanel(true);
+                }}
                 className="flex items-center gap-1.5 text-xs border border-slate-300 rounded px-2.5 py-1 hover:bg-slate-50"
               >
                 <Mail className="w-3 h-3" /> Email Absent
@@ -386,7 +490,7 @@ export default function RegisterDetail() {
             )}
             {editing && (
               <div className="inline-flex items-center gap-1.5 bg-amber-600 text-white text-xs font-semibold px-3 py-1 rounded">
-                <Edit className="w-3 h-3" /> Editing submitted register — save and re-submit when done.
+                <Edit className="w-3 h-3" /> Register reopened as a draft — re-submit when corrections are complete.
               </div>
             )}
             {persistenceError && (
@@ -401,7 +505,7 @@ export default function RegisterDetail() {
             <div className="mt-3 border border-slate-200 rounded bg-slate-50 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-slate-700">
-                  Email parents / guardians of absent students ({absentStudents.length})
+                  Prepare email to absent learner contacts ({absentRecipients.length} address{absentRecipients.length === 1 ? "" : "es"})
                 </p>
                 <button onClick={() => setShowEmailPanel(false)} className="text-slate-400 hover:text-slate-600">
                   <X className="w-3.5 h-3.5" />
@@ -410,21 +514,32 @@ export default function RegisterDetail() {
               {absentStudents.length === 0 ? (
                 <p className="text-xs text-slate-400">No absent students marked yet.</p>
               ) : (
-                <div className="flex flex-wrap gap-1.5">
+                <div className="space-y-1">
                   {absentStudents.map((s) => (
-                    <span key={s.id} className="text-xs bg-red-100 text-red-700 border border-red-200 rounded px-2 py-0.5">
-                      {s.forename} {s.surname}
-                    </span>
+                    <div key={s.id} className="text-xs text-slate-600">
+                      <span className="font-medium">{s.forename} {s.surname}</span>
+                      <span className="text-slate-400"> — {contactEmailByStudent.get(s.id) || "No contact email"}</span>
+                    </div>
                   ))}
                 </div>
               )}
+              {absentWithoutEmail.length > 0 && (
+                <p className="text-xs text-amber-700">
+                  {absentWithoutEmail.length} absent learner{absentWithoutEmail.length === 1 ? " has" : "s have"} no contact email and will not be addressed.
+                </p>
+              )}
+              {emailPrepared && (
+                <p className="text-xs text-emerald-700">
+                  The addressed draft was handed off to your email application. Review it there before sending.
+                </p>
+              )}
               <div className="flex gap-2">
                 <button
-                  onClick={handleSendEmails}
-                  disabled={absentStudents.length === 0 || emailSent}
+                  onClick={handlePrepareEmail}
+                  disabled={absentRecipients.length === 0}
                   className="flex items-center gap-1 text-xs bg-teal-700 text-white rounded px-3 py-1 hover:bg-teal-800 disabled:opacity-50"
                 >
-                  <Mail className="w-3 h-3" /> {emailSent ? "Sent!" : `Send ${absentStudents.length} Email${absentStudents.length !== 1 ? "s" : ""}`}
+                  <Mail className="w-3 h-3" /> Prepare addressed email
                 </button>
                 <button onClick={() => setShowEmailPanel(false)} className="text-xs text-slate-500 hover:text-slate-700">
                   Cancel
@@ -467,18 +582,6 @@ export default function RegisterDetail() {
             </div>
           </div>
 
-          {/* Lesson Plan panel */}
-          {activeLink === "Lesson Plan" && (
-            <div className="bg-white border border-slate-200 rounded">
-              <div className="px-5 py-2.5 border-b border-slate-100 bg-slate-50">
-                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Lesson Plan</p>
-              </div>
-              <div className="px-5 py-4 text-xs text-slate-400">
-                No lesson plan uploaded for this session. Add your data to populate this section.
-              </div>
-            </div>
-          )}
-
           {/* Register Audit panel */}
           {activeLink === "Register Audit" && (
             <div className="bg-white border border-slate-200 rounded">
@@ -495,19 +598,29 @@ export default function RegisterDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {saved ? (
-                    <tr className="hover:bg-slate-50">
-                      <td className="px-5 py-2 text-slate-600">{new Date().toLocaleString("en-GB")}</td>
-                      <td className="px-3 py-2 text-slate-600">Current User</td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {submitted ? "Register Submitted (Final)" : "Register Saved"}
-                      </td>
-                      <td className="px-3 py-2 text-slate-500">{eventCode}</td>
-                    </tr>
+                  {isAuditLoading ? (
+                    <tr><td colSpan={4} className="px-5 py-6 text-center text-slate-400">Loading audit history…</td></tr>
+                  ) : isAuditError ? (
+                    <tr><td colSpan={4} className="px-5 py-6 text-center text-red-600">The audit history could not be loaded.</td></tr>
+                  ) : auditEntries.length > 0 ? (
+                    auditEntries.map(entry => (
+                      <tr key={entry.id} className="hover:bg-slate-50">
+                        <td className="px-5 py-2 text-slate-600">{new Date(entry.createdAt).toLocaleString("en-GB")}</td>
+                        <td className="px-3 py-2 text-slate-600">{entry.actorName}</td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {entry.action === "submitted"
+                            ? "Register Submitted (Final)"
+                            : entry.action === "reopened"
+                              ? "Register Reopened"
+                              : "Draft Saved"}
+                        </td>
+                        <td className="px-3 py-2 text-slate-500">{entry.details}</td>
+                      </tr>
+                    ))
                   ) : (
                     <tr>
                       <td colSpan={4} className="px-5 py-6 text-center text-slate-400">
-                        No audit entries yet. Save the register to create an entry.
+                        No audit entries yet. Save a draft or submit the register to create one.
                       </td>
                     </tr>
                   )}
@@ -613,6 +726,7 @@ export default function RegisterDetail() {
                                     delete n[s.id];
                                     return n;
                                   });
+                                  setSaved(false);
                                 }
                               }}
                             />
@@ -731,7 +845,6 @@ export default function RegisterDetail() {
               <InfoRow label="Present" value={present} />
               <InfoRow label="Year Group" value={course.yearGroup ?? "Mixed"} />
               <InfoRow label="Absent" value={absent} />
-              <InfoRow label="Session PIN" value={sessionPin} />
               <InfoRow label="Late" value={late} />
               <InfoRow label="Validate Empty Marks" value="N" />
               <InfoRow label="Unmarked" value={unmarked} />
@@ -745,9 +858,12 @@ export default function RegisterDetail() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Submit Register?</DialogTitle>
+            <DialogDescription>
+              Confirm that this occurrence is ready to be finalised and locked.
+            </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-gray-600">
-            Once submitted, the register will be <strong>locked</strong>. You will need elevated permissions (Edit Marked Register role) to make further changes.
+            Once submitted, the register will be <strong>locked</strong>. Use Edit Register to reopen it as a draft before making corrections.
           </p>
           {unmarked > 0 && (
             <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 text-sm">
@@ -772,36 +888,26 @@ export default function RegisterDetail() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit Submitted Register?</DialogTitle>
+            <DialogDescription>
+              Reopen this submitted occurrence so its attendance marks can be corrected.
+            </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-gray-600">
-            This register has already been submitted. Editing requires the <strong>Edit Marked Register</strong> role. Make your changes and re-submit when done.
+            This register has already been submitted. Saving a correction will return it to draft status until you submit it again.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditConfirm(false)}>Cancel</Button>
-            <Button onClick={handleEditRegister} className="bg-amber-600 hover:bg-amber-700">Edit Register</Button>
+            <Button
+              onClick={handleEditRegister}
+              disabled={reopenAttendance.isPending}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {reopenAttendance.isPending ? "Reopening…" : "Edit Register"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Learner PIN ── */}
-      <Dialog open={showPinPanel} onOpenChange={setShowPinPanel}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <KeyRound size={18} /> Learner Self-Marking PIN
-            </DialogTitle>
-          </DialogHeader>
-          <div className="text-center py-4">
-            <div className="text-5xl font-bold font-mono text-teal-700 tracking-[0.3em] mb-3">{sessionPin}</div>
-            <p className="text-sm text-gray-500">
-              Share this PIN with learners. They can enter it on the <strong>Attendance Reporting</strong> screen in the Learner Hub to mark themselves as present for this session.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowPinPanel(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -26,7 +26,13 @@ import type {
   AssessmentResultInput,
   AttendanceInput,
   AttendanceRecord,
+  AttendanceRegister,
+  AttendanceRegisterAudit,
+  AttendanceRegisterContact,
   AttendanceRegisterInput,
+  AttendanceRegisterLifecycle,
+  AttendanceRegisterOccurrenceInput,
+  AttendanceRegisterOccurrenceState,
   AttendanceUpdate,
   AuthUserEnvelope,
   ConciergeApplication,
@@ -40,12 +46,15 @@ import type {
   EprogressionInput,
   EprogressionUpdate,
   ErrorEnvelope,
+  GetAttendanceRegisterStateParams,
   HealthStatus,
   Ilp,
   IlpInput,
   ListAssessmentResultsParams,
   ListAssessmentsParams,
   ListAttendanceRecordsParams,
+  ListAttendanceRegisterAuditParams,
+  ListAttendanceRegisterContactsParams,
   ListConciergeApplicationsParams,
   ListEprogressionsParams,
   ListIlpsParams,
@@ -1313,11 +1322,11 @@ export const getSubmitAttendanceRegisterUrl = () => {
 }
 
 /**
- * @summary Atomically submit all marks for a lesson register
+ * @summary Save a draft or submit all marks for a lesson register
  */
-export const submitAttendanceRegister = async (attendanceRegisterInput: AttendanceRegisterInput, options?: RequestInit): Promise<AttendanceRecord[]> => {
+export const submitAttendanceRegister = async (attendanceRegisterInput: AttendanceRegisterInput, options?: RequestInit): Promise<AttendanceRegister> => {
 
-  return customFetch<AttendanceRecord[]>(getSubmitAttendanceRegisterUrl(),
+  return customFetch<AttendanceRegister>(getSubmitAttendanceRegisterUrl(),
   {
     ...options,
     method: 'POST',
@@ -1362,7 +1371,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SubmitAttendanceRegisterMutationError = ErrorType<ErrorEnvelope>
 
     /**
- * @summary Atomically submit all marks for a lesson register
+ * @summary Save a draft or submit all marks for a lesson register
  */
 export const useSubmitAttendanceRegister = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1373,6 +1382,329 @@ export const useSubmitAttendanceRegister = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getSubmitAttendanceRegisterMutationOptions(options));
+    }
+
+export const getListAttendanceRegisterAuditUrl = (params: ListAttendanceRegisterAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/attendance/register/audit?${stringifiedParams}` : `/api/attendance/register/audit`
+}
+
+/**
+ * @summary List persisted audit events for one register occurrence
+ */
+export const listAttendanceRegisterAudit = async (params: ListAttendanceRegisterAuditParams, options?: RequestInit): Promise<AttendanceRegisterAudit[]> => {
+
+  return customFetch<AttendanceRegisterAudit[]>(getListAttendanceRegisterAuditUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAttendanceRegisterAuditQueryKey = (params?: ListAttendanceRegisterAuditParams,) => {
+    return [
+    `/api/attendance/register/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAttendanceRegisterAuditQueryOptions = <TData = Awaited<ReturnType<typeof listAttendanceRegisterAudit>>, TError = ErrorType<ErrorEnvelope>>(params: ListAttendanceRegisterAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAttendanceRegisterAuditQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAttendanceRegisterAudit>>> = ({ signal }) => listAttendanceRegisterAudit(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAttendanceRegisterAuditQueryResult = NonNullable<Awaited<ReturnType<typeof listAttendanceRegisterAudit>>>
+export type ListAttendanceRegisterAuditQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List persisted audit events for one register occurrence
+ */
+
+export function useListAttendanceRegisterAudit<TData = Awaited<ReturnType<typeof listAttendanceRegisterAudit>>, TError = ErrorType<ErrorEnvelope>>(
+ params: ListAttendanceRegisterAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAttendanceRegisterAuditQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListAttendanceRegisterContactsUrl = (params: ListAttendanceRegisterContactsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/attendance/register/contacts?${stringifiedParams}` : `/api/attendance/register/contacts`
+}
+
+/**
+ * @summary List contact addresses for learners on an authorised register
+ */
+export const listAttendanceRegisterContacts = async (params: ListAttendanceRegisterContactsParams, options?: RequestInit): Promise<AttendanceRegisterContact[]> => {
+
+  return customFetch<AttendanceRegisterContact[]>(getListAttendanceRegisterContactsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAttendanceRegisterContactsQueryKey = (params?: ListAttendanceRegisterContactsParams,) => {
+    return [
+    `/api/attendance/register/contacts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAttendanceRegisterContactsQueryOptions = <TData = Awaited<ReturnType<typeof listAttendanceRegisterContacts>>, TError = ErrorType<ErrorEnvelope>>(params: ListAttendanceRegisterContactsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterContacts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAttendanceRegisterContactsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAttendanceRegisterContacts>>> = ({ signal }) => listAttendanceRegisterContacts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterContacts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAttendanceRegisterContactsQueryResult = NonNullable<Awaited<ReturnType<typeof listAttendanceRegisterContacts>>>
+export type ListAttendanceRegisterContactsQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List contact addresses for learners on an authorised register
+ */
+
+export function useListAttendanceRegisterContacts<TData = Awaited<ReturnType<typeof listAttendanceRegisterContacts>>, TError = ErrorType<ErrorEnvelope>>(
+ params: ListAttendanceRegisterContactsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterContacts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAttendanceRegisterContactsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAttendanceRegisterStateUrl = (params: GetAttendanceRegisterStateParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/attendance/register/state?${stringifiedParams}` : `/api/attendance/register/state`
+}
+
+/**
+ * @summary Get lifecycle state for one exact register occurrence
+ */
+export const getAttendanceRegisterState = async (params: GetAttendanceRegisterStateParams, options?: RequestInit): Promise<AttendanceRegisterOccurrenceState> => {
+
+  return customFetch<AttendanceRegisterOccurrenceState>(getGetAttendanceRegisterStateUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAttendanceRegisterStateQueryKey = (params?: GetAttendanceRegisterStateParams,) => {
+    return [
+    `/api/attendance/register/state`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAttendanceRegisterStateQueryOptions = <TData = Awaited<ReturnType<typeof getAttendanceRegisterState>>, TError = ErrorType<ErrorEnvelope>>(params: GetAttendanceRegisterStateParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAttendanceRegisterState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAttendanceRegisterStateQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAttendanceRegisterState>>> = ({ signal }) => getAttendanceRegisterState(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAttendanceRegisterState>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAttendanceRegisterStateQueryResult = NonNullable<Awaited<ReturnType<typeof getAttendanceRegisterState>>>
+export type GetAttendanceRegisterStateQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get lifecycle state for one exact register occurrence
+ */
+
+export function useGetAttendanceRegisterState<TData = Awaited<ReturnType<typeof getAttendanceRegisterState>>, TError = ErrorType<ErrorEnvelope>>(
+ params: GetAttendanceRegisterStateParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAttendanceRegisterState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAttendanceRegisterStateQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getReopenAttendanceRegisterUrl = () => {
+
+
+
+
+  return `/api/attendance/register/reopen`
+}
+
+/**
+ * @summary Explicitly reopen a submitted register as an editable draft
+ */
+export const reopenAttendanceRegister = async (attendanceRegisterOccurrenceInput: AttendanceRegisterOccurrenceInput, options?: RequestInit): Promise<AttendanceRegisterLifecycle> => {
+
+  return customFetch<AttendanceRegisterLifecycle>(getReopenAttendanceRegisterUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      attendanceRegisterOccurrenceInput,)
+  }
+);}
+
+
+
+
+export const getReopenAttendanceRegisterMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reopenAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterOccurrenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reopenAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterOccurrenceInput>}, TContext> => {
+
+const mutationKey = ['reopenAttendanceRegister'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reopenAttendanceRegister>>, {data: BodyType<AttendanceRegisterOccurrenceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reopenAttendanceRegister(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReopenAttendanceRegisterMutationResult = NonNullable<Awaited<ReturnType<typeof reopenAttendanceRegister>>>
+    export type ReopenAttendanceRegisterMutationBody = BodyType<AttendanceRegisterOccurrenceInput>
+    export type ReopenAttendanceRegisterMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Explicitly reopen a submitted register as an editable draft
+ */
+export const useReopenAttendanceRegister = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reopenAttendanceRegister>>, TError,{data: BodyType<AttendanceRegisterOccurrenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reopenAttendanceRegister>>,
+        TError,
+        {data: BodyType<AttendanceRegisterOccurrenceInput>},
+        TContext
+      > => {
+      return useMutation(getReopenAttendanceRegisterMutationOptions(options));
     }
 
 export const getUpdateAttendanceRecordUrl = (id: number,) => {

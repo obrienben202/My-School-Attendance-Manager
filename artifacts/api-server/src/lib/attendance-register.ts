@@ -5,8 +5,24 @@ import type { Attendance } from "@workspace/db";
 export type AttendanceRegisterMark = {
   studentId: number;
   status: string;
+  minutesLate?: number;
   notes?: string;
 };
+
+export class SubmittedRegisterLockedError extends Error {}
+
+export function assertAttendanceRegisterMutable(status: string | null | undefined): void {
+  if (status === "submitted") throw new SubmittedRegisterLockedError();
+}
+
+export function resolveAttendanceRegisterStatus(
+  persistedStatus: string | null | undefined,
+  hasExactAttendance: boolean,
+): "open" | "draft" | "submitted" {
+  if (persistedStatus === "submitted") return "submitted";
+  if (persistedStatus === "draft") return "draft";
+  return hasExactAttendance ? "draft" : "open";
+}
 
 export type AttendanceRegisterTransaction = {
   execute(query: SQL): Promise<unknown>;
@@ -20,6 +36,7 @@ export type AttendanceRegisterTransaction = {
       scheduleId: number;
       date: string;
       status: string;
+      minutesLate?: number;
       notes?: string;
       markedBy: string;
     }>): {
@@ -76,6 +93,7 @@ export async function replaceAttendanceRegister(
         scheduleId,
         date,
         status: mark.status,
+        minutesLate: mark.status === "late" ? mark.minutesLate : undefined,
         notes: mark.notes,
         markedBy,
       })))

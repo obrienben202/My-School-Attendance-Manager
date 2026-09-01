@@ -15,6 +15,7 @@ export const attendanceTable = pgTable(
     scheduleId: integer("schedule_id").references(() => scheduleTable.id, { onDelete: "set null" }),
     date: date("date").notNull(),
     status: text("status").notNull(),
+    minutesLate: integer("minutes_late"),
     notes: text("notes"),
     markedBy: text("marked_by"),
     createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -10,5 +10,10 @@ import type { AttendanceRegisterMarkStatus } from './attendanceRegisterMarkStatu
 export interface AttendanceRegisterMark {
   studentId: number;
   status: AttendanceRegisterMarkStatus;
+  /**
+     * @minimum 0
+     * @maximum 60
+     */
+  minutesLate?: number;
   notes?: string;
 }

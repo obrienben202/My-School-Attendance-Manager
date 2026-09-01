@@ -9,6 +9,11 @@ import type { AttendanceUpdateStatus } from './attendanceUpdateStatus';
 
 export interface AttendanceUpdate {
   status?: AttendanceUpdateStatus;
+  /**
+     * @minimum 0
+     * @maximum 60
+     */
+  minutesLate?: number;
   notes?: string;
   scheduleId?: number;
 }

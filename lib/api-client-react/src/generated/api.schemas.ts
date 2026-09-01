@@ -211,6 +211,12 @@ export interface AttendanceRecord {
   scheduleId: number | null;
   date: string;
   status: AttendanceRecordStatus;
+  /**
+     * @minimum 0
+     * @maximum 60
+     * @nullable
+     */
+  minutesLate?: number | null;
   /** @nullable */
   notes?: string | null;
   /** @nullable */
@@ -238,6 +244,11 @@ export interface AttendanceInput {
   scheduleId: number;
   date: string;
   status: AttendanceInputStatus;
+  /**
+     * @minimum 0
+     * @maximum 60
+     */
+  minutesLate?: number;
   notes?: string;
 }
 
@@ -255,9 +266,22 @@ export const AttendanceUpdateStatus = {
 
 export interface AttendanceUpdate {
   status?: AttendanceUpdateStatus;
+  /**
+     * @minimum 0
+     * @maximum 60
+     */
+  minutesLate?: number;
   notes?: string;
   scheduleId?: number;
 }
+
+export type AttendanceRegisterInputStatus = typeof AttendanceRegisterInputStatus[keyof typeof AttendanceRegisterInputStatus];
+
+
+export const AttendanceRegisterInputStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
 
 export type AttendanceRegisterMarkStatus = typeof AttendanceRegisterMarkStatus[keyof typeof AttendanceRegisterMarkStatus];
 
@@ -274,13 +298,103 @@ export const AttendanceRegisterMarkStatus = {
 export interface AttendanceRegisterMark {
   studentId: number;
   status: AttendanceRegisterMarkStatus;
+  /**
+     * @minimum 0
+     * @maximum 60
+     */
+  minutesLate?: number;
   notes?: string;
 }
 
 export interface AttendanceRegisterInput {
   scheduleId: number;
   date: string;
+  status: AttendanceRegisterInputStatus;
   marks: AttendanceRegisterMark[];
+}
+
+export interface AttendanceRegisterOccurrenceInput {
+  scheduleId: number;
+  date: string;
+}
+
+export type AttendanceRegisterStatus = typeof AttendanceRegisterStatus[keyof typeof AttendanceRegisterStatus];
+
+
+export const AttendanceRegisterStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface AttendanceRegister {
+  scheduleId: number;
+  date: string;
+  status: AttendanceRegisterStatus;
+  updatedAt: string;
+  /** @nullable */
+  submittedAt?: string | null;
+  marks: AttendanceRecord[];
+}
+
+export type AttendanceRegisterLifecycleStatus = typeof AttendanceRegisterLifecycleStatus[keyof typeof AttendanceRegisterLifecycleStatus];
+
+
+export const AttendanceRegisterLifecycleStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface AttendanceRegisterLifecycle {
+  scheduleId: number;
+  date: string;
+  status: AttendanceRegisterLifecycleStatus;
+  updatedAt: string;
+  /** @nullable */
+  submittedAt?: string | null;
+}
+
+export type AttendanceRegisterOccurrenceStateStatus = typeof AttendanceRegisterOccurrenceStateStatus[keyof typeof AttendanceRegisterOccurrenceStateStatus];
+
+
+export const AttendanceRegisterOccurrenceStateStatus = {
+  open: 'open',
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface AttendanceRegisterOccurrenceState {
+  scheduleId: number;
+  date: string;
+  status: AttendanceRegisterOccurrenceStateStatus;
+  /** @nullable */
+  updatedAt?: string | null;
+  /** @nullable */
+  submittedAt?: string | null;
+}
+
+export interface AttendanceRegisterContact {
+  studentId: number;
+  /** @nullable */
+  contactEmail: string | null;
+}
+
+export type AttendanceRegisterAuditAction = typeof AttendanceRegisterAuditAction[keyof typeof AttendanceRegisterAuditAction];
+
+
+export const AttendanceRegisterAuditAction = {
+  saved_draft: 'saved_draft',
+  submitted: 'submitted',
+  reopened: 'reopened',
+} as const;
+
+export interface AttendanceRegisterAudit {
+  id: number;
+  scheduleId: number;
+  date: string;
+  action: AttendanceRegisterAuditAction;
+  actorName: string;
+  details: string;
+  createdAt: string;
 }
 
 export type PlannedAbsenceStatus = typeof PlannedAbsenceStatus[keyof typeof PlannedAbsenceStatus];
@@ -477,6 +591,15 @@ export interface AssessmentResultInput {
   status?: string;
 }
 
+export type ScheduleEntryRegisterStatus = typeof ScheduleEntryRegisterStatus[keyof typeof ScheduleEntryRegisterStatus];
+
+
+export const ScheduleEntryRegisterStatus = {
+  open: 'open',
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
 export interface ScheduleEntry {
   id: number;
   courseId: number;
@@ -492,6 +615,11 @@ export interface ScheduleEntry {
   day?: string | null;
   occurrenceDate: string;
   registerMarked: boolean;
+  registerStatus: ScheduleEntryRegisterStatus;
+  /** @nullable */
+  registerUpdatedAt: string | null;
+  /** @nullable */
+  registerSubmittedAt: string | null;
 }
 
 export interface StaffSource {
@@ -891,6 +1019,21 @@ export const ListAttendanceRecordsStatus = {
   excluded: 'excluded',
   distance_learning: 'distance_learning',
 } as const;
+
+export type ListAttendanceRegisterAuditParams = {
+scheduleId: number;
+date: string;
+};
+
+export type ListAttendanceRegisterContactsParams = {
+scheduleId: number;
+date: string;
+};
+
+export type GetAttendanceRegisterStateParams = {
+scheduleId: number;
+date: string;
+};
 
 export type ListTargetsParams = {
 studentId?: number;
