@@ -32,7 +32,7 @@ type ReportId =
   | "ilp-progress" | "ilp-reviews-due" | "ilp-completion"
   | "sg-at-risk" | "sg-planned-absence"
   | "mb-verification-status" | "mb-grades-released";
-type ReportQuery = {
+export type ReportQuery = {
   academicYear?: string;
   dateFrom?: Date;
   dateTo?: Date;
@@ -302,7 +302,7 @@ function filterLabel(query: ReportQuery) {
     .map(([key, value]) => [key, value instanceof Date ? value.toISOString().slice(0, 10) : String(value)]));
 }
 
-type ReportData = { rows: ReportRow[]; asOf: Date | null };
+export type ReportData = { rows: ReportRow[]; asOf: Date | null };
 
 export function registerCompletionFromDetails(
   details: string,
@@ -424,35 +424,31 @@ async function attendanceRows(reportId: ReportId, query: ReportQuery): Promise<R
   }).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-async function registerProgressData(query: ReportQuery): Promise<ReportData> {
-  const [events, enrollments] = await Promise.all([
-    db.select({
-      scheduleId: attendanceRegisterAuditTable.scheduleId,
-      date: attendanceRegisterAuditTable.date,
-      action: attendanceRegisterAuditTable.action,
-      details: attendanceRegisterAuditTable.details,
-      createdAt: attendanceRegisterAuditTable.createdAt,
-      courseId: coursesTable.id,
-      courseName: coursesTable.name,
-      day: scheduleTable.day,
-      startTime: scheduleTable.startTime,
-      endTime: scheduleTable.endTime,
-      staffName: scheduleTable.staffName,
-      registerStatus: attendanceRegistersTable.status,
-    })
-      .from(attendanceRegisterAuditTable)
-      .innerJoin(scheduleTable, eq(attendanceRegisterAuditTable.scheduleId, scheduleTable.id))
-      .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
-      .leftJoin(attendanceRegistersTable, and(
-        eq(attendanceRegistersTable.scheduleId, attendanceRegisterAuditTable.scheduleId),
-        eq(attendanceRegistersTable.date, attendanceRegisterAuditTable.date),
-      )),
-    db.select({
-      courseId: enrollmentsTable.courseId,
-      studentId: enrollmentsTable.studentId,
-    }).from(enrollmentsTable),
-  ]);
+export type RegisterProgressEvent = {
+  scheduleId: number;
+  date: string;
+  action: string;
+  details: string;
+  createdAt: Date;
+  courseId: number;
+  courseName: string;
+  day: string | null;
+  startTime: string;
+  endTime: string;
+  staffName: string | null;
+  registerStatus: string | null;
+};
 
+export type RegisterProgressEnrollment = {
+  courseId: number;
+  studentId: number;
+};
+
+export function buildRegisterProgressData(
+  events: RegisterProgressEvent[],
+  enrollments: RegisterProgressEnrollment[],
+  query: ReportQuery,
+): ReportData {
   const enrolledByCourse = new Map<number, Set<number>>();
   enrollments.forEach(({ courseId, studentId }) => {
     const students = enrolledByCourse.get(courseId) ?? new Set<number>();
@@ -460,13 +456,13 @@ async function registerProgressData(query: ReportQuery): Promise<ReportData> {
     enrolledByCourse.set(courseId, students);
   });
 
-  const latestByOccurrence = new Map<string, typeof events[number]>();
+  const latestByOccurrence = new Map<string, RegisterProgressEvent>();
   events
     .filter((event) => ["saved_draft", "submitted"].includes(event.action.toLowerCase()))
     .forEach((event) => {
-    const key = `${event.scheduleId}:${event.date}`;
-    const current = latestByOccurrence.get(key);
-    if (!current || event.createdAt > current.createdAt) latestByOccurrence.set(key, event);
+      const key = `${event.scheduleId}:${event.date}`;
+      const current = latestByOccurrence.get(key);
+      if (!current || event.createdAt > current.createdAt) latestByOccurrence.set(key, event);
     });
 
   const rows = [...latestByOccurrence.values()]
@@ -510,6 +506,37 @@ async function registerProgressData(query: ReportQuery): Promise<ReportData> {
     rows,
     asOf: latestTimestamp(events.map((event) => event.createdAt)),
   };
+}
+
+async function registerProgressData(query: ReportQuery): Promise<ReportData> {
+  const [events, enrollments] = await Promise.all([
+    db.select({
+      scheduleId: attendanceRegisterAuditTable.scheduleId,
+      date: attendanceRegisterAuditTable.date,
+      action: attendanceRegisterAuditTable.action,
+      details: attendanceRegisterAuditTable.details,
+      createdAt: attendanceRegisterAuditTable.createdAt,
+      courseId: coursesTable.id,
+      courseName: coursesTable.name,
+      day: scheduleTable.day,
+      startTime: scheduleTable.startTime,
+      endTime: scheduleTable.endTime,
+      staffName: scheduleTable.staffName,
+      registerStatus: attendanceRegistersTable.status,
+    })
+      .from(attendanceRegisterAuditTable)
+      .innerJoin(scheduleTable, eq(attendanceRegisterAuditTable.scheduleId, scheduleTable.id))
+      .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
+      .leftJoin(attendanceRegistersTable, and(
+        eq(attendanceRegistersTable.scheduleId, attendanceRegisterAuditTable.scheduleId),
+        eq(attendanceRegistersTable.date, attendanceRegisterAuditTable.date),
+      )),
+    db.select({
+      courseId: enrollmentsTable.courseId,
+      studentId: enrollmentsTable.studentId,
+    }).from(enrollmentsTable),
+  ]);
+  return buildRegisterProgressData(events, enrollments, query);
 }
 
 async function assessmentRows(reportId: ReportId, query: ReportQuery): Promise<ReportRow[]> {
