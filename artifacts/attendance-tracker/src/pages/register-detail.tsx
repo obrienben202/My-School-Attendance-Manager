@@ -299,11 +299,13 @@ export default function RegisterDetail() {
   }
 
   async function handleSave() {
+    if (!scheduleEntry) return;
+    const courseId = scheduleEntry.courseId;
     if (await persistRegister("draft")) {
       trackEvent("attendance_register_draft_saved", {
         location: "/registers/:id",
         schedule_id: id,
-        course_id: scheduleEntry.courseId,
+        course_id: courseId,
         occurrence_at: `${sessionDate}T00:00:00.000Z`,
         has_unmarked_marks: unmarked > 0,
       });
@@ -314,11 +316,13 @@ export default function RegisterDetail() {
   }
 
   async function handleSubmitFinal() {
+    if (!scheduleEntry) return;
+    const courseId = scheduleEntry.courseId;
     if (!(await persistRegister("submitted"))) return;
     trackEvent("attendance_register_submitted", {
       location: "/registers/:id",
       schedule_id: id,
-      course_id: scheduleEntry.courseId,
+      course_id: courseId,
       occurrence_at: `${sessionDate}T00:00:00.000Z`,
       has_unmarked_marks: unmarked > 0,
     });

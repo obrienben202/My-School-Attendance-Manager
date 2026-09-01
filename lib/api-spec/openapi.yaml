@@ -111,6 +111,9 @@ paths:
         - name: status
           in: query
           schema: { type: string }
+        - name: completion
+          in: query
+          schema: { type: string }
       responses:
         "200":
           description: Current report result, including the applied filters and freshness timestamp
@@ -1637,6 +1640,7 @@ components:
         - att-learner
         - att-course
         - att-punctuality
+        - att-register-progress
         - asmt-grade-summary
         - asmt-results
         - asmt-unconfirmed

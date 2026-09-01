@@ -35,7 +35,7 @@ export const GetDashboardSummaryResponse = zod.object({
  * @summary Run a current report for authorised report users
  */
 export const GetReportParams = zod.object({
-  "reportId": zod.enum(['att-overall', 'att-learner', 'att-course', 'att-punctuality', 'asmt-grade-summary', 'asmt-results', 'asmt-unconfirmed', 'ilp-progress', 'ilp-reviews-due', 'ilp-completion', 'sg-at-risk', 'sg-planned-absence', 'mb-verification-status', 'mb-grades-released'])
+  "reportId": zod.enum(['att-overall', 'att-learner', 'att-course', 'att-punctuality', 'att-register-progress', 'asmt-grade-summary', 'asmt-results', 'asmt-unconfirmed', 'ilp-progress', 'ilp-reviews-due', 'ilp-completion', 'sg-at-risk', 'sg-planned-absence', 'mb-verification-status', 'mb-grades-released'])
 })
 
 export const GetReportQueryParams = zod.object({
@@ -48,11 +48,12 @@ export const GetReportQueryParams = zod.object({
   "tutor": zod.coerce.string().optional(),
   "unit": zod.coerce.string().optional(),
   "overdueTo": zod.date().optional(),
-  "status": zod.coerce.string().optional()
+  "status": zod.coerce.string().optional(),
+  "completion": zod.coerce.string().optional()
 })
 
 export const GetReportResponse = zod.object({
-  "reportId": zod.enum(['att-overall', 'att-learner', 'att-course', 'att-punctuality', 'asmt-grade-summary', 'asmt-results', 'asmt-unconfirmed', 'ilp-progress', 'ilp-reviews-due', 'ilp-completion', 'sg-at-risk', 'sg-planned-absence', 'mb-verification-status', 'mb-grades-released']),
+  "reportId": zod.enum(['att-overall', 'att-learner', 'att-course', 'att-punctuality', 'att-register-progress', 'asmt-grade-summary', 'asmt-results', 'asmt-unconfirmed', 'ilp-progress', 'ilp-reviews-due', 'ilp-completion', 'sg-at-risk', 'sg-planned-absence', 'mb-verification-status', 'mb-grades-released']),
   "title": zod.string(),
   "description": zod.string(),
   "columns": zod.array(zod.object({

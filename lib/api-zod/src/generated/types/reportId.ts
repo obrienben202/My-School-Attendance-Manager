@@ -14,6 +14,7 @@ export const ReportId = {
   'att-learner': 'att-learner',
   'att-course': 'att-course',
   'att-punctuality': 'att-punctuality',
+  'att-register-progress': 'att-register-progress',
   'asmt-grade-summary': 'asmt-grade-summary',
   'asmt-results': 'asmt-results',
   'asmt-unconfirmed': 'asmt-unconfirmed',

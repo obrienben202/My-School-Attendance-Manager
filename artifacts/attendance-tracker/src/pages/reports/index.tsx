@@ -18,6 +18,7 @@ import {
 import {
   FileText, Folder, FolderOpen, Search, Clock, ChevronRight,
   Printer, Mail, Eye, Filter, ChevronDown, ChevronUp, X, Download,
+  ShieldCheck, Save, Send,
 } from "lucide-react";
 
 // ─── Reference data ────────────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ type FilterField = {
 const FOLDER_STRUCTURE: { name: string; reports: ReportId[] }[] = [
   {
     name: "Attendance",
-    reports: ["att-overall", "att-learner", "att-course", "att-punctuality"],
+    reports: ["att-register-progress", "att-overall", "att-learner", "att-course", "att-punctuality"],
   },
   {
     name: "Assessments",
@@ -63,6 +64,21 @@ const FOLDER_STRUCTURE: { name: string; reports: ReportId[] }[] = [
 ];
 
 const REPORTS: ReportDef[] = [
+  {
+    id: "att-register-progress",
+    name: "Register Completion Overview",
+    folder: "Attendance",
+    description: "Aggregated register save activity showing which saved registers still need completion.",
+    filters: [
+      { key: "dateFrom", label: "Date From", type: "date" },
+      { key: "dateTo", label: "Date To", type: "date" },
+      { key: "course", label: "Course", type: "text" },
+      { key: "status", label: "Save Outcome", type: "select", options: ["All save outcomes", "Draft", "Submitted"] },
+      { key: "completion", label: "Marking State", type: "select", options: ["All marking states", "Unmarked rows", "Fully marked"] },
+    ],
+    columns: ["Course", "Session Date", "Session", "Staff", "Latest Save", "Completion", "Last Saved"],
+    sampleRows: [],
+  },
   {
     id: "att-overall",
     name: "Overall Attendance Summary",
@@ -334,6 +350,14 @@ export default function ManageReports() {
     },
   );
   const reportResult = runRequest?.reportId === activeReport?.id ? reportQuery.data : undefined;
+  const registerProgressSummary = activeReport?.id === "att-register-progress" && reportResult
+    ? {
+        drafts: reportResult.rows.filter((row) => row[4] === "Draft saved").length,
+        submissions: reportResult.rows.filter((row) => row[4] === "Final submitted").length,
+        unmarked: reportResult.rows.filter((row) => row[5] === "Unmarked rows").length,
+        fullyMarked: reportResult.rows.filter((row) => row[5] === "Fully marked").length,
+      }
+    : null;
   const filtersChanged = Boolean(
     reportResult && JSON.stringify(runRequest?.filters) !== JSON.stringify(requestFilters(filterValues)),
   );
@@ -664,6 +688,21 @@ export default function ManageReports() {
                 </div>
               </div>
 
+              {activeReport.id === "att-register-progress" && (
+                <div className="mx-6 mt-4 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+                  <div className="flex items-start gap-2">
+                    <ShieldCheck size={16} className="mt-0.5 shrink-0 text-teal-700" />
+                    <div>
+                      <p className="font-semibold">Privacy-safe aggregated register data</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-teal-800">
+                        This view uses register-level save outcomes only. It does not expose learner names,
+                        individual attendance marks, or free-form notes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Report actions + results */}
               {reportQuery.isError && runRequest?.reportId === activeReport.id ? (
                 <div className="m-6 rounded-lg border border-red-200 bg-red-50 px-4 py-5 text-sm text-red-800">
@@ -672,6 +711,24 @@ export default function ManageReports() {
                 </div>
               ) : reportResult ? (
                 <>
+                  {registerProgressSummary && (
+                    <div className="grid grid-cols-2 gap-3 px-6 py-4 lg:grid-cols-4">
+                      {[
+                        { label: "Draft saved", count: registerProgressSummary.drafts, icon: Save, style: "border-blue-200 bg-blue-50 text-blue-800" },
+                        { label: "Final submitted", count: registerProgressSummary.submissions, icon: Send, style: "border-green-200 bg-green-50 text-green-800" },
+                        { label: "With unmarked rows", count: registerProgressSummary.unmarked, icon: Clock, style: "border-amber-200 bg-amber-50 text-amber-800" },
+                        { label: "Fully marked", count: registerProgressSummary.fullyMarked, icon: ShieldCheck, style: "border-teal-200 bg-teal-50 text-teal-800" },
+                      ].map(({ label, count, icon: Icon, style }) => (
+                        <div key={label} className={`rounded-lg border p-3 ${style}`}>
+                          <div className="flex items-center gap-2">
+                            <Icon size={15} />
+                            <span className="text-xs font-semibold">{label}</span>
+                          </div>
+                          <p className="mt-2 text-2xl font-bold">{count}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-2">
                     <span className="text-xs text-gray-600 font-medium">{reportResult.rowCount} record{reportResult.rowCount !== 1 ? "s" : ""}</span>
                     <span className="text-xs text-gray-400">
@@ -742,6 +799,8 @@ export default function ManageReports() {
                               <td key={ci} className={`px-4 py-2 text-gray-700 ${
                                 cell.endsWith("%") && parseFloat(cell) < 80 && reportResult.columns[ci]?.label.includes("%")
                                   ? "text-red-600 font-semibold"
+                                   : reportResult.columns[ci]?.key === "completion" && cell === "Unmarked rows"
+                                     ? "text-amber-700 font-semibold"
                                   : ""
                               }`}>{cell}</td>
                             ))}

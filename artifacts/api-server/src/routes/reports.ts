@@ -2,6 +2,8 @@ import { Router, type Request, type Response } from "express";
 import { and, eq, ilike } from "drizzle-orm";
 import {
   attendanceTable,
+  attendanceRegisterAuditTable,
+  attendanceRegistersTable,
   assessmentResultsTable,
   assessmentsTable,
   coursesTable,
@@ -25,7 +27,7 @@ const router = Router();
 type ReportColumn = { key: string; label: string };
 type ReportRow = string[];
 type ReportId =
-  | "att-overall" | "att-learner" | "att-course" | "att-punctuality"
+  | "att-overall" | "att-learner" | "att-course" | "att-punctuality" | "att-register-progress"
   | "asmt-grade-summary" | "asmt-results" | "asmt-unconfirmed"
   | "ilp-progress" | "ilp-reviews-due" | "ilp-completion"
   | "sg-at-risk" | "sg-planned-absence"
@@ -41,6 +43,7 @@ type ReportQuery = {
   unit?: string;
   overdueTo?: Date;
   status?: string;
+  completion?: string;
 };
 
 export const REPORT_META: Record<ReportId, {
@@ -83,6 +86,16 @@ export const REPORT_META: Record<ReportId, {
       { key: "learner", label: "Learner" }, { key: "personCode", label: "Person Code" },
       { key: "course", label: "Course" }, { key: "totalSessions", label: "Total Sessions" },
       { key: "lateSessions", label: "Late Sessions" }, { key: "latePercent", label: "Late %" },
+    ],
+  },
+  "att-register-progress": {
+    title: "Register Completion Overview",
+    description: "Aggregated register save activity showing which saved registers still need completion.",
+    columns: [
+      { key: "course", label: "Course" }, { key: "sessionDate", label: "Session Date" },
+      { key: "session", label: "Session" }, { key: "staff", label: "Staff" },
+      { key: "latestSave", label: "Latest Save" }, { key: "completion", label: "Completion" },
+      { key: "lastSaved", label: "Last Saved" },
     ],
   },
   "asmt-grade-summary": {
@@ -186,6 +199,7 @@ const FILTERS_BY_REPORT: Record<ReportId, Set<keyof ReportQuery>> = {
   "att-learner": new Set(["academicYear", "surname", "course", "dateFrom", "dateTo"]),
   "att-course": new Set(["course", "dateFrom", "dateTo"]),
   "att-punctuality": new Set(["academicYear", "threshold"]),
+  "att-register-progress": new Set(["dateFrom", "dateTo", "course", "status", "completion"]),
   "asmt-grade-summary": new Set(["course", "academicYear"]),
   "asmt-results": new Set(["course", "unit", "academicYear"]),
   "asmt-unconfirmed": new Set(["tutor", "course"]),
@@ -221,6 +235,7 @@ export function parseQuery(req: Request, reportId: ReportId): { data?: ReportQue
     unit: queryValue(req.query, "unit"),
     overdueTo: queryValue(req.query, "overdueTo"),
     status: queryValue(req.query, "status"),
+    completion: queryValue(req.query, "completion"),
   };
   const knownKeys = new Set(Object.keys(raw));
   const unknownKey = Object.keys(req.query).find((key) => !knownKeys.has(key));
@@ -246,8 +261,14 @@ export function parseQuery(req: Request, reportId: ReportId): { data?: ReportQue
       : /^(70|75|80)%$/.test(raw.threshold);
     if (!validThreshold) return { error: "Invalid threshold for this report" };
   }
-  if (raw.status && !["all", "awaiting decision", "approved", "declined"].includes(raw.status.toLowerCase())) {
+  if (raw.status && reportId === "sg-planned-absence" && !["all", "awaiting decision", "approved", "declined"].includes(raw.status.toLowerCase())) {
     return { error: "Invalid planned absence status" };
+  }
+  if (raw.status && reportId === "att-register-progress" && !["all", "draft", "submitted"].includes(raw.status.toLowerCase())) {
+    return { error: "Invalid register save status" };
+  }
+  if (raw.completion && reportId === "att-register-progress" && !["all", "unmarked", "unmarked rows", "fully marked"].includes(raw.completion.toLowerCase())) {
+    return { error: "Invalid register completion filter" };
   }
   for (const [key, value] of Object.entries(raw)) {
     if (typeof value === "string" && value.length > 200) return { error: `${key} is too long` };
@@ -256,7 +277,7 @@ export function parseQuery(req: Request, reportId: ReportId): { data?: ReportQue
     data: {
       academicYear: raw.academicYear || undefined, dateFrom, dateTo, course: raw.course || undefined,
       surname: raw.surname || undefined, threshold: raw.threshold || undefined, tutor: raw.tutor || undefined,
-      unit: raw.unit || undefined, overdueTo, status: raw.status || undefined,
+      unit: raw.unit || undefined, overdueTo, status: raw.status || undefined, completion: raw.completion || undefined,
     },
   };
 }
@@ -282,6 +303,15 @@ function filterLabel(query: ReportQuery) {
 }
 
 type ReportData = { rows: ReportRow[]; asOf: Date | null };
+
+export function registerCompletionFromDetails(
+  details: string,
+  enrolledCount: number,
+): "Unmarked rows" | "Fully marked" | null {
+  const markedCount = Number(details.match(/(\d+)\s+learner mark/)?.[1]);
+  if (!Number.isFinite(markedCount)) return null;
+  return markedCount === enrolledCount ? "Fully marked" : "Unmarked rows";
+}
 
 export function latestTimestamp(values: Array<Date | null | undefined>): Date | null {
   return values.reduce<Date | null>((latest, value) => {
@@ -392,6 +422,94 @@ async function attendanceRows(reportId: ReportId, query: ReportQuery): Promise<R
       percentage(present + late, group.length),
     ];
   }).sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+async function registerProgressData(query: ReportQuery): Promise<ReportData> {
+  const [events, enrollments] = await Promise.all([
+    db.select({
+      scheduleId: attendanceRegisterAuditTable.scheduleId,
+      date: attendanceRegisterAuditTable.date,
+      action: attendanceRegisterAuditTable.action,
+      details: attendanceRegisterAuditTable.details,
+      createdAt: attendanceRegisterAuditTable.createdAt,
+      courseId: coursesTable.id,
+      courseName: coursesTable.name,
+      day: scheduleTable.day,
+      startTime: scheduleTable.startTime,
+      endTime: scheduleTable.endTime,
+      staffName: scheduleTable.staffName,
+      registerStatus: attendanceRegistersTable.status,
+    })
+      .from(attendanceRegisterAuditTable)
+      .innerJoin(scheduleTable, eq(attendanceRegisterAuditTable.scheduleId, scheduleTable.id))
+      .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
+      .leftJoin(attendanceRegistersTable, and(
+        eq(attendanceRegistersTable.scheduleId, attendanceRegisterAuditTable.scheduleId),
+        eq(attendanceRegistersTable.date, attendanceRegisterAuditTable.date),
+      )),
+    db.select({
+      courseId: enrollmentsTable.courseId,
+      studentId: enrollmentsTable.studentId,
+    }).from(enrollmentsTable),
+  ]);
+
+  const enrolledByCourse = new Map<number, Set<number>>();
+  enrollments.forEach(({ courseId, studentId }) => {
+    const students = enrolledByCourse.get(courseId) ?? new Set<number>();
+    students.add(studentId);
+    enrolledByCourse.set(courseId, students);
+  });
+
+  const latestByOccurrence = new Map<string, typeof events[number]>();
+  events
+    .filter((event) => ["saved_draft", "submitted"].includes(event.action.toLowerCase()))
+    .forEach((event) => {
+    const key = `${event.scheduleId}:${event.date}`;
+    const current = latestByOccurrence.get(key);
+    if (!current || event.createdAt > current.createdAt) latestByOccurrence.set(key, event);
+    });
+
+  const rows = [...latestByOccurrence.values()]
+    .map((event) => {
+      const completion = registerCompletionFromDetails(
+        event.details,
+        enrolledByCourse.get(event.courseId)?.size ?? 0,
+      );
+      const isSubmitted = event.registerStatus?.toLowerCase() === "submitted";
+      return {
+        event,
+        completion,
+        latestSave: isSubmitted ? "Final submitted" : "Draft saved",
+      };
+    })
+    .filter(({ event, completion, latestSave }) =>
+      dateInRange(event.date, query)
+      && filterText(event.courseName, query.course)
+      && (!query.status || query.status.toLowerCase() === "all"
+        || (query.status.toLowerCase() === "submitted" ? latestSave === "Final submitted" : latestSave === "Draft saved"))
+      && (!query.completion || query.completion.toLowerCase() === "all"
+        || query.completion.toLowerCase() === completion?.toLowerCase()
+        || (query.completion.toLowerCase() === "unmarked" && completion === "Unmarked rows")),
+    )
+    .sort((a, b) =>
+      a.event.date.localeCompare(b.event.date)
+      || a.event.courseName.localeCompare(b.event.courseName)
+      || a.event.startTime.localeCompare(b.event.startTime),
+    )
+    .map(({ event, completion, latestSave }) => [
+      event.courseName,
+      event.date,
+      `${event.day ?? "Session"} ${event.startTime}–${event.endTime}`,
+      event.staffName ?? "Unassigned",
+      latestSave,
+      completion ?? "Not available",
+      event.createdAt.toISOString(),
+    ]);
+
+  return {
+    rows,
+    asOf: latestTimestamp(events.map((event) => event.createdAt)),
+  };
 }
 
 async function assessmentRows(reportId: ReportId, query: ReportQuery): Promise<ReportRow[]> {
@@ -766,7 +884,8 @@ router.get("/reports/:reportId", async (req: Request, res: Response) => {
   const generatedAt = new Date();
   let rows: ReportRow[];
   let asOf: Date | null = null;
-  if (reportId.startsWith("att-")) rows = await attendanceRows(reportId, query);
+  if (reportId === "att-register-progress") ({ rows, asOf } = await registerProgressData(query));
+  else if (reportId.startsWith("att-")) rows = await attendanceRows(reportId, query);
   else if (reportId === "asmt-unconfirmed") ({ rows, asOf } = await unconfirmedAssessmentData(query));
   else if (reportId.startsWith("asmt-")) rows = await assessmentRows(reportId, query);
   else if (reportId === "ilp-progress" || reportId === "ilp-reviews-due" || reportId === "ilp-completion") {

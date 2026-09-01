@@ -17,4 +17,5 @@ tutor?: string;
 unit?: string;
 overdueTo?: Date;
 status?: string;
+completion?: string;
 };

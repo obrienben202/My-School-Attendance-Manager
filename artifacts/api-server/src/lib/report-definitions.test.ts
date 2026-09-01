@@ -6,6 +6,7 @@ import {
   latestTimestamp,
   latestIlpPerStudent,
   isProgressRisk,
+  registerCompletionFromDetails,
   REPORT_META,
 } from "../routes/reports";
 
@@ -16,6 +17,7 @@ const newlyBackedReports = [
   "ilp-completion",
   "sg-at-risk",
   "mb-grades-released",
+  "att-register-progress",
 ] as const;
 
 test("all formerly unavailable report definitions now declare real result columns", () => {
@@ -66,4 +68,10 @@ test("review ageing and report freshness use stable date calculations", () => {
   const newer = new Date("2026-09-01T10:30:00Z");
   assert.equal(latestTimestamp([older, null, newer])?.toISOString(), newer.toISOString());
   assert.equal(latestTimestamp([]), null);
+});
+
+test("register completion uses only aggregate marked and enrolled counts", () => {
+  assert.equal(registerCompletionFromDetails("Saved draft with 3 learner marks", 5), "Unmarked rows");
+  assert.equal(registerCompletionFromDetails("Submitted 5 learner marks", 5), "Fully marked");
+  assert.equal(registerCompletionFromDetails("Legacy audit message", 5), null);
 });
