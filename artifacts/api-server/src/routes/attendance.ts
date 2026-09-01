@@ -15,6 +15,7 @@ import {
   ListAttendanceRecordsQueryParams,
   ListAttendanceRegisterAuditQueryParams,
   ListAttendanceRegisterContactsQueryParams,
+  ListAttendanceRegisterRosterQueryParams,
   GetAttendanceRegisterStateQueryParams,
   CreateAttendanceRecordBody,
   SubmitAttendanceRegisterBody,
@@ -30,9 +31,22 @@ import {
   resolveAttendanceRegisterStatus,
   SubmittedRegisterLockedError,
 } from "../lib/attendance-register";
-import { attendanceDateMatchesScheduleDay } from "../lib/schedule-day";
+import {
+  attendanceDateMatchesScheduleDay,
+  formatAttendanceDateOnly,
+  parseAttendanceDateOnly,
+} from "../lib/schedule-day";
 
 const router = Router();
+
+function withStrictDateOnly(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const record = body as Record<string, unknown>;
+  return {
+    ...record,
+    date: parseAttendanceDateOnly(record.date),
+  };
+}
 
 async function getScheduleAssignment(scheduleId: number) {
   const [assignment] = await db
@@ -63,6 +77,24 @@ async function getEnrolledStudentIds(courseId: number, studentIds: number[]) {
   return new Set(enrollments.map(enrollment => enrollment.studentId));
 }
 
+async function getManageableScheduleIds(user: NonNullable<Express.Request["user"]>) {
+  if (user.role === "admin" || user.role === "hod") return null;
+
+  const schedules = await db
+    .select({
+      id: scheduleTable.id,
+      scheduleStaffName: scheduleTable.staffName,
+      courseStaffName: coursesTable.staffName,
+    })
+    .from(scheduleTable)
+    .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
+    .where(eq(coursesTable.isActive, true));
+
+  return schedules
+    .filter(schedule => canManageAttendanceSchedule(user, schedule))
+    .map(schedule => schedule.id);
+}
+
 router.use("/attendance", (req, res, next) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: "Authentication required" });
@@ -72,7 +104,7 @@ router.use("/attendance", (req, res, next) => {
 
 router.get("/attendance", async (req, res) => {
   const queryDate = typeof req.query.date === "string"
-    ? new Date(`${req.query.date}T00:00:00`)
+    ? parseAttendanceDateOnly(req.query.date)
     : req.query.date;
   const parsed = ListAttendanceRecordsQueryParams.safeParse({
     ...req.query,
@@ -86,8 +118,20 @@ router.get("/attendance", async (req, res) => {
   if (studentId) conditions.push(eq(attendanceTable.studentId, studentId));
   if (courseId) conditions.push(eq(attendanceTable.courseId, courseId));
   if (scheduleId !== undefined) conditions.push(eq(attendanceTable.scheduleId, scheduleId));
-  if (date) conditions.push(eq(attendanceTable.date, date instanceof Date ? date.toISOString().split("T")[0] : date));
+  if (date) conditions.push(eq(attendanceTable.date, formatAttendanceDateOnly(date)));
   if (status) conditions.push(eq(attendanceTable.status, status));
+
+  const manageableScheduleIds = await getManageableScheduleIds(req.user!);
+  if (manageableScheduleIds !== null) {
+    if (scheduleId !== undefined && !manageableScheduleIds.includes(scheduleId)) {
+      res.status(403).json({ error: "You are not assigned to this lesson register" });
+      return;
+    }
+    if (scheduleId === undefined) {
+      if (manageableScheduleIds.length === 0) return res.json([]);
+      conditions.push(inArray(attendanceTable.scheduleId, manageableScheduleIds));
+    }
+  }
 
   const records = await db
     .select({
@@ -117,8 +161,51 @@ router.get("/attendance", async (req, res) => {
   })));
 });
 
+router.get("/attendance/register/roster", async (req, res) => {
+  const queryDate = typeof req.query.date === "string"
+    ? parseAttendanceDateOnly(req.query.date)
+    : req.query.date;
+  const parsed = ListAttendanceRegisterRosterQueryParams.safeParse({
+    ...req.query,
+    date: queryDate,
+  });
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid register occurrence" });
+    return;
+  }
+
+  const schedule = await getScheduleAssignment(parsed.data.scheduleId);
+  if (!schedule) {
+    res.status(404).json({ error: "Schedule session not found" });
+    return;
+  }
+  if (!attendanceDateMatchesScheduleDay(parsed.data.date, schedule.scheduleDay)) {
+    res.status(400).json({ error: "Attendance date does not match the schedule day" });
+    return;
+  }
+  if (!canManageAttendanceSchedule(req.user!, schedule)) {
+    res.status(403).json({ error: "You are not assigned to this lesson register" });
+    return;
+  }
+
+  const students = await db
+    .select({
+      id: studentsTable.id,
+      personCode: studentsTable.personCode,
+      forename: studentsTable.forename,
+      surname: studentsTable.surname,
+      atRisk: studentsTable.atRisk,
+    })
+    .from(enrollmentsTable)
+    .innerJoin(studentsTable, eq(enrollmentsTable.studentId, studentsTable.id))
+    .where(eq(enrollmentsTable.courseId, schedule.courseId))
+    .orderBy(studentsTable.surname, studentsTable.forename);
+
+  res.json(students);
+});
+
 router.post("/attendance", async (req, res) => {
-  const parsed = CreateAttendanceRecordBody.safeParse(req.body);
+  const parsed = CreateAttendanceRecordBody.safeParse(withStrictDateOnly(req.body));
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
   const { date, scheduleId, ...restAttendance } = parsed.data;
@@ -137,7 +224,7 @@ router.post("/attendance", async (req, res) => {
     return res.status(400).json({ error: "Learner is not enrolled on this lesson's course" });
   }
 
-  const attendanceDate = date instanceof Date ? date.toISOString().split("T")[0] : date;
+  const attendanceDate = formatAttendanceDateOnly(date);
   let record;
   try {
     [record] = await db.transaction(async (tx) => {
@@ -180,7 +267,7 @@ router.post("/attendance", async (req, res) => {
 });
 
 router.post("/attendance/register", async (req, res) => {
-  const parsed = SubmitAttendanceRegisterBody.safeParse(req.body);
+  const parsed = SubmitAttendanceRegisterBody.safeParse(withStrictDateOnly(req.body));
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
   const { scheduleId, date, status, marks } = parsed.data;
@@ -202,7 +289,7 @@ router.post("/attendance/register", async (req, res) => {
     return res.status(400).json({ error: "Every learner must be enrolled on this lesson's course" });
   }
 
-  const attendanceDate = date.toISOString().split("T")[0];
+  const attendanceDate = formatAttendanceDateOnly(date);
   const now = new Date();
   let result;
   try {
@@ -286,7 +373,7 @@ router.post("/attendance/register", async (req, res) => {
 
 router.get("/attendance/register/audit", async (req, res) => {
   const queryDate = typeof req.query.date === "string"
-    ? new Date(`${req.query.date}T00:00:00`)
+    ? parseAttendanceDateOnly(req.query.date)
     : req.query.date;
   const parsed = ListAttendanceRegisterAuditQueryParams.safeParse({
     ...req.query,
@@ -296,11 +383,14 @@ router.get("/attendance/register/audit", async (req, res) => {
 
   const schedule = await getScheduleAssignment(parsed.data.scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!attendanceDateMatchesScheduleDay(parsed.data.date, schedule.scheduleDay)) {
+    return res.status(400).json({ error: "Attendance date does not match the schedule day" });
+  }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
     return res.status(403).json({ error: "You are not assigned to this lesson register" });
   }
 
-  const attendanceDate = parsed.data.date.toISOString().split("T")[0];
+  const attendanceDate = formatAttendanceDateOnly(parsed.data.date);
   const records = await db
     .select({
       id: attendanceRegisterAuditTable.id,
@@ -336,7 +426,7 @@ router.get("/attendance/register/audit", async (req, res) => {
 
 router.get("/attendance/register/contacts", async (req, res) => {
   const queryDate = typeof req.query.date === "string"
-    ? new Date(`${req.query.date}T00:00:00`)
+    ? parseAttendanceDateOnly(req.query.date)
     : req.query.date;
   const parsed = ListAttendanceRegisterContactsQueryParams.safeParse({
     ...req.query,
@@ -346,6 +436,9 @@ router.get("/attendance/register/contacts", async (req, res) => {
 
   const schedule = await getScheduleAssignment(parsed.data.scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!attendanceDateMatchesScheduleDay(parsed.data.date, schedule.scheduleDay)) {
+    return res.status(400).json({ error: "Attendance date does not match the schedule day" });
+  }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
     return res.status(403).json({ error: "You are not assigned to this lesson register" });
   }
@@ -363,7 +456,7 @@ router.get("/attendance/register/contacts", async (req, res) => {
 
 router.get("/attendance/register/state", async (req, res) => {
   const queryDate = typeof req.query.date === "string"
-    ? new Date(`${req.query.date}T00:00:00`)
+    ? parseAttendanceDateOnly(req.query.date)
     : req.query.date;
   const parsed = GetAttendanceRegisterStateQueryParams.safeParse({
     ...req.query,
@@ -373,11 +466,14 @@ router.get("/attendance/register/state", async (req, res) => {
 
   const schedule = await getScheduleAssignment(parsed.data.scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!attendanceDateMatchesScheduleDay(parsed.data.date, schedule.scheduleDay)) {
+    return res.status(400).json({ error: "Attendance date does not match the schedule day" });
+  }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
     return res.status(403).json({ error: "You are not assigned to this lesson register" });
   }
 
-  const attendanceDate = parsed.data.date.toISOString().split("T")[0];
+  const attendanceDate = formatAttendanceDateOnly(parsed.data.date);
   const [register] = await db
     .select()
     .from(attendanceRegistersTable)
@@ -407,17 +503,20 @@ router.get("/attendance/register/state", async (req, res) => {
 });
 
 router.post("/attendance/register/reopen", async (req, res) => {
-  const parsed = ReopenAttendanceRegisterBody.safeParse(req.body);
+  const parsed = ReopenAttendanceRegisterBody.safeParse(withStrictDateOnly(req.body));
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
   const { scheduleId, date } = parsed.data;
   const schedule = await getScheduleAssignment(scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
+  if (!attendanceDateMatchesScheduleDay(date, schedule.scheduleDay)) {
+    return res.status(400).json({ error: "Attendance date does not match the schedule day" });
+  }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
     return res.status(403).json({ error: "You are not assigned to this lesson register" });
   }
 
-  const attendanceDate = date.toISOString().split("T")[0];
+  const attendanceDate = formatAttendanceDateOnly(date);
   const now = new Date();
   const register = await db.transaction(async (tx) => {
     await tx.execute(sql`

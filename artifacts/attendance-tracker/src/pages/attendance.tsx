@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { useGetTodaySchedule, useListCourses } from "@workspace/api-client-react";
+import { useGetTodaySchedule } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,15 +11,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardList, ChevronUp, ChevronDown, PenSquare, Edit } from "lucide-react";
+import { ClipboardList, ChevronUp, ChevronDown, PenSquare, Edit, AlertTriangle, RefreshCw, Users } from "lucide-react";
+import { formatDateOnly } from "@/lib/date-only";
+import { useRole } from "@/hooks/use-role";
+import { hasOnlyEmptyRosters, resolveRegisterListState } from "@/lib/register-list-state";
 
-type RegisterStatus = "Open" | "Marked" | "Submitted";
+type RegisterStatus = "Open" | "Saved" | "Submitted";
 type SortField = "description" | "date" | "day" | "time" | "room" | "status";
 type SortDir = "asc" | "desc";
 
 const STATUS_STYLES: Record<RegisterStatus, string> = {
   Open:      "bg-amber-100 text-amber-700 border-amber-200",
-  Marked:    "bg-blue-100 text-blue-700 border-blue-200",
+  Saved:     "bg-blue-100 text-blue-700 border-blue-200",
   Submitted: "bg-green-100 text-green-700 border-green-200",
 };
 
@@ -29,17 +32,22 @@ export default function ERegisters() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sort, setSort] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const role = useRole();
 
-  const { data: courses = [], isLoading } = useListCourses();
-  const { data: schedule = [], isLoading: isScheduleLoading } = useGetTodaySchedule();
+  const {
+    data: schedule = [],
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useGetTodaySchedule();
 
   const registers = useMemo(() => {
     return schedule.map((entry) => {
-      const course = courses.find((c) => c.id === entry.courseId);
       const status: RegisterStatus = entry.registerStatus === "submitted"
         ? "Submitted"
         : entry.registerStatus === "draft"
-          ? "Marked"
+          ? "Saved"
           : "Open";
 
       return {
@@ -51,13 +59,13 @@ export default function ERegisters() {
         day: entry.day ?? "Not provided",
         startTime: entry.startTime,
         endTime: entry.endTime,
-        room: entry.room ?? course?.room ?? "Not provided",
-        staff: entry.staffName ?? course?.staffName ?? "TBC",
+        room: entry.room ?? "Not provided",
+        staff: entry.staffName ?? "TBC",
         status: status as RegisterStatus,
-        enrolled: course?.enrolledCount ?? 0,
+        enrolled: entry.enrolledCount,
       };
     });
-  }, [schedule, courses]);
+  }, [schedule]);
 
   function registerPath(id: number, occurrenceDate: string) {
     return `/registers/${id}?date=${encodeURIComponent(occurrenceDate)}`;
@@ -102,8 +110,14 @@ export default function ERegisters() {
   }
 
   const open = registers.filter((r) => r.status === "Open").length;
-  const marked = registers.filter((r) => r.status === "Marked").length;
+  const saved = registers.filter((r) => r.status === "Saved").length;
   const submitted = registers.filter((r) => r.status === "Submitted").length;
+  const listState = resolveRegisterListState({
+    isLoading,
+    isError,
+    registerCount: registers.length,
+    filteredCount: filtered.length,
+  });
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -119,7 +133,7 @@ export default function ERegisters() {
       <div className="grid grid-cols-3 gap-4 mb-5">
         {[
           { label: "Open (Due)", count: open, style: "bg-amber-50 border-amber-200 text-amber-700" },
-          { label: "Marked (Saved)", count: marked, style: "bg-blue-50 border-blue-200 text-blue-700" },
+          { label: "Saved (Draft)", count: saved, style: "bg-blue-50 border-blue-200 text-blue-700" },
           { label: "Submitted (Final)", count: submitted, style: "bg-green-50 border-green-200 text-green-700" },
         ].map(({ label, count, style }) => (
           <div key={label} className={`border rounded-lg p-4 flex items-center gap-3 ${style}`}>
@@ -147,25 +161,81 @@ export default function ERegisters() {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="Open">Open</SelectItem>
-            <SelectItem value="Marked">Marked</SelectItem>
+            <SelectItem value="Saved">Saved</SelectItem>
             <SelectItem value="Submitted">Submitted</SelectItem>
           </SelectContent>
         </Select>
         <span className="text-xs text-gray-400 ml-auto">{filtered.length} register{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
+      {listState === "ready" && hasOnlyEmptyRosters(registers) && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+          <Users className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">No enrolled learners found</p>
+            <p className="text-xs">
+              These lessons are assigned, but their courses do not currently have enrolment records. Ask an administrator to check the course data before marking.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Registers table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {isLoading || isScheduleLoading ? (
+        {listState === "loading" ? (
           <div className="p-6 space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-8 w-full" />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-14 flex flex-col items-center text-gray-400">
+        ) : listState === "error" ? (
+          <div className="p-14 flex flex-col items-center text-center">
+            <AlertTriangle className="w-12 h-12 mb-4 text-red-300" />
+            <p className="text-sm font-semibold text-red-700">Registers could not be loaded</p>
+            <p className="mt-1 max-w-md text-xs text-gray-500">
+              Check your connection and try again. If the problem continues, ask an administrator to verify the timetable service.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-4 gap-1.5"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+              {isFetching ? "Trying again…" : "Try again"}
+            </Button>
+          </div>
+        ) : listState === "no-assigned-lessons" ? (
+          <div className="p-14 flex flex-col items-center text-center text-gray-500">
+            <ClipboardList className="w-12 h-12 mb-4 text-gray-300" />
+            <p className="text-sm font-semibold text-gray-700">
+              {role === "admin" || role === "hod" ? "No active timetable lessons found" : "No timetable lessons are assigned to you"}
+            </p>
+            <p className="mt-1 max-w-md text-xs">
+              {role === "admin" || role === "hod"
+                ? "Add or activate timetable lessons before attendance registers can be opened."
+                : "Ask an administrator to check that your staff name matches the lesson or course assignment."}
+            </p>
+          </div>
+        ) : listState === "filter-empty" ? (
+          <div className="p-14 flex flex-col items-center text-center text-gray-500">
             <ClipboardList className="w-12 h-12 mb-4 opacity-20" />
-            <p className="text-sm">No eRegisters found matching your filter.</p>
+            <p className="text-sm font-semibold text-gray-700">No registers match these filters</p>
+            <p className="mt-1 text-xs">Clear the search and status filters to see your assigned lessons.</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => {
+                setFilter("");
+                setStatusFilter("all");
+              }}
+            >
+              Clear filters
+            </Button>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -210,7 +280,7 @@ export default function ERegisters() {
                       <div className="text-xs text-gray-400">{r.staff}</div>
                     </td>
                     <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap text-xs">
-                      {new Date(r.date).toLocaleDateString("en-GB")}
+                      {formatDateOnly(r.date)}
                     </td>
                     <td className="px-4 py-2.5 text-gray-600 text-xs">{r.day}</td>
                     <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap text-xs font-mono">

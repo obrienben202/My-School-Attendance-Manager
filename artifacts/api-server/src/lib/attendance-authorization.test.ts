@@ -3,9 +3,14 @@ import test from "node:test";
 import type { AuthUser } from "@workspace/api-zod";
 import {
   canManageAttendanceSchedule,
+  filterManageableAttendanceSchedules,
   isStaffAssignedToSchedule,
 } from "./attendance-authorization";
-import { attendanceDateMatchesScheduleDay } from "./schedule-day";
+import {
+  attendanceDateMatchesScheduleDay,
+  formatAttendanceDateOnly,
+  parseAttendanceDateOnly,
+} from "./schedule-day";
 
 function user(overrides: Partial<AuthUser> = {}): AuthUser {
   return {
@@ -101,6 +106,35 @@ test("office users do not receive a privileged mutation exception", () => {
   );
 });
 
+test("staff register feeds contain only assigned schedule overrides or course fallbacks", () => {
+  const schedules = [
+    {
+      id: 1,
+      scheduleStaffName: "Mr Ben O'Brien",
+      courseStaffName: "Mrs Claire Jones",
+    },
+    {
+      id: 2,
+      scheduleStaffName: null,
+      courseStaffName: "Mr Ben O'Brien",
+    },
+    {
+      id: 3,
+      scheduleStaffName: "Mr Matthew Shaper",
+      courseStaffName: "Mr Ben O'Brien",
+    },
+  ];
+
+  assert.deepEqual(
+    filterManageableAttendanceSchedules(user(), schedules).map(schedule => schedule.id),
+    [1, 2],
+  );
+  assert.deepEqual(
+    filterManageableAttendanceSchedules(user({ role: "hod" }), schedules).map(schedule => schedule.id),
+    [1, 2, 3],
+  );
+});
+
 test("attendance dates are accepted when they match the timetable day", () => {
   assert.equal(
     attendanceDateMatchesScheduleDay(new Date("2026-08-24T00:00:00.000Z"), " Monday "),
@@ -131,4 +165,16 @@ test("attendance dates remain accepted when a timetable day is missing", () => {
     attendanceDateMatchesScheduleDay(new Date("2026-08-25T00:00:00.000Z"), " "),
     true,
   );
+});
+
+test("date-only parsing is UTC-stable and rejects impossible calendar dates", () => {
+  const date = parseAttendanceDateOnly("2026-08-24");
+  assert.ok(date);
+  assert.equal(date.toISOString(), "2026-08-24T00:00:00.000Z");
+  assert.equal(formatAttendanceDateOnly(date), "2026-08-24");
+  assert.equal(parseAttendanceDateOnly("2026-02-30"), undefined);
+  assert.equal(parseAttendanceDateOnly("24/08/2026"), undefined);
+  assert.equal(parseAttendanceDateOnly("2026-08-24T00:00:00Z"), undefined);
+  assert.equal(parseAttendanceDateOnly("2026-08-24T01:00:00+01:00"), undefined);
+  assert.equal(parseAttendanceDateOnly(1787529600000), undefined);
 });

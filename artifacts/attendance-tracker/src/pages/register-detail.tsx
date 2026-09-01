@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import {
   useGetTodaySchedule,
   useGetAttendanceRegisterState,
   useListAttendanceRecords,
   useListAttendanceRegisterAudit,
   useListAttendanceRegisterContacts,
+  useListAttendanceRegisterRoster,
   useListCourses,
   useReopenAttendanceRegister,
   useSubmitAttendanceRegister,
@@ -33,20 +33,13 @@ import {
   type RegisterStatusCode as StatusCode,
 } from "@/lib/register-status";
 import { trackEvent } from "@/lib/analytics";
+import { formatDateOnly, toLocalDateOnlyValue } from "@/lib/date-only";
 
 const STATUSES = ["P", "A", "L", "O", "E", "D", "N"] as const;
-type RegisterStudent = {
-  id: number;
-  personCode: string;
-  forename: string;
-  surname: string;
-  atRisk: boolean;
-};
 const EMPTY_ATTENDANCE: AttendanceRecord[] = [];
 
 function getLocalDate() {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return toLocalDateOnlyValue();
 }
 
 const STATUS_LABELS: Record<StatusCode, string> = {
@@ -85,6 +78,7 @@ export default function RegisterDetail() {
   const {
     data: schedule = [],
     isLoading: isScheduleLoading,
+    isError: isScheduleError,
     refetch: refetchSchedule,
   } = useGetTodaySchedule();
 
@@ -129,6 +123,7 @@ export default function RegisterDetail() {
   const {
     data: attendance = EMPTY_ATTENDANCE,
     isLoading: isAttendanceLoading,
+    isError: isAttendanceError,
     refetch: refetchAttendance,
   } = useListAttendanceRecords(
     { scheduleId: id, date: sessionDate },
@@ -146,6 +141,7 @@ export default function RegisterDetail() {
   const {
     data: registerState,
     isLoading: isRegisterStateLoading,
+    isError: isRegisterStateError,
     refetch: refetchRegisterState,
   } = useGetAttendanceRegisterState(
     { scheduleId: id, date: sessionDate },
@@ -161,19 +157,10 @@ export default function RegisterDetail() {
     data: registerStudents = [],
     isLoading: isRosterLoading,
     isError: isRosterError,
-  } = useQuery<RegisterStudent[]>({
-    queryKey: ["course-students", scheduleEntry?.courseId],
-    queryFn: async () => {
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const response = await fetch(
-        `${base}/api/courses/${scheduleEntry!.courseId}/students`,
-        { credentials: "include" },
-      );
-      if (!response.ok) throw new Error("The course roster could not be loaded.");
-      return response.json();
-    },
-    enabled: scheduleEntry?.courseId !== undefined,
-  });
+  } = useListAttendanceRegisterRoster(
+    { scheduleId: id, date: sessionDate },
+    { query: { enabled: id > 0 && !!scheduleEntry } as any },
+  );
   const startTime = scheduleEntry?.startTime ?? "";
   const endTime = scheduleEntry?.endTime ?? "";
   const dayOfWeek = scheduleEntry?.day ?? "Not provided";
@@ -400,11 +387,31 @@ export default function RegisterDetail() {
   ) {
     return <div className="space-y-4 p-6"><Skeleton className="h-8 w-64" /><Skeleton className="h-48 w-full" /></div>;
   }
-  if (isRosterError) {
-    return <div className="p-12 text-center text-red-700">The course roster could not be loaded. Please try again.</div>;
+  if (isScheduleError || isRosterError || isAttendanceError || isRegisterStateError) {
+    return (
+      <div className="p-12 text-center">
+        <p className="font-semibold text-red-700">This register could not be loaded</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Check your connection and confirm that you are assigned to this lesson, then return to the eRegisters list and try again.
+        </p>
+        <Button className="mt-4" variant="outline" onClick={() => navigate("/attendance")}>
+          Back to eRegisters
+        </Button>
+      </div>
+    );
   }
   if (!course || !scheduleEntry) {
-    return <div className="p-12 text-center text-muted-foreground">Register not found.</div>;
+    return (
+      <div className="p-12 text-center">
+        <p className="font-semibold text-slate-700">Register unavailable</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This lesson does not exist, is inactive, or is not assigned to you.
+        </p>
+        <Button className="mt-4" variant="outline" onClick={() => navigate("/attendance")}>
+          Back to eRegisters
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -463,14 +470,14 @@ export default function RegisterDetail() {
                 <>
                   <button
                     onClick={handleSave}
-                    disabled={isPersisting}
+                    disabled={isPersisting || registerStudents.length === 0}
                     className="flex items-center gap-1.5 text-xs bg-teal-700 text-white rounded px-2.5 py-1 hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Save className="w-3 h-3" /> {isPersisting ? "Saving…" : "Save"}
                   </button>
                   <button
                     onClick={() => setShowSubmitConfirm(true)}
-                    disabled={isPersisting}
+                    disabled={isPersisting || registerStudents.length === 0}
                     className="flex items-center gap-1.5 text-xs bg-slate-700 text-white rounded px-2.5 py-1 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Send className="w-3 h-3" /> Submit
@@ -577,7 +584,7 @@ export default function RegisterDetail() {
             <div className="px-5 py-4 grid grid-cols-2 gap-x-12">
               <div className="space-y-1">
                 <InfoRow label="Register Reference" value={eventCode} />
-                <InfoRow label="Session Date" value={new Date(`${sessionDate}T00:00:00`).toLocaleDateString("en-GB")} />
+                <InfoRow label="Session Date" value={formatDateOnly(sessionDate)} />
                 <InfoRow label="Day" value={dayOfWeek} />
                 <InfoRow label="Start Time" value={startTime} />
                 <InfoRow label="End Time" value={endTime} />
@@ -720,8 +727,11 @@ export default function RegisterDetail() {
                 <tbody className="divide-y divide-slate-100">
                   {registerStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
-                        No students enrolled on this register.
+                      <td colSpan={7} className="px-5 py-10 text-center">
+                        <p className="font-semibold text-amber-700">No enrolled learners are available for this lesson</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Attendance cannot be saved until enrolments exist for {course.code}. Ask an administrator to check the course roster.
+                        </p>
                       </td>
                     </tr>
                   ) : (

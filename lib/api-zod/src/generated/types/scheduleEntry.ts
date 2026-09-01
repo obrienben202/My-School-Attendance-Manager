@@ -14,6 +14,8 @@ export interface ScheduleEntry {
   endTime: string;
   courseCode: string;
   courseName: string;
+  /** @minimum 0 */
+  enrolledCount: number;
   /** @nullable */
   room?: string | null;
   /** @nullable */

@@ -8,6 +8,7 @@ import {
   ListCoursesResponse,
 } from "@workspace/api-zod";
 import { requireAdminOrHod } from "./auth";
+import { canManageAttendanceSchedule } from "../lib/attendance-authorization";
 
 const router = Router();
 
@@ -31,12 +32,27 @@ router.get("/courses/:id", async (req, res) => {
 
 // GET /courses/:id/students — returns students actually enrolled in this course
 router.get("/courses/:id/students", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
-  const [course] = await db.select({ id: coursesTable.id }).from(coursesTable).where(
+  const [course] = await db.select({
+    id: coursesTable.id,
+    staffName: coursesTable.staffName,
+  }).from(coursesTable).where(
     and(eq(coursesTable.id, id), eq(coursesTable.isActive, true)),
   );
   if (!course) return res.status(404).json({ error: "Course not found" });
+  if (!canManageAttendanceSchedule(req.user, {
+    scheduleStaffName: null,
+    courseStaffName: course.staffName,
+  })) {
+    res.status(403).json({ error: "You are not assigned to this course" });
+    return;
+  }
 
   const rows = await db
     .select({

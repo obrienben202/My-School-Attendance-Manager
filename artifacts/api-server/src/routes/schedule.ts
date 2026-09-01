@@ -3,12 +3,14 @@ import { db } from "@workspace/db";
 import {
   scheduleTable,
   coursesTable,
+  enrollmentsTable,
   attendanceRegistersTable,
   attendanceTable,
 } from "@workspace/db";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getScheduleDayIndex } from "../lib/schedule-day";
 import { resolveAttendanceRegisterStatus } from "../lib/attendance-register";
+import { filterManageableAttendanceSchedules } from "../lib/attendance-authorization";
 
 const router = Router();
 
@@ -30,8 +32,14 @@ function getLessonOccurrenceDate(day: string | null, referenceDate = new Date())
   return formatDate(occurrenceDate);
 }
 
-router.get("/schedule/today", async (_req, res) => {
-  const records = await db
+router.get("/schedule/today", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const [records, enrollments] = await Promise.all([
+    db
     .select({
       id: scheduleTable.id,
       courseId: scheduleTable.courseId,
@@ -43,40 +51,65 @@ router.get("/schedule/today", async (_req, res) => {
       registerMarked: scheduleTable.registerMarked,
       courseCode: coursesTable.code,
       courseName: coursesTable.name,
+      courseStaffName: coursesTable.staffName,
     })
     .from(scheduleTable)
     .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
     .where(eq(coursesTable.isActive, true))
-    .orderBy(scheduleTable.startTime);
+    .orderBy(scheduleTable.startTime),
+    db
+      .select({
+        courseId: enrollmentsTable.courseId,
+        studentId: enrollmentsTable.studentId,
+      })
+      .from(enrollmentsTable),
+  ]);
 
-  const occurrences = records.map(record => ({
+  const enrollmentCounts = new Map<number, number>();
+  for (const enrollment of enrollments) {
+    enrollmentCounts.set(
+      enrollment.courseId,
+      (enrollmentCounts.get(enrollment.courseId) ?? 0) + 1,
+    );
+  }
+
+  const occurrences = filterManageableAttendanceSchedules(
+    req.user!,
+    records.map(record => ({
+      ...record,
+      scheduleStaffName: record.staffName,
+    })),
+  )
+    .map(record => ({
     ...record,
     occurrenceDate: getLessonOccurrenceDate(record.day),
+    enrolledCount: enrollmentCounts.get(record.courseId) ?? 0,
   }));
-  const occurrenceConditions = occurrences.map(occurrence => and(
-    eq(attendanceRegistersTable.scheduleId, occurrence.id),
-    eq(attendanceRegistersTable.date, occurrence.occurrenceDate),
-  )!);
-  const registers = occurrenceConditions.length > 0
+  const scheduleIds = [...new Set(occurrences.map(occurrence => occurrence.id))];
+  const occurrenceDates = [...new Set(occurrences.map(occurrence => occurrence.occurrenceDate))];
+  const registers = scheduleIds.length > 0
     ? await db
       .select()
       .from(attendanceRegistersTable)
-      .where(or(...occurrenceConditions))
+      .where(and(
+        inArray(attendanceRegistersTable.scheduleId, scheduleIds),
+        inArray(attendanceRegistersTable.date, occurrenceDates),
+      ))
     : [];
   const registersByOccurrence = new Map(
     registers.map(register => [`${register.scheduleId}:${register.date}`, register]),
   );
-  const legacyAttendance = occurrenceConditions.length > 0
+  const legacyAttendance = scheduleIds.length > 0
     ? await db
       .select({
         scheduleId: attendanceTable.scheduleId,
         date: attendanceTable.date,
       })
       .from(attendanceTable)
-      .where(or(...occurrences.map(occurrence => and(
-        eq(attendanceTable.scheduleId, occurrence.id),
-        eq(attendanceTable.date, occurrence.occurrenceDate),
-      )!)))
+      .where(and(
+        inArray(attendanceTable.scheduleId, scheduleIds),
+        inArray(attendanceTable.date, occurrenceDates),
+      ))
     : [];
   const legacyMarkedOccurrences = new Set(
     legacyAttendance.map(record => `${record.scheduleId}:${record.date}`),
@@ -97,6 +130,7 @@ router.get("/schedule/today", async (_req, res) => {
       endTime: r.endTime,
       courseCode: r.courseCode ?? "",
       courseName: r.courseName ?? "",
+      enrolledCount: r.enrolledCount,
       room: r.room ?? null,
       staffName: r.staffName ?? null,
       day: r.day ?? null,

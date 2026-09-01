@@ -427,6 +427,24 @@ export const SubmitAttendanceRegisterResponse = zod.object({
 
 
 /**
+ * @summary List learners enrolled on an authorised lesson register
+ */
+export const ListAttendanceRegisterRosterQueryParams = zod.object({
+  "scheduleId": zod.coerce.number(),
+  "date": zod.date()
+})
+
+export const ListAttendanceRegisterRosterResponseItem = zod.object({
+  "id": zod.number(),
+  "personCode": zod.string(),
+  "forename": zod.string(),
+  "surname": zod.string(),
+  "atRisk": zod.boolean()
+})
+export const ListAttendanceRegisterRosterResponse = zod.array(ListAttendanceRegisterRosterResponseItem)
+
+
+/**
  * @summary List persisted audit events for one register occurrence
  */
 export const ListAttendanceRegisterAuditQueryParams = zod.object({
@@ -1397,6 +1415,10 @@ export const LogoutMobileSessionResponse = zod.object({
 /**
  * @summary Get today's schedule/registers
  */
+export const getTodayScheduleResponseEnrolledCountMin = 0;
+
+
+
 export const GetTodayScheduleResponseItem = zod.object({
   "id": zod.number(),
   "courseId": zod.number(),
@@ -1404,6 +1426,7 @@ export const GetTodayScheduleResponseItem = zod.object({
   "endTime": zod.string(),
   "courseCode": zod.string(),
   "courseName": zod.string(),
+  "enrolledCount": zod.number().min(getTodayScheduleResponseEnrolledCountMin),
   "room": zod.string().nullish(),
   "staffName": zod.string().nullish(),
   "day": zod.string().nullish(),

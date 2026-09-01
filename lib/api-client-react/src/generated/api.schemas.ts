@@ -423,6 +423,14 @@ export interface AttendanceRegisterContact {
   contactEmail: string | null;
 }
 
+export interface AttendanceRegisterRosterStudent {
+  id: number;
+  personCode: string;
+  forename: string;
+  surname: string;
+  atRisk: boolean;
+}
+
 export type AttendanceRegisterAuditAction = typeof AttendanceRegisterAuditAction[keyof typeof AttendanceRegisterAuditAction];
 
 
@@ -719,6 +727,8 @@ export interface ScheduleEntry {
   endTime: string;
   courseCode: string;
   courseName: string;
+  /** @minimum 0 */
+  enrolledCount: number;
   /** @nullable */
   room?: string | null;
   /** @nullable */
@@ -1145,6 +1155,11 @@ export const ListAttendanceRecordsStatus = {
   excluded: 'excluded',
   distance_learning: 'distance_learning',
 } as const;
+
+export type ListAttendanceRegisterRosterParams = {
+scheduleId: number;
+date: string;
+};
 
 export type ListAttendanceRegisterAuditParams = {
 scheduleId: number;

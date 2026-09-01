@@ -29,3 +29,11 @@ export function canManageAttendanceSchedule(
     isStaffAssignedToSchedule(user.username, assignment)
   );
 }
+
+export function filterManageableAttendanceSchedules<
+  T extends AttendanceScheduleAssignment,
+>(user: AuthUser, assignments: T[]): T[] {
+  return assignments.filter(assignment =>
+    canManageAttendanceSchedule(user, assignment),
+  );
+}

@@ -33,6 +33,7 @@ import type {
   AttendanceRegisterLifecycle,
   AttendanceRegisterOccurrenceInput,
   AttendanceRegisterOccurrenceState,
+  AttendanceRegisterRosterStudent,
   AttendanceUpdate,
   AuthUserEnvelope,
   ConciergeApplication,
@@ -57,6 +58,7 @@ import type {
   ListAttendanceRecordsParams,
   ListAttendanceRegisterAuditParams,
   ListAttendanceRegisterContactsParams,
+  ListAttendanceRegisterRosterParams,
   ListConciergeApplicationsParams,
   ListEprogressionsParams,
   ListIlpsParams,
@@ -1292,7 +1294,7 @@ export const getListAttendanceRecordsQueryKey = (params?: ListAttendanceRecordsP
     }
 
 
-export const getListAttendanceRecordsQueryOptions = <TData = Awaited<ReturnType<typeof listAttendanceRecords>>, TError = ErrorType<unknown>>(params?: ListAttendanceRecordsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAttendanceRecordsQueryOptions = <TData = Awaited<ReturnType<typeof listAttendanceRecords>>, TError = ErrorType<ErrorEnvelope>>(params?: ListAttendanceRecordsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -1311,14 +1313,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListAttendanceRecordsQueryResult = NonNullable<Awaited<ReturnType<typeof listAttendanceRecords>>>
-export type ListAttendanceRecordsQueryError = ErrorType<unknown>
+export type ListAttendanceRecordsQueryError = ErrorType<ErrorEnvelope>
 
 
 /**
  * @summary List attendance records
  */
 
-export function useListAttendanceRecords<TData = Awaited<ReturnType<typeof listAttendanceRecords>>, TError = ErrorType<unknown>>(
+export function useListAttendanceRecords<TData = Awaited<ReturnType<typeof listAttendanceRecords>>, TError = ErrorType<ErrorEnvelope>>(
  params?: ListAttendanceRecordsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -1477,6 +1479,90 @@ export const useSubmitAttendanceRegister = <TError = ErrorType<ErrorEnvelope>,
       > => {
       return useMutation(getSubmitAttendanceRegisterMutationOptions(options));
     }
+
+export const getListAttendanceRegisterRosterUrl = (params: ListAttendanceRegisterRosterParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/attendance/register/roster?${stringifiedParams}` : `/api/attendance/register/roster`
+}
+
+/**
+ * @summary List learners enrolled on an authorised lesson register
+ */
+export const listAttendanceRegisterRoster = async (params: ListAttendanceRegisterRosterParams, options?: RequestInit): Promise<AttendanceRegisterRosterStudent[]> => {
+
+  return customFetch<AttendanceRegisterRosterStudent[]>(getListAttendanceRegisterRosterUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAttendanceRegisterRosterQueryKey = (params?: ListAttendanceRegisterRosterParams,) => {
+    return [
+    `/api/attendance/register/roster`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAttendanceRegisterRosterQueryOptions = <TData = Awaited<ReturnType<typeof listAttendanceRegisterRoster>>, TError = ErrorType<ErrorEnvelope>>(params: ListAttendanceRegisterRosterParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterRoster>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAttendanceRegisterRosterQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAttendanceRegisterRoster>>> = ({ signal }) => listAttendanceRegisterRoster(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterRoster>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAttendanceRegisterRosterQueryResult = NonNullable<Awaited<ReturnType<typeof listAttendanceRegisterRoster>>>
+export type ListAttendanceRegisterRosterQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List learners enrolled on an authorised lesson register
+ */
+
+export function useListAttendanceRegisterRoster<TData = Awaited<ReturnType<typeof listAttendanceRegisterRoster>>, TError = ErrorType<ErrorEnvelope>>(
+ params: ListAttendanceRegisterRosterParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAttendanceRegisterRoster>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAttendanceRegisterRosterQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListAttendanceRegisterAuditUrl = (params: ListAttendanceRegisterAuditParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -1828,7 +1914,7 @@ export const updateAttendanceRecord = async (id: number,
 
 
 
-export const getUpdateAttendanceRecordMutationOptions = <TError = ErrorType<unknown>,
+export const getUpdateAttendanceRecordMutationOptions = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAttendanceRecord>>, TError,{id: number;data: BodyType<AttendanceUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateAttendanceRecord>>, TError,{id: number;data: BodyType<AttendanceUpdate>}, TContext> => {
 
@@ -1857,12 +1943,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateAttendanceRecordMutationResult = NonNullable<Awaited<ReturnType<typeof updateAttendanceRecord>>>
     export type UpdateAttendanceRecordMutationBody = BodyType<AttendanceUpdate>
-    export type UpdateAttendanceRecordMutationError = ErrorType<unknown>
+    export type UpdateAttendanceRecordMutationError = ErrorType<ErrorEnvelope>
 
     /**
  * @summary Update an attendance record
  */
-export const useUpdateAttendanceRecord = <TError = ErrorType<unknown>,
+export const useUpdateAttendanceRecord = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAttendanceRecord>>, TError,{id: number;data: BodyType<AttendanceUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateAttendanceRecord>>,
@@ -1898,7 +1984,7 @@ export const deleteAttendanceRecord = async (id: number, options?: RequestInit):
 
 
 
-export const getDeleteAttendanceRecordMutationOptions = <TError = ErrorType<unknown>,
+export const getDeleteAttendanceRecordMutationOptions = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAttendanceRecord>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteAttendanceRecord>>, TError,{id: number}, TContext> => {
 
@@ -1927,12 +2013,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteAttendanceRecordMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAttendanceRecord>>>
 
-    export type DeleteAttendanceRecordMutationError = ErrorType<unknown>
+    export type DeleteAttendanceRecordMutationError = ErrorType<ErrorEnvelope>
 
     /**
  * @summary Delete an attendance record
  */
-export const useDeleteAttendanceRecord = <TError = ErrorType<unknown>,
+export const useDeleteAttendanceRecord = <TError = ErrorType<ErrorEnvelope>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAttendanceRecord>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteAttendanceRecord>>,
@@ -4717,7 +4803,7 @@ export const getGetTodayScheduleQueryKey = () => {
     }
 
 
-export const getGetTodayScheduleQueryOptions = <TData = Awaited<ReturnType<typeof getTodaySchedule>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTodaySchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetTodayScheduleQueryOptions = <TData = Awaited<ReturnType<typeof getTodaySchedule>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTodaySchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -4736,14 +4822,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetTodayScheduleQueryResult = NonNullable<Awaited<ReturnType<typeof getTodaySchedule>>>
-export type GetTodayScheduleQueryError = ErrorType<unknown>
+export type GetTodayScheduleQueryError = ErrorType<ErrorEnvelope>
 
 
 /**
  * @summary Get today's schedule/registers
  */
 
-export function useGetTodaySchedule<TData = Awaited<ReturnType<typeof getTodaySchedule>>, TError = ErrorType<unknown>>(
+export function useGetTodaySchedule<TData = Awaited<ReturnType<typeof getTodaySchedule>>, TError = ErrorType<ErrorEnvelope>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTodaySchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {

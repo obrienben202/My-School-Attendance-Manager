@@ -453,6 +453,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AttendanceRecord"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Attendance access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
     post:
       operationId: createAttendanceRecord
       tags: [attendance]
@@ -472,6 +484,18 @@ paths:
                 $ref: "#/components/schemas/AttendanceRecord"
         "400":
           description: Invalid attendance data, including a date whose weekday does not match the selected schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
           content:
             application/json:
               schema:
@@ -497,6 +521,81 @@ paths:
                 $ref: "#/components/schemas/AttendanceRegister"
         "400":
           description: Invalid register data, including a date whose weekday does not match the selected schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Submitted register is locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/roster:
+    get:
+      operationId: listAttendanceRegisterRoster
+      tags: [attendance]
+      summary: List learners enrolled on an authorised lesson register
+      parameters:
+        - name: scheduleId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Enrolled learners for the authorised lesson occurrence
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRegisterRosterStudent"
+        "400":
+          description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
           content:
             application/json:
               schema:
@@ -530,6 +629,24 @@ paths:
                   $ref: "#/components/schemas/AttendanceRegisterAudit"
         "400":
           description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
           content:
             application/json:
               schema:
@@ -573,6 +690,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /attendance/register/state:
     get:
@@ -610,6 +733,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /attendance/register/reopen:
     post:
@@ -637,6 +772,18 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "403":
           description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
           content:
             application/json:
               schema:
@@ -672,6 +819,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Invalid update or attempt to move attendance between lesson sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Attendance record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Submitted register is locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
     delete:
       operationId: deleteAttendanceRecord
       tags: [attendance]
@@ -685,6 +862,36 @@ paths:
       responses:
         "204":
           description: Deleted
+        "400":
+          description: Invalid attendance record identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Attendance record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Submitted register is locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /targets:
     get:
@@ -1487,6 +1694,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ScheduleEntry"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /staff:
     get:
@@ -2170,6 +2383,21 @@ components:
         contactEmail:
           type: ["string", "null"]
 
+    AttendanceRegisterRosterStudent:
+      type: object
+      required: [id, personCode, forename, surname, atRisk]
+      properties:
+        id:
+          type: integer
+        personCode:
+          type: string
+        forename:
+          type: string
+        surname:
+          type: string
+        atRisk:
+          type: boolean
+
     AttendanceRegisterAudit:
       type: object
       required: [id, scheduleId, date, action, actorName, details, createdAt]
@@ -2621,6 +2849,9 @@ components:
           type: string
         courseName:
           type: string
+        enrolledCount:
+          type: integer
+          minimum: 0
         room:
           type: ["string", "null"]
         staffName:
@@ -2648,6 +2879,7 @@ components:
         - endTime
         - courseCode
         - courseName
+        - enrolledCount
         - occurrenceDate
         - registerMarked
         - registerStatus
