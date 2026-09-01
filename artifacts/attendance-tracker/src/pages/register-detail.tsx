@@ -32,6 +32,7 @@ import {
   statusFromApi,
   type RegisterStatusCode as StatusCode,
 } from "@/lib/register-status";
+import { trackEvent } from "@/lib/analytics";
 
 const STATUSES = ["P", "A", "L", "O", "E", "D", "N"] as const;
 type RegisterStudent = {
@@ -299,6 +300,13 @@ export default function RegisterDetail() {
 
   async function handleSave() {
     if (await persistRegister("draft")) {
+      trackEvent("attendance_register_draft_saved", {
+        location: "/registers/:id",
+        schedule_id: id,
+        course_id: scheduleEntry.courseId,
+        occurrence_at: `${sessionDate}T00:00:00.000Z`,
+        has_unmarked_marks: unmarked > 0,
+      });
       setSaved(true);
       setSubmitted(false);
       setEditing(false);
@@ -307,6 +315,13 @@ export default function RegisterDetail() {
 
   async function handleSubmitFinal() {
     if (!(await persistRegister("submitted"))) return;
+    trackEvent("attendance_register_submitted", {
+      location: "/registers/:id",
+      schedule_id: id,
+      course_id: scheduleEntry.courseId,
+      occurrence_at: `${sessionDate}T00:00:00.000Z`,
+      has_unmarked_marks: unmarked > 0,
+    });
     setSaved(true);
     setSubmitted(true);
     setEditing(false);
