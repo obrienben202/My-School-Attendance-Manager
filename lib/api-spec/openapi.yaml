@@ -69,6 +69,80 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
 
+  /reports/{reportId}:
+    get:
+      operationId: getReport
+      tags: [reports]
+      summary: Run a current report for authorised report users
+      description: Returns persisted report data only. Report definitions whose requested fields are not persisted return 422 instead of sample data.
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ReportId"
+        - name: academicYear
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: course
+          in: query
+          schema: { type: string }
+        - name: surname
+          in: query
+          schema: { type: string }
+        - name: threshold
+          in: query
+          schema: { type: string }
+        - name: tutor
+          in: query
+          schema: { type: string }
+        - name: unit
+          in: query
+          schema: { type: string }
+        - name: overdueTo
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current report result, including the applied filters and freshness timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportResponse"
+        "400":
+          description: Invalid report filters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Reports access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: This report is unavailable because its fields are not persisted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
   /students:
     get:
       operationId: listStudents
@@ -1525,6 +1599,53 @@ components:
       schema:
         type: string
   schemas:
+    ReportId:
+      type: string
+      enum:
+        - att-overall
+        - att-learner
+        - att-course
+        - att-punctuality
+        - asmt-grade-summary
+        - asmt-results
+        - asmt-unconfirmed
+        - ilp-progress
+        - ilp-reviews-due
+        - ilp-completion
+        - sg-at-risk
+        - sg-planned-absence
+        - mb-verification-status
+        - mb-grades-released
+    ReportColumn:
+      type: object
+      required: [key, label]
+      properties:
+        key: { type: string }
+        label: { type: string }
+    ReportResponse:
+      type: object
+      required: [reportId, title, description, columns, rows, appliedFilters, rowCount, generatedAt, asOf]
+      properties:
+        reportId:
+          $ref: "#/components/schemas/ReportId"
+        title: { type: string }
+        description: { type: string }
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportColumn"
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        appliedFilters:
+          type: object
+          additionalProperties: { type: string }
+        rowCount: { type: integer }
+        generatedAt: { type: string, format: date-time }
+        asOf: { type: [string, "null"], format: date-time }
     AuthUser:
       type: object
       required: [id, email, firstName, lastName, profileImageUrl, role]

@@ -31,6 +31,43 @@ export const GetDashboardSummaryResponse = zod.object({
 
 
 /**
+ * Returns persisted report data only. Report definitions whose requested fields are not persisted return 422 instead of sample data.
+ * @summary Run a current report for authorised report users
+ */
+export const GetReportParams = zod.object({
+  "reportId": zod.enum(['att-overall', 'att-learner', 'att-course', 'att-punctuality', 'asmt-grade-summary', 'asmt-results', 'asmt-unconfirmed', 'ilp-progress', 'ilp-reviews-due', 'ilp-completion', 'sg-at-risk', 'sg-planned-absence', 'mb-verification-status', 'mb-grades-released'])
+})
+
+export const GetReportQueryParams = zod.object({
+  "academicYear": zod.coerce.string().optional(),
+  "dateFrom": zod.date().optional(),
+  "dateTo": zod.date().optional(),
+  "course": zod.coerce.string().optional(),
+  "surname": zod.coerce.string().optional(),
+  "threshold": zod.coerce.string().optional(),
+  "tutor": zod.coerce.string().optional(),
+  "unit": zod.coerce.string().optional(),
+  "overdueTo": zod.date().optional(),
+  "status": zod.coerce.string().optional()
+})
+
+export const GetReportResponse = zod.object({
+  "reportId": zod.enum(['att-overall', 'att-learner', 'att-course', 'att-punctuality', 'asmt-grade-summary', 'asmt-results', 'asmt-unconfirmed', 'ilp-progress', 'ilp-reviews-due', 'ilp-completion', 'sg-at-risk', 'sg-planned-absence', 'mb-verification-status', 'mb-grades-released']),
+  "title": zod.string(),
+  "description": zod.string(),
+  "columns": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string()
+})),
+  "rows": zod.array(zod.array(zod.string())),
+  "appliedFilters": zod.record(zod.string(), zod.string()),
+  "rowCount": zod.number(),
+  "generatedAt": zod.coerce.date(),
+  "asOf": zod.coerce.date().nullable()
+})
+
+
+/**
  * @summary List students with optional search filters
  */
 export const ListStudentsQueryParams = zod.object({
@@ -1446,3 +1483,5 @@ export const GetStaffCorrespondenceResponse = zod.object({
   "records": zod.array(zod.unknown()),
   "message": zod.string()
 })
+
+

@@ -17,6 +17,7 @@ import staffRouter from "./staff";
 import plannedAbsencesRouter from "./planned-absences";
 import safeguardingRouter from "./safeguarding";
 import storageRouter from "./storage";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(staffRouter);
 router.use(plannedAbsencesRouter);
 router.use(safeguardingRouter);
 router.use(storageRouter);
+router.use(reportsRouter);
 
 export default router;

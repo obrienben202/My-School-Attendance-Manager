@@ -5,6 +5,46 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+export type ReportId = typeof ReportId[keyof typeof ReportId];
+
+
+export const ReportId = {
+  'att-overall': 'att-overall',
+  'att-learner': 'att-learner',
+  'att-course': 'att-course',
+  'att-punctuality': 'att-punctuality',
+  'asmt-grade-summary': 'asmt-grade-summary',
+  'asmt-results': 'asmt-results',
+  'asmt-unconfirmed': 'asmt-unconfirmed',
+  'ilp-progress': 'ilp-progress',
+  'ilp-reviews-due': 'ilp-reviews-due',
+  'ilp-completion': 'ilp-completion',
+  'sg-at-risk': 'sg-at-risk',
+  'sg-planned-absence': 'sg-planned-absence',
+  'mb-verification-status': 'mb-verification-status',
+  'mb-grades-released': 'mb-grades-released',
+} as const;
+
+export interface ReportColumn {
+  key: string;
+  label: string;
+}
+
+export type ReportResponseAppliedFilters = {[key: string]: string};
+
+export interface ReportResponse {
+  reportId: ReportId;
+  title: string;
+  description: string;
+  columns: ReportColumn[];
+  rows: string[][];
+  appliedFilters: ReportResponseAppliedFilters;
+  rowCount: number;
+  generatedAt: string;
+  /** @nullable */
+  asOf: string | null;
+}
+
 export type AuthUserRole = typeof AuthUserRole[keyof typeof AuthUserRole];
 
 
@@ -990,6 +1030,19 @@ export interface UploadUrlResponse {
  * Opaque session token — Bearer <sid>.
  */
 export type AuthorizationSessionHeaderParameter = string;
+
+export type GetReportParams = {
+academicYear?: string;
+dateFrom?: string;
+dateTo?: string;
+course?: string;
+surname?: string;
+threshold?: string;
+tutor?: string;
+unit?: string;
+overdueTo?: string;
+status?: string;
+};
 
 export type ListStudentsParams = {
 personCode?: string;

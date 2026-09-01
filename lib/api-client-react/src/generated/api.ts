@@ -47,6 +47,7 @@ import type {
   EprogressionUpdate,
   ErrorEnvelope,
   GetAttendanceRegisterStateParams,
+  GetReportParams,
   HealthStatus,
   Ilp,
   IlpInput,
@@ -69,6 +70,8 @@ import type {
   MobileTokenExchangeSuccess,
   PlannedAbsence,
   PlannedAbsenceInput,
+  ReportId,
+  ReportResponse,
   SafeguardingNote,
   SafeguardingNoteInput,
   ScheduleEntry,
@@ -243,6 +246,96 @@ export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDash
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetDashboardSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetReportUrl = (reportId: ReportId,
+    params?: GetReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reports/${reportId}?${stringifiedParams}` : `/api/reports/${reportId}`
+}
+
+/**
+ * Returns persisted report data only. Report definitions whose requested fields are not persisted return 422 instead of sample data.
+ * @summary Run a current report for authorised report users
+ */
+export const getReport = async (reportId: ReportId,
+    params?: GetReportParams, options?: RequestInit): Promise<ReportResponse> => {
+
+  return customFetch<ReportResponse>(getGetReportUrl(reportId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReportQueryKey = (reportId: ReportId,
+    params?: GetReportParams,) => {
+    return [
+    `/api/reports/${reportId}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetReportQueryOptions = <TData = Awaited<ReturnType<typeof getReport>>, TError = ErrorType<ErrorEnvelope>>(reportId: ReportId,
+    params?: GetReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReportQueryKey(reportId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReport>>> = ({ signal }) => getReport(reportId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(reportId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReportQueryResult = NonNullable<Awaited<ReturnType<typeof getReport>>>
+export type GetReportQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Run a current report for authorised report users
+ */
+
+export function useGetReport<TData = Awaited<ReturnType<typeof getReport>>, TError = ErrorType<ErrorEnvelope>>(
+ reportId: ReportId,
+    params?: GetReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReportQueryOptions(reportId,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

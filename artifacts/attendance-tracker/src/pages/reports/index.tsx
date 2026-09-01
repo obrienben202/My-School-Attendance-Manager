@@ -1,6 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
+import {
+  useGetReport,
+  type GetReportParams,
+  type ReportId,
+  type ReportResponse,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { downloadReport, type ReportExportFormat } from "@/lib/report-export";
+import { useRole } from "@/hooks/use-role";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -9,13 +17,13 @@ import {
 } from "@/components/ui/dialog";
 import {
   FileText, Folder, FolderOpen, Search, Clock, ChevronRight,
-  Printer, Mail, Eye, Filter, ChevronDown, ChevronUp, X,
+  Printer, Mail, Eye, Filter, ChevronDown, ChevronUp, X, Download,
 } from "lucide-react";
 
 // ─── Reference data ────────────────────────────────────────────────────────────
 
 type ReportDef = {
-  id: string;
+  id: ReportId;
   name: string;
   folder: string;
   description: string;
@@ -31,7 +39,7 @@ type FilterField = {
   options?: string[];
 };
 
-const FOLDER_STRUCTURE: { name: string; reports: string[] }[] = [
+const FOLDER_STRUCTURE: { name: string; reports: ReportId[] }[] = [
   {
     name: "Attendance",
     reports: ["att-overall", "att-learner", "att-course", "att-punctuality"],
@@ -61,7 +69,7 @@ const REPORTS: ReportDef[] = [
     folder: "Attendance",
     description: "Summary of attendance figures across all courses for a given period.",
     filters: [
-      { key: "academicYear", label: "Academic Year", type: "select", options: ["2024/25", "2023/24", "2022/23"] },
+      { key: "academicYear", label: "Academic Year", type: "select", options: ["All years", "2026/27", "2025/26", "2024/25", "2023/24", "2022/23"] },
       { key: "dateFrom", label: "Date From", type: "date" },
       { key: "dateTo", label: "Date To", type: "date" },
       { key: "course", label: "Course", type: "select", options: ["All courses", "Level 3 BTEC", "GCSE English", "A Level Mathematics", "Access to HE"] },
@@ -80,7 +88,7 @@ const REPORTS: ReportDef[] = [
     folder: "Attendance",
     description: "Individual learner attendance breakdown by session.",
     filters: [
-      { key: "academicYear", label: "Academic Year", type: "select", options: ["2024/25", "2023/24", "2022/23"] },
+      { key: "academicYear", label: "Academic Year", type: "select", options: ["All years", "2026/27", "2025/26", "2024/25", "2023/24", "2022/23"] },
       { key: "surname", label: "Surname", type: "text" },
       { key: "course", label: "Course", type: "select", options: ["All courses", "Level 3 BTEC", "GCSE English", "A Level Mathematics"] },
       { key: "dateFrom", label: "Date From", type: "date" },
@@ -101,7 +109,7 @@ const REPORTS: ReportDef[] = [
     folder: "Attendance",
     description: "Session-by-session attendance for a specific course.",
     filters: [
-      { key: "course", label: "Course", type: "select", options: ["Level 3 BTEC", "GCSE English", "A Level Mathematics", "Access to HE"] },
+      { key: "course", label: "Course", type: "select", options: ["All courses", "Level 3 BTEC", "GCSE English", "A Level Mathematics", "Access to HE"] },
       { key: "dateFrom", label: "Date From", type: "date" },
       { key: "dateTo", label: "Date To", type: "date" },
     ],
@@ -118,7 +126,7 @@ const REPORTS: ReportDef[] = [
     folder: "Attendance",
     description: "Learners with persistent lateness patterns.",
     filters: [
-      { key: "academicYear", label: "Academic Year", type: "select", options: ["2024/25", "2023/24"] },
+      { key: "academicYear", label: "Academic Year", type: "select", options: ["All years", "2026/27", "2025/26", "2024/25", "2023/24"] },
       { key: "threshold", label: "Min late sessions", type: "select", options: ["3+", "5+", "10+"] },
     ],
     columns: ["Learner", "Person Code", "Course", "Total Sessions", "Late Sessions", "Late %"],
@@ -134,7 +142,7 @@ const REPORTS: ReportDef[] = [
     description: "Distribution of grades across assessments for a course.",
     filters: [
       { key: "course", label: "Course", type: "select", options: ["All courses", "Level 3 BTEC", "GCSE English", "A Level Mathematics"] },
-      { key: "academicYear", label: "Academic Year", type: "select", options: ["2024/25", "2023/24"] },
+      { key: "academicYear", label: "Academic Year", type: "select", options: ["All years", "2026/27", "2025/26", "2024/25", "2023/24"] },
     ],
     columns: ["Course", "Unit", "A* / Dist*", "A / Distinction", "B / Merit", "C / Pass", "U / Fail", "Not graded"],
     sampleRows: [
@@ -151,7 +159,7 @@ const REPORTS: ReportDef[] = [
     filters: [
       { key: "course", label: "Course", type: "select", options: ["All courses", "Level 3 BTEC", "GCSE English"] },
       { key: "unit", label: "Unit / Component", type: "text" },
-      { key: "academicYear", label: "Academic Year", type: "select", options: ["2024/25", "2023/24"] },
+      { key: "academicYear", label: "Academic Year", type: "select", options: ["All years", "2026/27", "2025/26", "2024/25", "2023/24"] },
     ],
     columns: ["Learner", "Person Code", "Unit", "Grade", "Score", "Verified", "Released"],
     sampleRows: [
@@ -181,7 +189,7 @@ const REPORTS: ReportDef[] = [
     folder: "ILP",
     description: "Overview of ILP completion status across learners.",
     filters: [
-      { key: "academicYear", label: "Academic Year", type: "select", options: ["2024/25", "2023/24"] },
+      { key: "academicYear", label: "Academic Year", type: "select", options: ["All years", "2026/27", "2025/26", "2024/25", "2023/24"] },
       { key: "tutor", label: "Tutor", type: "text" },
     ],
     columns: ["Learner", "Person Code", "Tutor", "ILP Status", "Last Review", "Next Review Due", "Targets Set"],
@@ -212,7 +220,7 @@ const REPORTS: ReportDef[] = [
     folder: "ILP",
     description: "Completion rates for each ILP section.",
     filters: [
-      { key: "academicYear", label: "Academic Year", type: "select", options: ["2024/25", "2023/24"] },
+      { key: "academicYear", label: "Academic Year", type: "select", options: ["All years", "2026/27", "2025/26", "2024/25", "2023/24"] },
     ],
     columns: ["ILP Section", "Total Learners", "Completed", "Partial", "Not Started", "Completion %"],
     sampleRows: [
@@ -286,12 +294,23 @@ const REPORTS: ReportDef[] = [
 ];
 
 const REPORT_MAP = Object.fromEntries(REPORTS.map((r) => [r.id, r]));
+const UNAVAILABLE_REPORTS = new Set<ReportId>([
+  "asmt-unconfirmed", "ilp-progress", "ilp-reviews-due", "ilp-completion",
+  "sg-at-risk", "mb-grades-released",
+]);
 
-const RECENTLY_RUN = ["att-overall", "att-learner", "ilp-reviews-due", "sg-at-risk"];
+const RECENTLY_RUN: ReportId[] = ["att-overall", "att-learner", "ilp-reviews-due", "sg-at-risk"];
+
+function requestFilters(values: Record<string, string>): GetReportParams {
+  return Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value !== "" && !value.toLowerCase().startsWith("all ")),
+  ) as GetReportParams;
+}
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function ManageReports() {
+  const role = useRole();
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set(["Attendance"]));
   const [activeReport, setActiveReport] = useState<ReportDef | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -301,16 +320,27 @@ export default function ManageReports() {
 
   // Report viewer state
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
-  const [reportRows, setReportRows] = useState<string[][] | null>(null);
+  const [runRequest, setRunRequest] = useState<{ reportId: ReportId; filters: GetReportParams } | null>(null);
+  const [downloadFormat, setDownloadFormat] = useState<ReportExportFormat>("csv");
+  const [downloadError, setDownloadError] = useState("");
 
   // Dialogs
   const [showPrint, setShowPrint] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
-  const [emailTo, setEmailTo] = useState("");
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
-  const [emailSent, setEmailSent] = useState(false);
-  const [printDone, setPrintDone] = useState(false);
+  const reportQuery = useGetReport(
+    runRequest?.reportId ?? "att-overall",
+    runRequest?.filters,
+    {
+      query: {
+        enabled: Boolean(runRequest && activeReport?.id === runRequest.reportId),
+        retry: false,
+      } as any,
+    },
+  );
+  const reportResult = runRequest?.reportId === activeReport?.id ? reportQuery.data : undefined;
+  const filtersChanged = Boolean(
+    reportResult && JSON.stringify(runRequest?.filters) !== JSON.stringify(requestFilters(filterValues)),
+  );
 
   const toggleFolder = (f: string) => {
     setOpenFolders((prev) => {
@@ -320,22 +350,28 @@ export default function ManageReports() {
     });
   };
 
-  const openReport = (id: string) => {
+  const openReport = (id: ReportId) => {
     const r = REPORT_MAP[id];
     if (!r) return;
     setActiveReport(r);
-    setFilterValues({});
-    setReportRows(null);
-    setEmailSent(false);
-    setPrintDone(false);
-    setEmailTo("");
-    setEmailSubject(`Report: ${r.name}`);
-    setEmailBody(`Please find attached the ${r.name} report.`);
+    setFilterValues(Object.fromEntries(
+      r.filters
+        .filter((filter) => filter.type === "select" && filter.options?.[0])
+        .map((filter) => [filter.key, filter.options![0]]),
+    ));
+    setRunRequest(null);
+    setDownloadError("");
   };
 
   const runReport = () => {
     if (!activeReport) return;
-    setReportRows(activeReport.sampleRows);
+    const filters = requestFilters(filterValues);
+    setDownloadError("");
+    if (runRequest?.reportId === activeReport.id && JSON.stringify(runRequest.filters) === JSON.stringify(filters)) {
+      void reportQuery.refetch();
+      return;
+    }
+    setRunRequest({ reportId: activeReport.id, filters });
   };
 
   const doSearch = () => {
@@ -349,15 +385,29 @@ export default function ManageReports() {
     setSearchDone(true);
   };
 
-  const sendEmail = () => {
-    setEmailSent(true);
-    setTimeout(() => setShowEmail(false), 1200);
+  const doPrint = () => {
+    setShowPrint(false);
+    window.print();
   };
 
-  const doPrint = () => {
-    setPrintDone(true);
-    setTimeout(() => setShowPrint(false), 1000);
+  const doDownload = () => {
+    if (!reportResult || reportResult.rowCount === 0) return;
+    try {
+      downloadReport(reportResult as ReportResponse, downloadFormat);
+      setDownloadError("");
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "The report could not be downloaded.");
+    }
   };
+
+  if (role === "staff") {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6">
+        <h1 className="font-semibold text-amber-900">Reports access required</h1>
+        <p className="mt-1 text-sm text-amber-800">Your current role does not have access to Manage Reports.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="-mx-6 -mt-6 min-h-screen bg-slate-50 flex flex-col">
@@ -574,14 +624,24 @@ export default function ManageReports() {
                 <span className="text-xs text-gray-400">{activeReport.folder}</span>
                 <ChevronRight size={11} className="text-gray-300" />
                 <span className="text-sm font-semibold text-gray-800">{activeReport.name}</span>
+                {UNAVAILABLE_REPORTS.has(activeReport.id) && (
+                  <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                    Unavailable from persisted data
+                  </span>
+                )}
               </div>
 
               {/* Filter panel */}
               <div className="px-6 py-4 bg-white border-b border-gray-200">
+                {UNAVAILABLE_REPORTS.has(activeReport.id) && (
+                  <p className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    This definition needs fields the system does not currently persist. View Report will explain which result cannot be generated; no sample data will be shown.
+                  </p>
+                )}
                 <div className="flex items-center gap-2 mb-3">
                   <Filter size={13} className="text-teal-700" />
                   <p className="text-xs font-semibold text-gray-700">Filter report</p>
-                  {reportRows && (
+                  {filtersChanged && (
                     <span className="text-[10px] text-amber-700 ml-2">
                       Filters changed — click View Report to update results.
                     </span>
@@ -608,47 +668,93 @@ export default function ManageReports() {
                       )}
                     </div>
                   ))}
-                  <Button className="bg-teal-700 hover:bg-teal-800 gap-1.5 h-7 text-xs" onClick={runReport}>
-                    <Eye size={12} /> View Report
+                  <Button
+                    className="bg-teal-700 hover:bg-teal-800 gap-1.5 h-7 text-xs"
+                    onClick={runReport}
+                    disabled={reportQuery.isFetching}
+                  >
+                    <Eye size={12} /> {reportQuery.isFetching ? "Loading…" : "View Report"}
                   </Button>
                 </div>
               </div>
 
               {/* Report actions + results */}
-              {reportRows ? (
+              {reportQuery.isError && runRequest?.reportId === activeReport.id ? (
+                <div className="m-6 rounded-lg border border-red-200 bg-red-50 px-4 py-5 text-sm text-red-800">
+                  <p className="font-semibold">This report could not be generated.</p>
+                  <p className="mt-1 text-xs">{reportQuery.error instanceof Error ? reportQuery.error.message.replace(/^HTTP \d+ [^:]+:\s*/, "") : "Please try again."}</p>
+                </div>
+              ) : reportResult ? (
                 <>
-                  <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                    <span className="text-xs text-gray-500">{reportRows.length} record{reportRows.length !== 1 ? "s" : ""}</span>
-                    <div className="ml-auto flex gap-2">
+                  <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-gray-600 font-medium">{reportResult.rowCount} record{reportResult.rowCount !== 1 ? "s" : ""}</span>
+                    <span className="text-xs text-gray-400">
+                      Generated {new Date(reportResult.generatedAt).toLocaleString()}
+                      {" · "}
+                      {reportResult.asOf
+                        ? `source records last updated ${new Date(reportResult.asOf).toLocaleString()}`
+                        : "no source update timestamp available"}
+                    </span>
+                    <div className="ml-auto flex flex-wrap gap-2">
+                      <Select value={downloadFormat} onValueChange={(value) => setDownloadFormat(value as ReportExportFormat)}>
+                        <SelectTrigger className="h-7 w-40 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="csv">CSV (.csv)</SelectItem>
+                          <SelectItem value="xls">Excel-compatible (.xls)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        className="gap-1.5 h-7 bg-teal-700 text-xs hover:bg-teal-800"
+                        disabled={reportResult.rowCount === 0 || filtersChanged}
+                        onClick={doDownload}
+                      >
+                        <Download size={12} /> Download Report
+                      </Button>
                       <Button
                         variant="outline" size="sm" className="gap-1.5 text-xs h-7"
-                        onClick={() => { setShowPrint(true); setPrintDone(false); }}
+                        disabled={reportResult.rowCount === 0 || filtersChanged}
+                        onClick={() => setShowPrint(true)}
                       >
                         <Printer size={12} /> Print
                       </Button>
                       <Button
                         variant="outline" size="sm" className="gap-1.5 text-xs h-7"
-                        onClick={() => { setShowEmail(true); setEmailSent(false); }}
+                        disabled={reportResult.rowCount === 0 || filtersChanged}
+                        onClick={() => setShowEmail(true)}
                       >
                         <Mail size={12} /> Email Report
                       </Button>
                     </div>
                   </div>
+                  {Object.keys(reportResult.appliedFilters).length > 0 && (
+                    <div className="border-b border-gray-100 bg-white px-6 py-2 text-xs text-gray-500">
+                      <span className="font-semibold text-gray-600">Applied filters: </span>
+                      {Object.entries(reportResult.appliedFilters).map(([key, value]) => `${key}: ${value}`).join(" · ")}
+                    </div>
+                  )}
+                  {downloadError && <p className="border-b border-red-100 bg-red-50 px-6 py-2 text-xs text-red-700">{downloadError}</p>}
+                  {reportResult.rowCount === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-sm text-gray-400 gap-2">
+                      <FileText size={24} className="text-gray-300" />
+                      No persisted records match the applied filters. Nothing is available to download.
+                    </div>
+                  ) : (
                   <div className="overflow-auto px-0">
                     <table className="min-w-full text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-100 border-b-2 border-gray-300">
-                          {activeReport.columns.map((c) => (
-                            <th key={c} className="px-4 py-2.5 text-left font-semibold text-gray-700 whitespace-nowrap">{c}</th>
+                          {reportResult.columns.map((column) => (
+                            <th key={column.key} className="px-4 py-2.5 text-left font-semibold text-gray-700 whitespace-nowrap">{column.label}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {reportRows.map((row, ri) => (
+                        {reportResult.rows.map((row, ri) => (
                           <tr key={ri} className={`${ri % 2 === 0 ? "bg-white" : "bg-slate-50/60"} border-b border-gray-100`}>
                             {row.map((cell, ci) => (
                               <td key={ci} className={`px-4 py-2 text-gray-700 ${
-                                cell.endsWith("%") && parseFloat(cell) < 80 && activeReport.columns[ci]?.includes("%")
+                                cell.endsWith("%") && parseFloat(cell) < 80 && reportResult.columns[ci]?.label.includes("%")
                                   ? "text-red-600 font-semibold"
                                   : ""
                               }`}>{cell}</td>
@@ -658,7 +764,13 @@ export default function ManageReports() {
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </>
+              ) : reportQuery.isFetching ? (
+                <div className="flex flex-col items-center justify-center py-20 text-sm text-gray-500 gap-2" role="status">
+                  <Eye size={24} className="animate-pulse text-teal-600" />
+                  Generating current report…
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-sm text-gray-400 gap-2">
                   <Eye size={24} className="text-gray-300" />
@@ -674,27 +786,13 @@ export default function ManageReports() {
       <Dialog open={showPrint} onOpenChange={setShowPrint}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Printer size={16} /> Print Report</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Printer</label>
-              <Select defaultValue="default">
-                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Default Printer</SelectItem>
-                  <SelectItem value="office">Office Printer (Main)</SelectItem>
-                  <SelectItem value="pdf">Save as PDF</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Copies</label>
-              <Input type="number" defaultValue="1" min="1" max="99" className="text-sm w-20" />
-            </div>
-          </div>
+          <p className="text-sm text-gray-600">
+            This opens your browser's print dialog for the currently generated report. No document is sent to a printer until you confirm there.
+          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPrint(false)}>Cancel</Button>
             <Button className="bg-teal-700 hover:bg-teal-800 gap-1.5" onClick={doPrint}>
-              {printDone ? "Sent!" : <><Printer size={13} /> Print</>}
+              <Printer size={13} /> Open print dialog
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -704,41 +802,11 @@ export default function ManageReports() {
       <Dialog open={showEmail} onOpenChange={setShowEmail}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Mail size={16} /> Email Report</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">To <span className="text-red-500">*</span></label>
-              <Input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="recipient@college.ac.uk" className="text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Subject</label>
-              <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} className="text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Message</label>
-              <textarea
-                value={emailBody}
-                onChange={(e) => setEmailBody(e.target.value)}
-                rows={3}
-                className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Format</label>
-              <Select defaultValue="pdf">
-                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pdf">PDF</SelectItem>
-                  <SelectItem value="excel">Excel (.xlsx)</SelectItem>
-                  <SelectItem value="csv">CSV</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <p className="text-sm text-gray-600">
+            Email delivery is not configured in this application. Download the current report, then attach it using your normal email service.
+          </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEmail(false)}>Cancel</Button>
-            <Button className="bg-teal-700 hover:bg-teal-800 gap-1.5" disabled={!emailTo || emailSent} onClick={sendEmail}>
-              {emailSent ? "Sent ✓" : <><Mail size={13} /> Send</>}
-            </Button>
+            <Button onClick={() => setShowEmail(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
