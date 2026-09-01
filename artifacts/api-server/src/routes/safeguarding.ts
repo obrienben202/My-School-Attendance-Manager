@@ -35,6 +35,7 @@ function noteResponse(row: {
   authorLastName: string | null;
   content: string;
   status: string;
+  lastContactedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }) {
@@ -46,6 +47,7 @@ function noteResponse(row: {
     author: [row.authorFirstName, row.authorLastName].filter(Boolean).join(" ") || "Authorised staff member",
     content: row.content,
     status: row.status,
+    lastContactedAt: row.lastContactedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -63,6 +65,7 @@ async function listNotes() {
       authorLastName: usersTable.lastName,
       content: safeguardingNotesTable.content,
       status: safeguardingNotesTable.status,
+      lastContactedAt: safeguardingNotesTable.lastContactedAt,
       createdAt: safeguardingNotesTable.createdAt,
       updatedAt: safeguardingNotesTable.updatedAt,
     })
@@ -119,12 +122,14 @@ router.post("/safeguarding/notes", async (req, res): Promise<void> => {
       authorUserId: req.user!.id,
       content: parsed.data.content.trim(),
       status: "active",
+      lastContactedAt: parsed.data.lastContactedAt ?? null,
     })
     .returning({
       id: safeguardingNotesTable.id,
       studentId: safeguardingNotesTable.studentId,
       content: safeguardingNotesTable.content,
       status: safeguardingNotesTable.status,
+      lastContactedAt: safeguardingNotesTable.lastContactedAt,
       createdAt: safeguardingNotesTable.createdAt,
       updatedAt: safeguardingNotesTable.updatedAt,
     });

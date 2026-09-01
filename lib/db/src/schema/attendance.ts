@@ -19,6 +19,7 @@ export const attendanceTable = pgTable(
     notes: text("notes"),
     markedBy: text("marked_by"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },
   (table) => [
     uniqueIndex("attendance_student_schedule_date_unique").on(
@@ -29,6 +30,6 @@ export const attendanceTable = pgTable(
   ],
 );
 
-export const insertAttendanceSchema = createInsertSchema(attendanceTable).omit({ id: true, createdAt: true });
+export const insertAttendanceSchema = createInsertSchema(attendanceTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type Attendance = typeof attendanceTable.$inferSelect;

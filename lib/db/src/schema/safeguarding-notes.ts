@@ -10,6 +10,7 @@ export const safeguardingNotesTable = pgTable("safeguarding_notes", {
   authorUserId: varchar("author_user_id").notNull().references(() => usersTable.id, { onDelete: "restrict" }),
   content: text("content").notNull(),
   status: varchar("status").notNull().default("active"),
+  lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

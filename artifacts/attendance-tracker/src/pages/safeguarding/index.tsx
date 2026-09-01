@@ -112,7 +112,7 @@ export default function SafeguardingTutor() {
   const [selectedLearnerPC, setSelectedLearnerPC] = useState<string | null>(null);
 
   // Add record/note form
-  const [addForm, setAddForm] = useState({ studentId: null as number | null, learner: "", category: "Wellbeing", summary: "", detail: "", urgent: false, kind: "record" as MessageKind });
+  const [addForm, setAddForm] = useState({ studentId: null as number | null, learner: "", category: "Wellbeing", summary: "", detail: "", urgent: false, kind: "record" as MessageKind, lastContactedAt: "" });
   const [addSubmitted, setAddSubmitted] = useState(false);
   const [addError, setAddError] = useState("");
 
@@ -207,7 +207,13 @@ export default function SafeguardingTutor() {
       const content = [addForm.summary.trim(), addForm.detail.trim()].filter(Boolean).join("\n\n");
       try {
         await createNote.mutateAsync({
-          data: { studentId: addForm.studentId, content },
+          data: {
+            studentId: addForm.studentId,
+            content,
+            lastContactedAt: addForm.lastContactedAt
+              ? new Date(addForm.lastContactedAt).toISOString()
+              : null,
+          },
         });
         await refreshSavedNotes();
         setAddSubmitted(true);
@@ -542,7 +548,7 @@ export default function SafeguardingTutor() {
                   </div>
                   <p className="text-base font-bold text-gray-800">Submitted successfully</p>
                   <p className="text-sm text-gray-500 text-center">The {addForm.kind} has been logged and the relevant staff have been notified according to the template's distribution list.</p>
-                   <Button className="bg-teal-700 hover:bg-teal-800 mt-2" onClick={() => { setAddSubmitted(false); setAddForm({ studentId: null, learner: "", category: "Wellbeing", summary: "", detail: "", urgent: false, kind: navView === "add-record" ? "record" : "note" }); }}>
+                   <Button className="bg-teal-700 hover:bg-teal-800 mt-2" onClick={() => { setAddSubmitted(false); setAddForm({ studentId: null, learner: "", category: "Wellbeing", summary: "", detail: "", urgent: false, kind: navView === "add-record" ? "record" : "note", lastContactedAt: "" }); }}>
                     Add another
                   </Button>
                 </div>
@@ -601,6 +607,13 @@ export default function SafeguardingTutor() {
                         placeholder="Full details of the concern or incident…"
                         className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500" />
                     </div>
+                    {addForm.kind === "note" && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1">Learner last contacted</label>
+                        <Input type="datetime-local" value={addForm.lastContactedAt} onChange={(e) => setAddForm((f) => ({ ...f, lastContactedAt: e.target.value }))} className="text-sm" />
+                        <p className="mt-1 text-[10px] text-gray-500">Leave blank when this note does not record direct contact.</p>
+                      </div>
+                    )}
                     <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
                       <input type="checkbox" checked={addForm.urgent} onChange={(e) => setAddForm((f) => ({ ...f, urgent: e.target.checked }))} className="rounded accent-red-500" />
                       <Flag size={13} className="text-red-400" /> Mark as <strong>urgent</strong>

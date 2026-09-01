@@ -15,6 +15,8 @@ export interface SafeguardingNote {
   author: string;
   content: string;
   status: SafeguardingNoteStatus;
+  /** @nullable */
+  lastContactedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

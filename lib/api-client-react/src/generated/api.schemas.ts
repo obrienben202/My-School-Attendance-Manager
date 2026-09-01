@@ -135,6 +135,8 @@ export interface SafeguardingNote {
   author: string;
   content: string;
   status: SafeguardingNoteStatus;
+  /** @nullable */
+  lastContactedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -148,6 +150,8 @@ export interface SafeguardingNoteInput {
      * @maxLength 10000
      */
   content: string;
+  /** @nullable */
+  lastContactedAt?: string | null;
 }
 
 export interface HealthStatus {
@@ -515,6 +519,21 @@ export const IlpStatus = {
   completed: 'completed',
 } as const;
 
+export type IlpSectionStateStatus = typeof IlpSectionStateStatus[keyof typeof IlpSectionStateStatus];
+
+
+export const IlpSectionStateStatus = {
+  completed: 'completed',
+  partial: 'partial',
+  not_started: 'not_started',
+} as const;
+
+export interface IlpSectionState {
+  /** @minLength 1 */
+  name: string;
+  status: IlpSectionStateStatus;
+}
+
 export interface Ilp {
   id: number;
   studentId: number;
@@ -524,7 +543,17 @@ export interface Ilp {
   /** @nullable */
   content?: string | null;
   status: IlpStatus;
+  /** @nullable */
+  tutor?: string | null;
+  /** @nullable */
+  academicYear?: string | null;
+  /** @nullable */
+  lastReviewDate?: string | null;
+  /** @nullable */
+  nextReviewDue?: string | null;
+  sections: IlpSectionState[];
   createdAt: string;
+  updatedAt: string;
 }
 
 export type IlpInputStatus = typeof IlpInputStatus[keyof typeof IlpInputStatus];
@@ -541,6 +570,40 @@ export interface IlpInput {
   title: string;
   content?: string;
   status?: IlpInputStatus;
+  /** @nullable */
+  tutor?: string | null;
+  /** @nullable */
+  academicYear?: string | null;
+  /** @nullable */
+  lastReviewDate?: string | null;
+  /** @nullable */
+  nextReviewDue?: string | null;
+  sections?: IlpSectionState[];
+}
+
+export type IlpUpdateStatus = typeof IlpUpdateStatus[keyof typeof IlpUpdateStatus];
+
+
+export const IlpUpdateStatus = {
+  draft: 'draft',
+  active: 'active',
+  completed: 'completed',
+} as const;
+
+export interface IlpUpdate {
+  title?: string;
+  /** @nullable */
+  content?: string | null;
+  status?: IlpUpdateStatus;
+  /** @nullable */
+  tutor?: string | null;
+  /** @nullable */
+  academicYear?: string | null;
+  /** @nullable */
+  lastReviewDate?: string | null;
+  /** @nullable */
+  nextReviewDue?: string | null;
+  sections?: IlpSectionState[];
 }
 
 export interface Assessment {
@@ -564,7 +627,10 @@ export interface Assessment {
   organisation?: string | null;
   mandatory: number;
   allowAegrotats: number;
+  /** @nullable */
+  tutor?: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface AssessmentInput {
@@ -587,6 +653,8 @@ export interface AssessmentInput {
   organisation?: string | null;
   mandatory?: number;
   allowAegrotats?: number;
+  /** @nullable */
+  tutor?: string | null;
 }
 
 export interface AssessmentResult {
@@ -608,7 +676,10 @@ export interface AssessmentResult {
   dateMarked?: string | null;
   confirmed: number;
   status: string;
+  /** @nullable */
+  gradeReleasedAt?: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface AssessmentResultInput {

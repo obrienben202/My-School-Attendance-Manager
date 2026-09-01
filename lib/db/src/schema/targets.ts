@@ -11,8 +11,9 @@ export const targetsTable = pgTable("targets", {
   dueDate: date("due_date"),
   completed: boolean("completed").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
-export const insertTargetSchema = createInsertSchema(targetsTable).omit({ id: true, createdAt: true });
+export const insertTargetSchema = createInsertSchema(targetsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertTarget = z.infer<typeof insertTargetSchema>;
 export type Target = typeof targetsTable.$inferSelect;

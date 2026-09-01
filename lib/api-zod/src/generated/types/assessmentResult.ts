@@ -25,5 +25,8 @@ export interface AssessmentResult {
   dateMarked?: string | null;
   confirmed: number;
   status: string;
+  /** @nullable */
+  gradeReleasedAt?: Date | null;
   createdAt: string;
+  updatedAt: Date;
 }

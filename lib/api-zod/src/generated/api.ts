@@ -31,7 +31,7 @@ export const GetDashboardSummaryResponse = zod.object({
 
 
 /**
- * Returns persisted report data only. Report definitions whose requested fields are not persisted return 422 instead of sample data.
+ * Returns persisted report data only, including the source-data freshness timestamp when records match.
  * @summary Run a current report for authorised report users
  */
 export const GetReportParams = zod.object({
@@ -170,6 +170,7 @@ export const ListSafeguardingNotesResponseItem = zod.object({
   "author": zod.string(),
   "content": zod.string(),
   "status": zod.enum(['active', 'archived']),
+  "lastContactedAt": zod.coerce.date().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -186,7 +187,8 @@ export const createSafeguardingNoteBodyContentMax = 10000;
 
 export const CreateSafeguardingNoteBody = zod.object({
   "studentId": zod.number(),
-  "content": zod.string().min(1).max(createSafeguardingNoteBodyContentMax)
+  "content": zod.string().min(1).max(createSafeguardingNoteBodyContentMax),
+  "lastContactedAt": zod.coerce.date().nullish()
 })
 
 
@@ -614,6 +616,9 @@ export const ListIlpsQueryParams = zod.object({
   "studentId": zod.coerce.number().optional()
 })
 
+
+
+
 export const ListIlpsResponseItem = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
@@ -621,7 +626,16 @@ export const ListIlpsResponseItem = zod.object({
   "title": zod.string(),
   "content": zod.string().nullish(),
   "status": zod.enum(['draft', 'active', 'completed']),
-  "createdAt": zod.coerce.date()
+  "tutor": zod.string().nullish(),
+  "academicYear": zod.string().nullish(),
+  "lastReviewDate": zod.coerce.date().nullish(),
+  "nextReviewDue": zod.coerce.date().nullish(),
+  "sections": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "status": zod.enum(['completed', 'partial', 'not_started'])
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
 export const ListIlpsResponse = zod.array(ListIlpsResponseItem)
 
@@ -629,11 +643,69 @@ export const ListIlpsResponse = zod.array(ListIlpsResponseItem)
 /**
  * @summary Create an ILP
  */
+
+
+
 export const CreateIlpBody = zod.object({
   "studentId": zod.number(),
   "title": zod.string(),
   "content": zod.string().optional(),
-  "status": zod.enum(['draft', 'active', 'completed']).optional()
+  "status": zod.enum(['draft', 'active', 'completed']).optional(),
+  "tutor": zod.string().nullish(),
+  "academicYear": zod.string().nullish(),
+  "lastReviewDate": zod.coerce.date().nullish(),
+  "nextReviewDue": zod.coerce.date().nullish(),
+  "sections": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "status": zod.enum(['completed', 'partial', 'not_started'])
+})).optional()
+})
+
+
+/**
+ * @summary Update an ILP and its review or section state
+ */
+export const UpdateIlpParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateIlpBody = zod.object({
+  "title": zod.string().optional(),
+  "content": zod.string().nullish(),
+  "status": zod.enum(['draft', 'active', 'completed']).optional(),
+  "tutor": zod.string().nullish(),
+  "academicYear": zod.string().nullish(),
+  "lastReviewDate": zod.coerce.date().nullish(),
+  "nextReviewDue": zod.coerce.date().nullish(),
+  "sections": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "status": zod.enum(['completed', 'partial', 'not_started'])
+})).optional()
+})
+
+
+
+
+export const UpdateIlpResponse = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "studentName": zod.string().nullish(),
+  "title": zod.string(),
+  "content": zod.string().nullish(),
+  "status": zod.enum(['draft', 'active', 'completed']),
+  "tutor": zod.string().nullish(),
+  "academicYear": zod.string().nullish(),
+  "lastReviewDate": zod.coerce.date().nullish(),
+  "nextReviewDue": zod.coerce.date().nullish(),
+  "sections": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "status": zod.enum(['completed', 'partial', 'not_started'])
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
 
 
@@ -660,7 +732,9 @@ export const ListAssessmentsResponseItem = zod.object({
   "organisation": zod.string().nullish(),
   "mandatory": zod.number(),
   "allowAegrotats": zod.number(),
-  "createdAt": zod.string()
+  "tutor": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.coerce.date()
 })
 export const ListAssessmentsResponse = zod.array(ListAssessmentsResponseItem)
 
@@ -682,7 +756,8 @@ export const CreateAssessmentBody = zod.object({
   "location": zod.string().nullish(),
   "organisation": zod.string().nullish(),
   "mandatory": zod.number().optional(),
-  "allowAegrotats": zod.number().optional()
+  "allowAegrotats": zod.number().optional(),
+  "tutor": zod.string().nullish()
 })
 
 
@@ -709,7 +784,9 @@ export const GetAssessmentResponse = zod.object({
   "organisation": zod.string().nullish(),
   "mandatory": zod.number(),
   "allowAegrotats": zod.number(),
-  "createdAt": zod.string()
+  "tutor": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.coerce.date()
 })
 
 
@@ -734,7 +811,8 @@ export const UpdateAssessmentBody = zod.object({
   "location": zod.string().nullish(),
   "organisation": zod.string().nullish(),
   "mandatory": zod.number().optional(),
-  "allowAegrotats": zod.number().optional()
+  "allowAegrotats": zod.number().optional(),
+  "tutor": zod.string().nullish()
 })
 
 export const UpdateAssessmentResponse = zod.object({
@@ -753,7 +831,9 @@ export const UpdateAssessmentResponse = zod.object({
   "organisation": zod.string().nullish(),
   "mandatory": zod.number(),
   "allowAegrotats": zod.number(),
-  "createdAt": zod.string()
+  "tutor": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.coerce.date()
 })
 
 
@@ -786,7 +866,9 @@ export const ListAssessmentResultsResponseItem = zod.object({
   "dateMarked": zod.string().nullish(),
   "confirmed": zod.number(),
   "status": zod.string(),
-  "createdAt": zod.string()
+  "gradeReleasedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.coerce.date()
 })
 export const ListAssessmentResultsResponse = zod.array(ListAssessmentResultsResponseItem)
 
@@ -843,7 +925,9 @@ export const UpdateAssessmentResultResponse = zod.object({
   "dateMarked": zod.string().nullish(),
   "confirmed": zod.number(),
   "status": zod.string(),
-  "createdAt": zod.string()
+  "gradeReleasedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.coerce.date()
 })
 
 

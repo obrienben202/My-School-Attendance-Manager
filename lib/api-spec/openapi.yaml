@@ -74,7 +74,7 @@ paths:
       operationId: getReport
       tags: [reports]
       summary: Run a current report for authorised report users
-      description: Returns persisted report data only. Report definitions whose requested fields are not persisted return 422 instead of sample data.
+      description: Returns persisted report data only, including the source-data freshness timestamp when records match.
       parameters:
         - name: reportId
           in: path
@@ -136,13 +136,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
-        "422":
-          description: This report is unavailable because its fields are not persisted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-
   /students:
     get:
       operationId: listStudents
@@ -801,6 +794,31 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ilp"
+
+  /ilps/{id}:
+    patch:
+      operationId: updateIlp
+      tags: [ilps]
+      summary: Update an ILP and its review or section state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IlpUpdate"
+      responses:
+        "200":
+          description: Updated
           content:
             application/json:
               schema:
@@ -1750,6 +1768,9 @@ components:
         status:
           type: string
           enum: [active, archived]
+        lastContactedAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -1769,6 +1790,9 @@ components:
           type: string
           minLength: 1
           maxLength: 10000
+        lastContactedAt:
+          type: ["string", "null"]
+          format: date-time
     HealthStatus:
       type: object
       properties:
@@ -2304,7 +2328,24 @@ components:
         status:
           type: string
           enum: [draft, active, completed]
+        tutor:
+          type: ["string", "null"]
+        academicYear:
+          type: ["string", "null"]
+        lastReviewDate:
+          type: ["string", "null"]
+          format: date
+        nextReviewDue:
+          type: ["string", "null"]
+          format: date
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/IlpSectionState"
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
       required:
@@ -2312,7 +2353,9 @@ components:
         - studentId
         - title
         - status
+        - sections
         - createdAt
+        - updatedAt
 
     IlpInput:
       type: object
@@ -2326,9 +2369,59 @@ components:
         status:
           type: string
           enum: [draft, active, completed]
+        tutor:
+          type: ["string", "null"]
+        academicYear:
+          type: ["string", "null"]
+        lastReviewDate:
+          type: ["string", "null"]
+          format: date
+        nextReviewDue:
+          type: ["string", "null"]
+          format: date
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/IlpSectionState"
       required:
         - studentId
         - title
+
+    IlpUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, active, completed]
+        tutor:
+          type: ["string", "null"]
+        academicYear:
+          type: ["string", "null"]
+        lastReviewDate:
+          type: ["string", "null"]
+          format: date
+        nextReviewDue:
+          type: ["string", "null"]
+          format: date
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/IlpSectionState"
+
+    IlpSectionState:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [completed, partial, not_started]
 
     Assessment:
       type: object
@@ -2363,8 +2456,13 @@ components:
           type: integer
         allowAegrotats:
           type: integer
+        tutor:
+          type: ["string", "null"]
         createdAt:
           type: string
+        updatedAt:
+          type: string
+          format: date-time
       required:
         - id
         - courseId
@@ -2377,6 +2475,7 @@ components:
         - mandatory
         - allowAegrotats
         - createdAt
+        - updatedAt
 
     AssessmentInput:
       type: object
@@ -2409,6 +2508,8 @@ components:
           type: integer
         allowAegrotats:
           type: integer
+        tutor:
+          type: ["string", "null"]
       required:
         - courseId
         - code
@@ -2441,8 +2542,14 @@ components:
           type: integer
         status:
           type: string
+        gradeReleasedAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
+        updatedAt:
+          type: string
+          format: date-time
       required:
         - id
         - assessmentId
@@ -2451,6 +2558,7 @@ components:
         - confirmed
         - status
         - createdAt
+        - updatedAt
 
     AssessmentResultInput:
       type: object

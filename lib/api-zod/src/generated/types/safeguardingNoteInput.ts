@@ -13,4 +13,6 @@ export interface SafeguardingNoteInput {
      * @maxLength 10000
      */
   content: string;
+  /** @nullable */
+  lastContactedAt?: Date | null;
 }

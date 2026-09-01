@@ -18,7 +18,9 @@ export const assessmentsTable = pgTable("assessments", {
   organisation: text("organisation"),
   mandatory: integer("mandatory").notNull().default(0),
   allowAegrotats: integer("allow_aegrotats").notNull().default(0),
+  tutor: text("tutor"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
 export const assessmentResultsTable = pgTable("assessment_results", {
@@ -34,13 +36,15 @@ export const assessmentResultsTable = pgTable("assessment_results", {
   dateMarked: text("date_marked"),
   confirmed: integer("confirmed").notNull().default(0),
   status: text("status").notNull().default("Not Marked"),
+  gradeReleasedAt: timestamp("grade_released_at", { withTimezone: true }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
-export const insertAssessmentSchema = createInsertSchema(assessmentsTable).omit({ id: true, createdAt: true });
+export const insertAssessmentSchema = createInsertSchema(assessmentsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAssessment = z.infer<typeof insertAssessmentSchema>;
 export type Assessment = typeof assessmentsTable.$inferSelect;
 
-export const insertAssessmentResultSchema = createInsertSchema(assessmentResultsTable).omit({ id: true, createdAt: true });
+export const insertAssessmentResultSchema = createInsertSchema(assessmentResultsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAssessmentResult = z.infer<typeof insertAssessmentResultSchema>;
 export type AssessmentResult = typeof assessmentResultsTable.$inferSelect;

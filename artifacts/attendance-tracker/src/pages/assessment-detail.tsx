@@ -62,6 +62,7 @@ export default function AssessmentDetail() {
   const [localResults, setLocalResults] = useState<Record<number, LocalResult>>({});
   const [submitted, setSubmitted] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [released, setReleased] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [groupFilter, setGroupFilter] = useState("all");
   const [saving, setSaving] = useState(false);
@@ -148,6 +149,19 @@ export default function AssessmentDetail() {
     }
   }
 
+  async function handleReleaseResults() {
+    setSaving(true);
+    try {
+      for (const r of existingResults ?? []) {
+        if (r.confirmed === 1) await updateResult({ id: r.id, data: { ...r, status: "Released" } });
+      }
+      setReleased(true);
+      refetch();
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleResit(studentId: number) {
     const r = getResult(studentId);
     setLocalResults(prev => ({
@@ -185,6 +199,11 @@ export default function AssessmentDetail() {
       {submitted && !isConfirmMode && (
         <div className="flex items-center gap-2 bg-emerald-600 text-white text-xs font-semibold px-4 py-2 rounded">
           <Check className="w-4 h-4" /> Results submitted successfully.
+        </div>
+      )}
+      {released && (
+        <div className="flex items-center gap-2 bg-green-600 text-white text-xs font-semibold px-4 py-2 rounded">
+          <Check className="w-4 h-4" /> Confirmed grades released to learners.
         </div>
       )}
 
@@ -382,12 +401,16 @@ export default function AssessmentDetail() {
                   </button>
                 )}
               </>}
-              {isConfirmMode && (
+              {isConfirmMode && <>
                 <button onClick={handleConfirmResults} disabled={saving || confirmed}
                   className="flex items-center gap-1.5 text-xs bg-teal-700 text-white rounded px-3 py-1.5 hover:bg-teal-800 disabled:opacity-50">
                   <Check className="w-3 h-3" /> {saving ? "Confirming…" : "Confirm Results"}
                 </button>
-              )}
+                <button onClick={handleReleaseResults} disabled={saving || !(existingResults ?? []).some((result) => result.confirmed === 1)}
+                  className="flex items-center gap-1.5 text-xs bg-green-700 text-white rounded px-3 py-1.5 hover:bg-green-800 disabled:opacity-50">
+                  <Check className="w-3 h-3" /> {saving ? "Releasing…" : "Release Confirmed Grades"}
+                </button>
+              </>}
             </div>
           </div>
         </div>

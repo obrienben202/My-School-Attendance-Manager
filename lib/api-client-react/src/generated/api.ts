@@ -51,6 +51,7 @@ import type {
   HealthStatus,
   Ilp,
   IlpInput,
+  IlpUpdate,
   ListAssessmentResultsParams,
   ListAssessmentsParams,
   ListAttendanceRecordsParams,
@@ -275,7 +276,7 @@ export const getGetReportUrl = (reportId: ReportId,
 }
 
 /**
- * Returns persisted report data only. Report definitions whose requested fields are not persisted return 422 instead of sample data.
+ * Returns persisted report data only, including the source-data freshness timestamp when records match.
  * @summary Run a current report for authorised report users
  */
 export const getReport = async (reportId: ReportId,
@@ -2392,6 +2393,78 @@ export const useCreateIlp = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateIlpMutationOptions(options));
+    }
+
+export const getUpdateIlpUrl = (id: number,) => {
+
+
+
+
+  return `/api/ilps/${id}`
+}
+
+/**
+ * @summary Update an ILP and its review or section state
+ */
+export const updateIlp = async (id: number,
+    ilpUpdate: IlpUpdate, options?: RequestInit): Promise<Ilp> => {
+
+  return customFetch<Ilp>(getUpdateIlpUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      ilpUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateIlpMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIlp>>, TError,{id: number;data: BodyType<IlpUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateIlp>>, TError,{id: number;data: BodyType<IlpUpdate>}, TContext> => {
+
+const mutationKey = ['updateIlp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIlp>>, {id: number;data: BodyType<IlpUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateIlp(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateIlpMutationResult = NonNullable<Awaited<ReturnType<typeof updateIlp>>>
+    export type UpdateIlpMutationBody = BodyType<IlpUpdate>
+    export type UpdateIlpMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update an ILP and its review or section state
+ */
+export const useUpdateIlp = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIlp>>, TError,{id: number;data: BodyType<IlpUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateIlp>>,
+        TError,
+        {id: number;data: BodyType<IlpUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateIlpMutationOptions(options));
     }
 
 export const getListAssessmentsUrl = (params?: ListAssessmentsParams,) => {

@@ -26,4 +26,6 @@ export interface AssessmentInput {
   organisation?: string | null;
   mandatory?: number;
   allowAegrotats?: number;
+  /** @nullable */
+  tutor?: string | null;
 }

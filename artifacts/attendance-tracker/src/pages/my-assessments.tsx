@@ -17,6 +17,7 @@ function AddAssessmentForm({ courseId, onSuccess, onCancel }: { courseId: number
   const [gradingScheme, setGradingScheme] = useState("Percentage");
   const [minPassMark, setMinPassMark] = useState("");
   const [marksOutOf, setMarksOutOf] = useState("");
+  const [tutor, setTutor] = useState("");
   const [mandatory, setMandatory] = useState(false);
   const [allowAegrotats, setAllowAegrotats] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -41,6 +42,7 @@ function AddAssessmentForm({ courseId, onSuccess, onCancel }: { courseId: number
           order: 1,
           mandatory: mandatory ? 1 : 0,
           allowAegrotats: allowAegrotats ? 1 : 0,
+          tutor: tutor.trim() || null,
         },
       });
       onSuccess();
@@ -60,6 +62,10 @@ function AddAssessmentForm({ courseId, onSuccess, onCancel }: { courseId: number
         <div>
           <label className="text-xs text-slate-600 mb-1 block">Description *</label>
           <input value={description} onChange={e => setDescription(e.target.value)} className="w-full border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-teal-400" placeholder="e.g. Unit 1 Essay" />
+        </div>
+        <div>
+          <label className="text-xs text-slate-600 mb-1 block">Tutor</label>
+          <input value={tutor} onChange={e => setTutor(e.target.value)} className="w-full border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-teal-400" placeholder="e.g. J. Smith" />
         </div>
         <div>
           <label className="text-xs text-slate-600 mb-1 block">Type</label>

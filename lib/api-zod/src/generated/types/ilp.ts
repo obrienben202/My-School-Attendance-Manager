@@ -5,6 +5,7 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { IlpSectionState } from './ilpSectionState';
 import type { IlpStatus } from './ilpStatus';
 
 export interface Ilp {
@@ -16,5 +17,15 @@ export interface Ilp {
   /** @nullable */
   content?: string | null;
   status: IlpStatus;
+  /** @nullable */
+  tutor?: string | null;
+  /** @nullable */
+  academicYear?: string | null;
+  /** @nullable */
+  lastReviewDate?: Date | null;
+  /** @nullable */
+  nextReviewDue?: Date | null;
+  sections: IlpSectionState[];
   createdAt: Date;
+  updatedAt: Date;
 }

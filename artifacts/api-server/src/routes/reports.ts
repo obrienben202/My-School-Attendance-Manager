@@ -7,14 +7,18 @@ import {
   coursesTable,
   db,
   enrollmentsTable,
+  ilpsTable,
   plannedAbsencesTable,
+  safeguardingNotesTable,
   scheduleTable,
   studentsTable,
+  targetsTable,
 } from "@workspace/db";
 import {
   GetReportParams,
 } from "@workspace/api-zod";
 import { canAccessReports } from "../lib/report-access";
+import { canAccessSafeguarding } from "../lib/safeguarding-access";
 
 const router = Router();
 
@@ -39,7 +43,7 @@ type ReportQuery = {
   status?: string;
 };
 
-const REPORT_META: Record<ReportId, {
+export const REPORT_META: Record<ReportId, {
   title: string;
   description: string;
   columns: ReportColumn[];
@@ -104,27 +108,48 @@ const REPORT_META: Record<ReportId, {
   "asmt-unconfirmed": {
     title: "Unconfirmed Assessments",
     description: "Assessments awaiting staff confirmation.",
-    columns: [],
+    columns: [
+      { key: "assessment", label: "Assessment" }, { key: "course", label: "Course" },
+      { key: "dueDate", label: "Due Date" }, { key: "learnersUnconfirmed", label: "Learners Unconfirmed" },
+      { key: "tutor", label: "Tutor" },
+    ],
   },
   "ilp-progress": {
     title: "ILP Progress Summary",
     description: "Overview of ILP completion status across learners.",
-    columns: [],
+    columns: [
+      { key: "learner", label: "Learner" }, { key: "personCode", label: "Person Code" },
+      { key: "tutor", label: "Tutor" }, { key: "status", label: "ILP Status" },
+      { key: "lastReview", label: "Last Review" }, { key: "nextReviewDue", label: "Next Review Due" },
+      { key: "targetsSet", label: "Targets Set" },
+    ],
   },
   "ilp-reviews-due": {
     title: "ILP Reviews Due",
     description: "Learners whose ILP review is due or overdue.",
-    columns: [],
+    columns: [
+      { key: "learner", label: "Learner" }, { key: "personCode", label: "Person Code" },
+      { key: "tutor", label: "Tutor" }, { key: "reviewDueDate", label: "Review Due Date" },
+      { key: "daysOverdue", label: "Days Overdue" },
+    ],
   },
   "ilp-completion": {
     title: "ILP Section Completion",
     description: "Completion rates for each ILP section.",
-    columns: [],
+    columns: [
+      { key: "section", label: "ILP Section" }, { key: "totalLearners", label: "Total Learners" },
+      { key: "completed", label: "Completed" }, { key: "partial", label: "Partial" },
+      { key: "notStarted", label: "Not Started" }, { key: "completion", label: "Completion %" },
+    ],
   },
   "sg-at-risk": {
     title: "At-Risk Learners",
     description: "Learners flagged as at-risk based on attendance and progress.",
-    columns: [],
+    columns: [
+      { key: "learner", label: "Learner" }, { key: "personCode", label: "Person Code" },
+      { key: "course", label: "Course" }, { key: "attendance", label: "Attendance %" },
+      { key: "flags", label: "Flags" }, { key: "lastContacted", label: "Last Contacted" },
+    ],
   },
   "sg-planned-absence": {
     title: "Planned Absence Summary",
@@ -148,14 +173,13 @@ const REPORT_META: Record<ReportId, {
   "mb-grades-released": {
     title: "Grades Released to Learners",
     description: "Report of all grades that have been released to learners.",
-    columns: [],
+    columns: [
+      { key: "learner", label: "Learner" }, { key: "personCode", label: "Person Code" },
+      { key: "unit", label: "Unit" }, { key: "grade", label: "Grade" },
+      { key: "releasedOn", label: "Released On" },
+    ],
   },
 };
-
-const unsupportedReports = new Set<ReportId>([
-  "asmt-unconfirmed", "ilp-progress", "ilp-reviews-due", "ilp-completion",
-  "sg-at-risk", "mb-grades-released",
-]);
 
 const FILTERS_BY_REPORT: Record<ReportId, Set<keyof ReportQuery>> = {
   "att-overall": new Set(["academicYear", "dateFrom", "dateTo", "course"]),
@@ -255,6 +279,33 @@ function filterLabel(query: ReportQuery) {
   return Object.fromEntries(Object.entries(query)
     .filter(([, value]) => value !== undefined && value !== "")
     .map(([key, value]) => [key, value instanceof Date ? value.toISOString().slice(0, 10) : String(value)]));
+}
+
+type ReportData = { rows: ReportRow[]; asOf: Date | null };
+
+export function latestTimestamp(values: Array<Date | null | undefined>): Date | null {
+  return values.reduce<Date | null>((latest, value) => {
+    if (!value) return latest;
+    return !latest || value > latest ? value : latest;
+  }, null);
+}
+
+function displayDate(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
+}
+
+function titleCase(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+export function daysOverdue(dueDate: string, today: string): number {
+  const milliseconds = Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dueDate}T00:00:00Z`);
+  return Math.max(0, Math.floor(milliseconds / 86_400_000));
+}
+
+export function isProgressRisk(target: { completed: boolean; dueDate: string | null }, today: string): boolean {
+  return !target.completed && target.dueDate !== null && target.dueDate < today;
 }
 
 async function attendanceRows(reportId: ReportId, query: ReportQuery): Promise<ReportRow[]> {
@@ -388,6 +439,259 @@ async function assessmentRows(reportId: ReportId, query: ReportQuery): Promise<R
   }).sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
 }
 
+async function unconfirmedAssessmentData(query: ReportQuery): Promise<ReportData> {
+  const records = await db.select({
+    assessmentId: assessmentsTable.id,
+    assessment: assessmentsTable.description,
+    dueDate: assessmentsTable.dueDate,
+    tutor: assessmentsTable.tutor,
+    assessmentUpdatedAt: assessmentsTable.updatedAt,
+    resultUpdatedAt: assessmentResultsTable.updatedAt,
+    confirmed: assessmentResultsTable.confirmed,
+    status: assessmentResultsTable.status,
+    course: coursesTable.name,
+  }).from(assessmentResultsTable)
+    .innerJoin(assessmentsTable, eq(assessmentResultsTable.assessmentId, assessmentsTable.id))
+    .innerJoin(coursesTable, eq(assessmentsTable.courseId, coursesTable.id));
+  const filtered = records.filter((record) =>
+    record.confirmed === 0
+    && record.status.trim().toLowerCase() === "submitted"
+    && filterText(record.course, query.course)
+    && filterText(record.tutor, query.tutor));
+  const groups = new Map<number, typeof filtered>();
+  filtered.forEach((record) => groups.set(record.assessmentId, [...(groups.get(record.assessmentId) ?? []), record]));
+  return {
+    rows: [...groups.values()].map((group) => [
+      group[0].assessment,
+      group[0].course,
+      displayDate(group[0].dueDate),
+      String(group.length),
+      group[0].tutor ?? "Unassigned",
+    ]).sort((a, b) => a[0].localeCompare(b[0])),
+    asOf: latestTimestamp(filtered.flatMap((record) => [record.assessmentUpdatedAt, record.resultUpdatedAt])),
+  };
+}
+
+type IlpSectionRecord = {
+  sections: Array<{ name: string; status: "completed" | "partial" | "not_started" }>;
+};
+
+export function latestIlpPerStudent<T extends { studentId: number; updatedAt: Date }>(records: T[]): T[] {
+  const latest = new Map<number, T>();
+  for (const record of records) {
+    const existing = latest.get(record.studentId);
+    if (!existing || record.updatedAt > existing.updatedAt) latest.set(record.studentId, record);
+  }
+  return [...latest.values()];
+}
+
+export function buildIlpSectionRows(records: IlpSectionRecord[]): ReportRow[] {
+  const sectionNames = new Set<string>();
+  for (const record of records) {
+    for (const section of record.sections) {
+      const name = section.name.trim();
+      if (name) sectionNames.add(name);
+    }
+  }
+  return [...sectionNames].map((name) => {
+    const statuses = records.map((record) =>
+      record.sections.find((section) => section.name.trim() === name)?.status ?? "not_started"
+    );
+    const completed = statuses.filter((status) => status === "completed").length;
+    const partial = statuses.filter((status) => status === "partial").length;
+    const notStarted = statuses.filter((status) => status === "not_started").length;
+    return [name, String(statuses.length), String(completed), String(partial), String(notStarted), percentage(completed, statuses.length)];
+  }).sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+async function ilpData(reportId: "ilp-progress" | "ilp-reviews-due" | "ilp-completion", query: ReportQuery): Promise<ReportData> {
+  const records = await db.select({
+    studentId: ilpsTable.studentId,
+    status: ilpsTable.status,
+    tutor: ilpsTable.tutor,
+    academicYear: ilpsTable.academicYear,
+    lastReviewDate: ilpsTable.lastReviewDate,
+    nextReviewDue: ilpsTable.nextReviewDue,
+    sections: ilpsTable.sections,
+    updatedAt: ilpsTable.updatedAt,
+    forename: studentsTable.forename,
+    surname: studentsTable.surname,
+    personCode: studentsTable.personCode,
+  }).from(ilpsTable)
+    .innerJoin(studentsTable, eq(ilpsTable.studentId, studentsTable.id));
+  const filtered = records.filter((record) =>
+    filterText(record.academicYear, query.academicYear)
+    && filterText(record.tutor, query.tutor));
+  const currentRecords = latestIlpPerStudent(filtered);
+
+  if (reportId === "ilp-completion") {
+    return {
+      rows: buildIlpSectionRows(currentRecords),
+      asOf: latestTimestamp(currentRecords.map((record) => record.updatedAt)),
+    };
+  }
+
+  if (reportId === "ilp-reviews-due") {
+    const today = new Date().toISOString().slice(0, 10);
+    const dueThrough = query.overdueTo?.toISOString().slice(0, 10) ?? today;
+    const due = currentRecords.filter((record) => record.nextReviewDue && record.nextReviewDue <= dueThrough);
+    return {
+      rows: due.map((record) => [
+        `${record.surname}, ${record.forename}`,
+        record.personCode,
+        record.tutor ?? "Unassigned",
+        displayDate(record.nextReviewDue),
+        String(daysOverdue(record.nextReviewDue!, today)),
+      ]).sort((a, b) => a[3].localeCompare(b[3]) || a[0].localeCompare(b[0])),
+      asOf: latestTimestamp(due.map((record) => record.updatedAt)),
+    };
+  }
+
+  const targetRecords = await db.select({
+    studentId: targetsTable.studentId,
+    updatedAt: targetsTable.updatedAt,
+  }).from(targetsTable);
+  const targetCounts = new Map<number, number>();
+  targetRecords.forEach((target) => targetCounts.set(target.studentId, (targetCounts.get(target.studentId) ?? 0) + 1));
+  const studentIds = new Set(currentRecords.map((record) => record.studentId));
+  return {
+    rows: currentRecords.map((record) => [
+      `${record.surname}, ${record.forename}`,
+      record.personCode,
+      record.tutor ?? "Unassigned",
+      titleCase(record.status),
+      displayDate(record.lastReviewDate),
+      displayDate(record.nextReviewDue),
+      String(targetCounts.get(record.studentId) ?? 0),
+    ]).sort((a, b) => a[0].localeCompare(b[0])),
+    asOf: latestTimestamp([
+      ...currentRecords.map((record) => record.updatedAt),
+      ...targetRecords.filter((target) => studentIds.has(target.studentId)).map((target) => target.updatedAt),
+    ]),
+  };
+}
+
+async function atRiskData(query: ReportQuery): Promise<ReportData> {
+  const records = await db.select({
+    studentId: studentsTable.id,
+    forename: studentsTable.forename,
+    surname: studentsTable.surname,
+    personCode: studentsTable.personCode,
+    courseId: coursesTable.id,
+    course: coursesTable.name,
+    status: attendanceTable.status,
+    minutesLate: attendanceTable.minutesLate,
+    updatedAt: attendanceTable.updatedAt,
+  }).from(attendanceTable)
+    .innerJoin(studentsTable, eq(attendanceTable.studentId, studentsTable.id))
+    .innerJoin(coursesTable, eq(attendanceTable.courseId, coursesTable.id));
+  const filtered = records.filter((record) => filterText(record.course, query.course));
+  const groups = new Map<string, typeof filtered>();
+  filtered.forEach((record) => {
+    const key = `${record.studentId}:${record.courseId}`;
+    groups.set(key, [...(groups.get(key) ?? []), record]);
+  });
+  const threshold = Number(query.threshold?.replace("%", "") ?? 80);
+  const atRiskGroups = [...groups.values()].filter((group) => {
+    const attended = group.filter((record) => record.status === "present" || record.status === "late").length;
+    return group.length > 0 && (attended / group.length) * 100 < threshold;
+  });
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueTargets = await db.select({
+    studentId: targetsTable.studentId,
+    dueDate: targetsTable.dueDate,
+    completed: targetsTable.completed,
+    updatedAt: targetsTable.updatedAt,
+    forename: studentsTable.forename,
+    surname: studentsTable.surname,
+    personCode: studentsTable.personCode,
+  }).from(targetsTable)
+    .innerJoin(studentsTable, eq(targetsTable.studentId, studentsTable.id));
+  const progressRisk = overdueTargets.filter((target) => isProgressRisk(target, today));
+  const progressRiskByStudent = new Map(progressRisk.map((target) => [target.studentId, target]));
+  const attendanceRiskStudentIds = new Set(atRiskGroups.map((group) => group[0].studentId));
+  const progressOnly = query.course
+    ? []
+    : progressRisk.filter((target) => !attendanceRiskStudentIds.has(target.studentId));
+  const studentIds = new Set([
+    ...attendanceRiskStudentIds,
+    ...progressOnly.map((target) => target.studentId),
+  ]);
+  const contacts = await db.select({
+    studentId: safeguardingNotesTable.studentId,
+    lastContactedAt: safeguardingNotesTable.lastContactedAt,
+    updatedAt: safeguardingNotesTable.updatedAt,
+  }).from(safeguardingNotesTable);
+  const lastContactByStudent = new Map<number, Date>();
+  for (const contact of contacts) {
+    if (!contact.lastContactedAt) continue;
+    const existing = lastContactByStudent.get(contact.studentId);
+    if (!existing || contact.lastContactedAt > existing) lastContactByStudent.set(contact.studentId, contact.lastContactedAt);
+  }
+  return {
+    rows: [
+      ...atRiskGroups.map((group) => {
+      const attended = group.filter((record) => record.status === "present" || record.status === "late").length;
+      const late = group.filter((record) => record.status === "late" || (record.minutesLate ?? 0) > 0).length;
+      const hasProgressRisk = progressRiskByStudent.has(group[0].studentId);
+      return [
+        `${group[0].surname}, ${group[0].forename}`,
+        group[0].personCode,
+        group[0].course,
+        percentage(attended, group.length),
+        ["Attendance", ...(late > 0 ? ["Lateness"] : []), ...(hasProgressRisk ? ["Progress"] : [])].join(", "),
+        displayDate(lastContactByStudent.get(group[0].studentId)),
+      ];
+      }),
+      ...progressOnly.map((target) => [
+        `${target.surname}, ${target.forename}`,
+        target.personCode,
+        "All courses",
+        "No attendance records",
+        "Progress",
+        displayDate(lastContactByStudent.get(target.studentId)),
+      ]),
+    ].sort((a, b) => a[0].localeCompare(b[0])),
+    asOf: latestTimestamp([
+      ...atRiskGroups.flatMap((group) => group.map((record) => record.updatedAt)),
+      ...progressRisk.filter((target) => studentIds.has(target.studentId)).map((target) => target.updatedAt),
+      ...contacts.filter((contact) => studentIds.has(contact.studentId)).map((contact) => contact.updatedAt),
+    ]),
+  };
+}
+
+async function releasedGradesData(query: ReportQuery): Promise<ReportData> {
+  const records = await db.select({
+    result: assessmentResultsTable.result,
+    adjustedResult: assessmentResultsTable.adjustedResult,
+    gradeReleasedAt: assessmentResultsTable.gradeReleasedAt,
+    updatedAt: assessmentResultsTable.updatedAt,
+    forename: studentsTable.forename,
+    surname: studentsTable.surname,
+    personCode: studentsTable.personCode,
+    unit: assessmentsTable.description,
+    course: coursesTable.name,
+  }).from(assessmentResultsTable)
+    .innerJoin(assessmentsTable, eq(assessmentResultsTable.assessmentId, assessmentsTable.id))
+    .innerJoin(studentsTable, eq(assessmentResultsTable.studentId, studentsTable.id))
+    .innerJoin(coursesTable, eq(assessmentsTable.courseId, coursesTable.id));
+  const filtered = records.filter((record) =>
+    record.gradeReleasedAt
+    && filterText(record.course, query.course)
+    && (!query.dateFrom || record.gradeReleasedAt >= query.dateFrom)
+    && (!query.dateTo || record.gradeReleasedAt < new Date(query.dateTo.getTime() + 86_400_000)));
+  return {
+    rows: filtered.map((record) => [
+      `${record.surname}, ${record.forename}`,
+      record.personCode,
+      record.unit,
+      record.adjustedResult ?? record.result ?? "Not graded",
+      displayDate(record.gradeReleasedAt),
+    ]).sort((a, b) => b[4].localeCompare(a[4]) || a[0].localeCompare(b[0])),
+    asOf: latestTimestamp(filtered.map((record) => record.updatedAt)),
+  };
+}
+
 async function markbookRows(query: ReportQuery): Promise<ReportRow[]> {
   const records = await db.select({
     result: assessmentResultsTable.result,
@@ -452,19 +756,26 @@ router.get("/reports/:reportId", async (req: Request, res: Response) => {
   const parsedId = GetReportParams.safeParse({ reportId: req.params.reportId });
   if (!parsedId.success) return res.status(400).json({ error: "Unknown report identifier" });
   const reportId = parsedId.data.reportId;
+  if (reportId === "sg-at-risk" && !canAccessSafeguarding(req.user)) {
+    return res.status(403).json({ error: "Safeguarding access required for this report" });
+  }
   const parsedQuery = parseQuery(req, reportId);
   if (parsedQuery.error) return res.status(400).json({ error: parsedQuery.error });
-  if (unsupportedReports.has(reportId)) {
-    return res.status(422).json({ error: `${REPORT_META[reportId].title} is unavailable because the required fields are not persisted` });
-  }
 
   const query = parsedQuery.data!;
   const generatedAt = new Date();
   let rows: ReportRow[];
+  let asOf: Date | null = null;
   if (reportId.startsWith("att-")) rows = await attendanceRows(reportId, query);
+  else if (reportId === "asmt-unconfirmed") ({ rows, asOf } = await unconfirmedAssessmentData(query));
   else if (reportId.startsWith("asmt-")) rows = await assessmentRows(reportId, query);
-  else if (reportId === "mb-verification-status") rows = await markbookRows(query);
-  else rows = await plannedAbsenceRows(query);
+  else if (reportId === "ilp-progress" || reportId === "ilp-reviews-due" || reportId === "ilp-completion") {
+    ({ rows, asOf } = await ilpData(reportId, query));
+  }
+  else if (reportId === "sg-at-risk") ({ rows, asOf } = await atRiskData(query));
+  else if (reportId === "sg-planned-absence") rows = await plannedAbsenceRows(query);
+  else if (reportId === "mb-grades-released") ({ rows, asOf } = await releasedGradesData(query));
+  else rows = await markbookRows(query);
 
   const meta = REPORT_META[reportId];
   const response = {
@@ -476,9 +787,7 @@ router.get("/reports/:reportId", async (req: Request, res: Response) => {
     appliedFilters: filterLabel(query),
     rowCount: rows.length,
     generatedAt: generatedAt.toISOString(),
-    // The joined source tables do not all maintain update timestamps, so a
-    // truthful source-data watermark cannot currently be calculated.
-    asOf: null,
+    asOf: asOf?.toISOString() ?? null,
   };
   return res.json(response);
 });

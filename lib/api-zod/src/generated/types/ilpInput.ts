@@ -6,10 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { IlpInputStatus } from './ilpInputStatus';
+import type { IlpSectionState } from './ilpSectionState';
 
 export interface IlpInput {
   studentId: number;
   title: string;
   content?: string;
   status?: IlpInputStatus;
+  /** @nullable */
+  tutor?: string | null;
+  /** @nullable */
+  academicYear?: string | null;
+  /** @nullable */
+  lastReviewDate?: Date | null;
+  /** @nullable */
+  nextReviewDue?: Date | null;
+  sections?: IlpSectionState[];
 }

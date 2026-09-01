@@ -294,10 +294,6 @@ const REPORTS: ReportDef[] = [
 ];
 
 const REPORT_MAP = Object.fromEntries(REPORTS.map((r) => [r.id, r]));
-const UNAVAILABLE_REPORTS = new Set<ReportId>([
-  "asmt-unconfirmed", "ilp-progress", "ilp-reviews-due", "ilp-completion",
-  "sg-at-risk", "mb-grades-released",
-]);
 
 const RECENTLY_RUN: ReportId[] = ["att-overall", "att-learner", "ilp-reviews-due", "sg-at-risk"];
 
@@ -624,20 +620,10 @@ export default function ManageReports() {
                 <span className="text-xs text-gray-400">{activeReport.folder}</span>
                 <ChevronRight size={11} className="text-gray-300" />
                 <span className="text-sm font-semibold text-gray-800">{activeReport.name}</span>
-                {UNAVAILABLE_REPORTS.has(activeReport.id) && (
-                  <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                    Unavailable from persisted data
-                  </span>
-                )}
               </div>
 
               {/* Filter panel */}
               <div className="px-6 py-4 bg-white border-b border-gray-200">
-                {UNAVAILABLE_REPORTS.has(activeReport.id) && (
-                  <p className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    This definition needs fields the system does not currently persist. View Report will explain which result cannot be generated; no sample data will be shown.
-                  </p>
-                )}
                 <div className="flex items-center gap-2 mb-3">
                   <Filter size={13} className="text-teal-700" />
                   <p className="text-xs font-semibold text-gray-700">Filter report</p>
