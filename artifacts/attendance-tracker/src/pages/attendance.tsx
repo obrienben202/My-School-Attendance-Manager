@@ -40,7 +40,9 @@ export default function ERegisters() {
     isFetching,
     isError,
     refetch,
-  } = useGetTodaySchedule();
+  } = useGetTodaySchedule({
+    request: { cache: "no-store" },
+  });
 
   const registers = useMemo(() => {
     return schedule.map((entry) => {

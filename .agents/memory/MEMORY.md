@@ -1,3 +1,4 @@
 - [Safe development schema sync](safe-development-schema-sync.md) — never force a Drizzle push that offers to truncate populated course data; review and apply only non-destructive changes.
 - [OpenAPI date-only output validation](openapi-date-only-output-validation.md) — generated Zod response parsers coerce date-only strings; validate without returning transformed values.
 - [Concierge action honesty](concierge-action-honesty.md) — success requires a persisted record; learner PII and uploads must stay role-scoped and server-verified.
+- [User-scoped feed caching](user-scoped-feed-caching.md) — dynamic authenticated feeds must bypass conditional browser/proxy caching or reloads can lose their response body.

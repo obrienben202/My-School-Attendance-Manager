@@ -22,7 +22,7 @@ function formatDate(date: Date) {
   ].join("-");
 }
 
-function getLessonOccurrenceDate(day: string | null, referenceDate = new Date()) {
+export function getLessonOccurrenceDate(day: string | null, referenceDate = new Date()) {
   const targetDay = getScheduleDayIndex(day);
   if (targetDay === undefined) return formatDate(referenceDate);
 
@@ -32,7 +32,98 @@ function getLessonOccurrenceDate(day: string | null, referenceDate = new Date())
   return formatDate(occurrenceDate);
 }
 
+type ScheduleFeedRecord = {
+  id: number;
+  courseId: number;
+  startTime: string;
+  endTime: string;
+  room: string | null;
+  staffName: string | null;
+  day: string | null;
+  registerMarked: boolean;
+  courseCode: string | null;
+  courseName: string | null;
+  courseStaffName: string | null;
+};
+
+type ScheduleFeedEnrollment = {
+  courseId: number;
+  studentId: number;
+};
+
+type ScheduleFeedRegister = {
+  scheduleId: number;
+  date: string;
+  status: string;
+  updatedAt: Date;
+  submittedAt: Date | null;
+};
+
+type ScheduleFeedAttendance = {
+  scheduleId: number | null;
+  date: string;
+};
+
+export function buildScheduleFeed(
+  records: ScheduleFeedRecord[],
+  enrollments: ScheduleFeedEnrollment[],
+  registers: ScheduleFeedRegister[],
+  legacyAttendance: ScheduleFeedAttendance[],
+  referenceDate = new Date(),
+) {
+  const enrollmentCounts = new Map<number, number>();
+  for (const enrollment of enrollments) {
+    enrollmentCounts.set(
+      enrollment.courseId,
+      (enrollmentCounts.get(enrollment.courseId) ?? 0) + 1,
+    );
+  }
+
+  const occurrences = records.map(record => ({
+    ...record,
+    occurrenceDate: getLessonOccurrenceDate(record.day, referenceDate),
+    enrolledCount: enrollmentCounts.get(record.courseId) ?? 0,
+  }));
+  const registersByOccurrence = new Map(
+    registers.map(register => [`${register.scheduleId}:${register.date}`, register]),
+  );
+  const legacyMarkedOccurrences = new Set(
+    legacyAttendance
+      .filter(record => record.scheduleId !== null)
+      .map(record => `${record.scheduleId}:${record.date}`),
+  );
+
+  return occurrences.map(record => {
+    const occurrenceKey = `${record.id}:${record.occurrenceDate}`;
+    const register = registersByOccurrence.get(occurrenceKey);
+    const registerStatus = resolveAttendanceRegisterStatus(
+      register?.status,
+      legacyMarkedOccurrences.has(occurrenceKey),
+    );
+
+    return {
+      id: record.id,
+      courseId: record.courseId,
+      startTime: record.startTime,
+      endTime: record.endTime,
+      courseCode: record.courseCode ?? "",
+      courseName: record.courseName ?? "",
+      enrolledCount: record.enrolledCount,
+      room: record.room ?? null,
+      staffName: record.staffName ?? null,
+      day: record.day ?? null,
+      occurrenceDate: record.occurrenceDate,
+      registerMarked: record.registerMarked,
+      registerStatus,
+      registerUpdatedAt: register?.updatedAt.toISOString() ?? null,
+      registerSubmittedAt: register?.submittedAt?.toISOString() ?? null,
+    };
+  });
+}
+
 router.get("/schedule/today", async (req, res) => {
+  res.set("Cache-Control", "private, no-store, max-age=0");
+
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Authentication required" });
     return;
@@ -65,28 +156,18 @@ router.get("/schedule/today", async (req, res) => {
       .from(enrollmentsTable),
   ]);
 
-  const enrollmentCounts = new Map<number, number>();
-  for (const enrollment of enrollments) {
-    enrollmentCounts.set(
-      enrollment.courseId,
-      (enrollmentCounts.get(enrollment.courseId) ?? 0) + 1,
-    );
-  }
-
   const occurrences = filterManageableAttendanceSchedules(
     req.user!,
     records.map(record => ({
       ...record,
       scheduleStaffName: record.staffName,
     })),
-  )
-    .map(record => ({
-    ...record,
-    occurrenceDate: getLessonOccurrenceDate(record.day),
-    enrolledCount: enrollmentCounts.get(record.courseId) ?? 0,
-  }));
+  );
+  const referenceDate = new Date();
   const scheduleIds = [...new Set(occurrences.map(occurrence => occurrence.id))];
-  const occurrenceDates = [...new Set(occurrences.map(occurrence => occurrence.occurrenceDate))];
+  const occurrenceDates = [...new Set(
+    occurrences.map(occurrence => getLessonOccurrenceDate(occurrence.day, referenceDate)),
+  )];
   const registers = scheduleIds.length > 0
     ? await db
       .select()
@@ -96,9 +177,6 @@ router.get("/schedule/today", async (req, res) => {
         inArray(attendanceRegistersTable.date, occurrenceDates),
       ))
     : [];
-  const registersByOccurrence = new Map(
-    registers.map(register => [`${register.scheduleId}:${register.date}`, register]),
-  );
   const legacyAttendance = scheduleIds.length > 0
     ? await db
       .select({
@@ -111,36 +189,13 @@ router.get("/schedule/today", async (req, res) => {
         inArray(attendanceTable.date, occurrenceDates),
       ))
     : [];
-  const legacyMarkedOccurrences = new Set(
-    legacyAttendance.map(record => `${record.scheduleId}:${record.date}`),
-  );
-
-  return res.json(occurrences.map(r => {
-    const occurrenceKey = `${r.id}:${r.occurrenceDate}`;
-    const register = registersByOccurrence.get(occurrenceKey);
-    const registerStatus = resolveAttendanceRegisterStatus(
-      register?.status,
-      legacyMarkedOccurrences.has(occurrenceKey),
-    );
-
-    return {
-      id: r.id,
-      courseId: r.courseId,
-      startTime: r.startTime,
-      endTime: r.endTime,
-      courseCode: r.courseCode ?? "",
-      courseName: r.courseName ?? "",
-      enrolledCount: r.enrolledCount,
-      room: r.room ?? null,
-      staffName: r.staffName ?? null,
-      day: r.day ?? null,
-      occurrenceDate: r.occurrenceDate,
-      registerMarked: r.registerMarked,
-      registerStatus,
-      registerUpdatedAt: register?.updatedAt.toISOString() ?? null,
-      registerSubmittedAt: register?.submittedAt?.toISOString() ?? null,
-    };
-  }));
+  return res.json(buildScheduleFeed(
+    occurrences,
+    enrollments,
+    registers,
+    legacyAttendance,
+    referenceDate,
+  ));
 });
 
 export default router;

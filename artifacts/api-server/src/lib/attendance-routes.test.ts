@@ -44,6 +44,7 @@ test("register feed rejects unauthenticated requests before timetable data acces
       `http://127.0.0.1:${address.port}/schedule/today`,
     );
     assert.equal(response.status, 401);
+    assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0");
     assert.deepEqual(await response.json(), { error: "Authentication required" });
   } finally {
     await new Promise<void>((resolve, reject) => {

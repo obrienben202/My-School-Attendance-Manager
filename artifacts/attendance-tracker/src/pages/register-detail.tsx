@@ -80,7 +80,9 @@ export default function RegisterDetail() {
     isLoading: isScheduleLoading,
     isError: isScheduleError,
     refetch: refetchSchedule,
-  } = useGetTodaySchedule();
+  } = useGetTodaySchedule({
+    request: { cache: "no-store" },
+  });
 
   const [saved, setSaved] = useState(false);
   const [submitted, setSubmitted] = useState(false);
