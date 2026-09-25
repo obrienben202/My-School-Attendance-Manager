@@ -68,11 +68,25 @@ export function resolveRegisterListState({
   registerCount,
   filteredCount,
 }: RegisterListStateInput): RegisterListState {
-  if (isLoading) return "loading";
   if (isError) return "error";
+  if (isLoading) return "loading";
   if (registerCount === 0) return "no-assigned-lessons";
   if (filteredCount === 0) return "filter-empty";
   return "ready";
+}
+
+export function registerSummary(
+  registers: RegisterRow[],
+  state: RegisterListState,
+): Record<RegisterStatus, number | null> {
+  if (state === "error" || state === "loading") {
+    return { Open: null, Saved: null, Submitted: null };
+  }
+  return {
+    Open: registers.filter(register => register.status === "Open").length,
+    Saved: registers.filter(register => register.status === "Saved").length,
+    Submitted: registers.filter(register => register.status === "Submitted").length,
+  };
 }
 
 export function hasOnlyEmptyRosters(

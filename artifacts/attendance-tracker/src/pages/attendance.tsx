@@ -20,6 +20,7 @@ import {
   mapScheduleEntryToRegister,
   registerActionLabel,
   registerOccurrencePath,
+  registerSummary,
   resolveRegisterListState,
   type RegisterStatus,
 } from "@/lib/register-list-state";
@@ -91,15 +92,13 @@ export default function ERegisters() {
     return sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
   }
 
-  const open = registers.filter((r) => r.status === "Open").length;
-  const saved = registers.filter((r) => r.status === "Saved").length;
-  const submitted = registers.filter((r) => r.status === "Submitted").length;
   const listState = resolveRegisterListState({
     isLoading,
     isError,
     registerCount: registers.length,
     filteredCount: filtered.length,
   });
+  const summary = registerSummary(registers, listState);
   const hasOnlyEmptyEnrolments = hasOnlyEmptyRosters(registers);
 
   return (
@@ -108,21 +107,24 @@ export default function ERegisters() {
       <div className="mb-5">
         <h1 className="text-2xl font-bold text-gray-900">eRegisters</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          eRegisters assigned to you. Click <strong>Mark Register</strong> to open and mark attendance, or <strong>Edit Attendance</strong> to correct a submitted register.
+          {role === "admin" || role === "hod"
+            ? "Active eRegisters across staff. "
+            : "eRegisters assigned to you. "}
+          Click <strong>Mark Register</strong> to open and mark attendance, or <strong>Edit Attendance</strong> to correct a submitted register.
         </p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4 mb-5">
         {[
-          { label: "Open (Due)", count: open, style: "bg-amber-50 border-amber-200 text-amber-700" },
-          { label: "Saved (Draft)", count: saved, style: "bg-blue-50 border-blue-200 text-blue-700" },
-          { label: "Submitted (Final)", count: submitted, style: "bg-green-50 border-green-200 text-green-700" },
+          { label: "Open (Due)", count: summary.Open, style: "bg-amber-50 border-amber-200 text-amber-700" },
+          { label: "Saved (Draft)", count: summary.Saved, style: "bg-blue-50 border-blue-200 text-blue-700" },
+          { label: "Submitted (Final)", count: summary.Submitted, style: "bg-green-50 border-green-200 text-green-700" },
         ].map(({ label, count, style }) => (
           <div key={label} className={`border rounded-lg p-4 flex items-center gap-3 ${style}`}>
             <ClipboardList size={20} />
             <div>
-              <div className="text-2xl font-bold">{count}</div>
+              <div className="text-2xl font-bold">{count ?? "—"}</div>
               <div className="text-xs font-medium">{label}</div>
             </div>
           </div>
@@ -148,7 +150,11 @@ export default function ERegisters() {
             <SelectItem value="Submitted">Submitted</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-xs text-gray-400 ml-auto">{filtered.length} register{filtered.length !== 1 ? "s" : ""}</span>
+        <span className="text-xs text-gray-400 ml-auto">
+          {listState === "error" || listState === "loading"
+            ? "— registers"
+            : `${filtered.length} register${filtered.length !== 1 ? "s" : ""}`}
+        </span>
       </div>
 
       {listState === "ready" && hasEmptyRoster(registers) && (
@@ -210,7 +216,7 @@ export default function ERegisters() {
           <div className="p-14 flex flex-col items-center text-center text-gray-500">
             <ClipboardList className="w-12 h-12 mb-4 opacity-20" />
             <p className="text-sm font-semibold text-gray-700">No registers match these filters</p>
-            <p className="mt-1 text-xs">Clear the search and status filters to see your assigned lessons.</p>
+            <p className="mt-1 text-xs">Clear the search and status filters to see the registers.</p>
             <Button
               type="button"
               variant="outline"
@@ -323,7 +329,7 @@ export default function ERegisters() {
       </div>
 
       <p className="mt-3 text-xs text-gray-400">
-        Each eRegister is assigned to its most recent timetable occurrence. Registers are automatically assigned based on your timetable.
+        Each eRegister shows its most recent timetable occurrence. Registers are automatically assigned from the timetable.
       </p>
     </div>
   );

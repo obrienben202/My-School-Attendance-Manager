@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { AddressInfo } from "node:net";
 import express from "express";
+import { db, coursesTable, scheduleTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import {
   GetTodayScheduleResponse,
   type AuthUser,
@@ -11,6 +13,7 @@ import {
   type ScheduleFeedRecord,
   type ScheduleFeedRepository,
 } from "../routes/schedule";
+import attendanceRouter from "../routes/attendance";
 
 function user(role: AuthUser["role"] = "staff"): AuthUser {
   return {
@@ -110,7 +113,7 @@ async function requestAudit(
 
 async function requestFeed(
   currentUser: AuthUser | null,
-  repository: ScheduleFeedRepository,
+  repository?: ScheduleFeedRepository,
 ): Promise<{ status: number; cacheControl: string | null; body: unknown }> {
   const app = express();
   app.use((req, _res, next) => {
@@ -236,20 +239,36 @@ test("apostrophe-less timetable staff names appear in the assigned register feed
 
 test("administrators and heads of department retain oversight of all active feed rows", async () => {
   const records = [
-    record({ id: 1, staffName: "Mr Ben O'Brien" }),
-    record({ id: 2, staffName: "Mrs Claire Jones" }),
+    record({ id: 1, courseId: 1, staffName: "Mr Ben O'Brien" }),
+    record({ id: 2, courseId: 2, staffName: "Mrs Claire Jones" }),
+    record({ id: 3, courseId: 3, staffName: null, courseStaffName: null }),
   ];
 
   for (const role of ["admin", "hod"] as const) {
-    const { repository } = repositoryFor(records);
-    const response = await requestFeed(user(role), repository);
-    assert.equal(response.status, 200);
-    assert.deepEqual(
-      (response.body as Array<{ id: number }>).map(({ id }) => id),
-      [1, 2],
-      `${role} should see both active timetable assignments`,
-    );
+    const { repository } = repositoryFor(records,
+      [{ courseId: 1, studentId: 101 }, { courseId: 2, studentId: 102 }],
+      new Map([[2, "draft"], [3, "submitted"]]));
+    for (let load = 0; load < 3; load++) {
+      const response = await requestFeed(user(role), repository);
+      assert.equal(response.status, 200);
+      assert.equal(response.cacheControl, "private, no-store, max-age=0");
+      assert.equal(GetTodayScheduleResponse.safeParse(response.body).success, true);
+      const rows = response.body as Array<{ id: number; enrolledCount: number; registerStatus: string }>;
+      assert.deepEqual(rows.map(({ id }) => id), [1, 2, 3]);
+      assert.deepEqual(rows.map(({ enrolledCount }) => enrolledCount), [1, 1, 0]);
+      assert.deepEqual(rows.map(({ registerStatus }) => registerStatus), ["open", "draft", "submitted"]);
+    }
   }
+});
+
+test("unauthenticated visitors cannot read the feed or trigger database reads", async () => {
+  const { repository } = repositoryFor([record()]);
+  repository.listActiveScheduleRecords = async () => {
+    throw new Error("unauthenticated database read");
+  };
+  const response = await requestFeed(null, repository);
+  assert.equal(response.status, 401);
+  assert.deepEqual(response.body, { error: "Authentication required" });
 });
 
 test("admin assignment audit reports unmatched assignments without learner data", async () => {
@@ -338,4 +357,81 @@ test("a failed register query stays an HTTP failure instead of becoming an empty
   const response = await requestFeed(user(), repository);
   assert.equal(response.status, 500);
   assert.deepEqual(response.body, { error: "Register feed failed" });
+});
+
+test("administrator sees a retryable failure when lifecycle storage is missing, then real rows", async () => {
+  const { repository } = repositoryFor([record()]);
+  const readRegisters = repository.listRegisters;
+  let attempts = 0;
+  repository.listRegisters = async (ids, dates) => {
+    if (++attempts === 1) throw new Error('relation "attendance_registers" does not exist');
+    return readRegisters(ids, dates);
+  };
+
+  const failed = await requestFeed(user("admin"), repository);
+  assert.equal(failed.status, 500);
+  assert.deepEqual(failed.body, { error: "Register feed failed" });
+  const retried = await requestFeed(user("admin"), repository);
+  assert.equal(retried.status, 200);
+  assert.deepEqual((retried.body as Array<{ id: number }>).map(row => row.id), [1]);
+  assert.equal(attempts, 2);
+});
+
+test("administrator feed reads the actual development schema on repeated requests", {
+  skip: !process.env.DATABASE_URL,
+}, async () => {
+  // Exercise the real repository, not an in-memory substitute: a missing
+  // attendance_registers table or attendance.schedule_id must fail this check.
+  const first = await requestFeed(user("admin"));
+  const second = await requestFeed(user("admin"));
+  for (const response of [first, second]) {
+    assert.equal(response.status, 200);
+    assert.equal(response.cacheControl, "private, no-store, max-age=0");
+    assert.equal(GetTodayScheduleResponse.safeParse(response.body).success, true);
+  }
+  assert.deepEqual(second.body, first.body);
+  const [{ activeCount }] = await db
+    .select({ activeCount: sql<number>`count(*)::integer` })
+    .from(scheduleTable)
+    .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
+    .where(eq(coursesTable.isActive, true));
+  assert.equal((first.body as unknown[]).length, activeCount);
+
+  const occurrence = (first.body as Array<{ id: number; occurrenceDate: string }>)[0];
+  if (occurrence) {
+    const app = express();
+    app.use((req, _res, next) => {
+      req.isAuthenticated = function (this: express.Request): this is Express.AuthedRequest {
+        return true;
+      };
+      req.user = user("admin");
+      next();
+    });
+    app.use(attendanceRouter);
+    app.use((_error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      res.status(500).json({ error: "Register detail failed" });
+    });
+    const server = app.listen(0);
+    try {
+      const address = server.address() as AddressInfo;
+      const query = new URLSearchParams({
+        scheduleId: String(occurrence.id),
+        date: occurrence.occurrenceDate,
+      });
+      for (const path of [
+        "/attendance/register/state",
+        "/attendance/register/audit",
+        "/attendance/register/roster",
+        "/attendance/register/contacts",
+        "/attendance",
+      ]) {
+        const response = await fetch(`http://127.0.0.1:${address.port}${path}?${query}`);
+        assert.equal(response.status, 200, `${path} should open from an administrator register row`);
+      }
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close(error => error ? reject(error) : resolve());
+      });
+    }
+  }
 });

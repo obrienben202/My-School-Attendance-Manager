@@ -6,6 +6,7 @@ import {
   mapScheduleEntryToRegister,
   registerActionLabel,
   registerOccurrencePath,
+  registerSummary,
   resolveRegisterListState,
 } from "./register-list-state.ts";
 
@@ -21,6 +22,12 @@ test("register list states distinguish loading, failure, assignment, filter, and
     isError: true,
     registerCount: 0,
     filteredCount: 0,
+  }), "error");
+  assert.equal(resolveRegisterListState({
+    isLoading: true,
+    isError: true,
+    registerCount: 2,
+    filteredCount: 2,
   }), "error");
   assert.equal(resolveRegisterListState({
     isLoading: false,
@@ -88,4 +95,8 @@ test("schedule feed entries map to actionable rows with the exact occurrence pat
   assert.equal(registerActionLabel(saved.status), "Mark Register");
   assert.equal(registerActionLabel(submitted.status), "Edit Attendance");
   assert.equal(registerOccurrencePath(open.id, open.date), "/registers/72?date=2026-09-25");
+  const rows = [open, saved, submitted];
+  assert.deepEqual(registerSummary(rows, "ready"), { Open: 1, Saved: 1, Submitted: 1 });
+  assert.deepEqual(registerSummary(rows, "error"), { Open: null, Saved: null, Submitted: null });
+  assert.deepEqual(registerSummary([], "no-assigned-lessons"), { Open: 0, Saved: 0, Submitted: 0 });
 });
