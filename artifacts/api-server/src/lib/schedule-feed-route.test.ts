@@ -46,6 +46,7 @@ function repositoryFor(
   records: ScheduleFeedRecord[],
   enrollments: Array<{ courseId: number; studentId: number }> = [],
   statuses: Map<number, "draft" | "submitted"> = new Map(),
+  staffAccounts: Array<{ displayName: string | null; username: string | null }> = [],
 ) {
   const calls: Array<{ scheduleIds: number[]; occurrenceDates: string[] }> = [];
   const repository: ScheduleFeedRepository = {
@@ -67,9 +68,44 @@ function repositoryFor(
       });
     },
     listLegacyAttendance: async () => [],
+    listStaffAccountIdentities: async () => staffAccounts,
   };
 
   return { repository, calls };
+}
+
+async function requestAudit(
+  currentUser: AuthUser | null,
+  repository: ScheduleFeedRepository,
+): Promise<{ status: number; cacheControl: string | null; body: unknown }> {
+  const app = express();
+  app.use((req, _res, next) => {
+    const authenticatedRequest = req as unknown as {
+      isAuthenticated: () => boolean;
+      user?: AuthUser;
+    };
+    authenticatedRequest.isAuthenticated = () => currentUser !== null;
+    if (currentUser) authenticatedRequest.user = currentUser;
+    next();
+  });
+  app.use(createScheduleRouter(repository));
+  const server = app.listen(0);
+  try {
+    const address = server.address() as AddressInfo | null;
+    assert.ok(address);
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/schedule/staff-assignment-audit`,
+    );
+    return {
+      status: response.status,
+      cacheControl: response.headers.get("cache-control"),
+      body: await response.json(),
+    };
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close(error => error ? reject(error) : resolve());
+    });
+  }
 }
 
 async function requestFeed(
@@ -185,6 +221,19 @@ test("empty assignments return an empty feed without lifecycle reads", async () 
   assert.deepEqual(calls, []);
 });
 
+test("apostrophe-less timetable staff names appear in the assigned register feed", async () => {
+  const { repository } = repositoryFor([
+    record({ staffName: "Mr Ben OBrien", courseStaffName: "Mr Ben O'Brien" }),
+  ]);
+
+  const response = await requestFeed(user(), repository);
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    (response.body as Array<{ id: number }>).map(({ id }) => id),
+    [1],
+  );
+});
+
 test("administrators and heads of department retain oversight of all active feed rows", async () => {
   const records = [
     record({ id: 1, staffName: "Mr Ben O'Brien" }),
@@ -203,6 +252,78 @@ test("administrators and heads of department retain oversight of all active feed
   }
 });
 
+test("admin assignment audit reports unmatched assignments without learner data", async () => {
+  const records = [
+    record({
+      id: 1,
+      staffName: "Mrs Claire Jones",
+      courseStaffName: "Mr Ben O'Brien",
+      courseCode: "Y7-IT-G1",
+    }),
+    record({
+      id: 2,
+      staffName: null,
+      courseStaffName: "Mr Ben OBrien",
+      courseCode: "Y10-DT-G1",
+    }),
+    record({
+      id: 3,
+      staffName: "ben",
+      courseStaffName: "Someone Else",
+      courseCode: "Y11-DT-G1",
+    }),
+    record({
+      id: 4,
+      staffName: " ",
+      courseStaffName: null,
+      courseCode: "UNASSIGNED",
+    }),
+  ];
+  const { repository } = repositoryFor(
+    records,
+    [{ courseId: 1, studentId: 501 }],
+    new Map(),
+    [{ displayName: "Ben O'Brien", username: "ben" }],
+  );
+
+  const response = await requestAudit(user("admin"), repository);
+  assert.equal(response.status, 200);
+  assert.equal(response.cacheControl, "private, no-store, max-age=0");
+  assert.deepEqual(response.body, {
+    scheduleCount: 4,
+    assignedCount: 3,
+    matchedCount: 2,
+    unmatchedCount: 1,
+    uniqueUnmatchedStaffCount: 1,
+    examples: [{
+      scheduleId: 1,
+      courseCode: "Y7-IT-G1",
+      assignedStaffName: "Mrs Claire Jones",
+      assignmentSource: "schedule",
+    }],
+  });
+  assert.equal(JSON.stringify(response.body).includes("studentId"), false);
+  assert.equal(JSON.stringify(response.body).includes("enrolledCount"), false);
+});
+
+test("only administrators can read the staff assignment audit", async () => {
+  const { repository } = repositoryFor([]);
+  let repositoryReads = 0;
+  repository.listActiveScheduleRecords = async () => {
+    repositoryReads++;
+    return [];
+  };
+  repository.listStaffAccountIdentities = async () => {
+    repositoryReads++;
+    return [];
+  };
+
+  assert.equal((await requestAudit(null, repository)).status, 401);
+  assert.equal((await requestAudit(user("staff"), repository)).status, 403);
+  assert.equal((await requestAudit(user("hod"), repository)).status, 403);
+  assert.equal(repositoryReads, 0);
+});
+
 test("a failed register query stays an HTTP failure instead of becoming an empty schedule", async () => {
   const repository: ScheduleFeedRepository = {
     listActiveScheduleRecords: async () => [record()],
@@ -211,6 +332,7 @@ test("a failed register query stays an HTTP failure instead of becoming an empty
       throw new Error("attendance_registers relation is unavailable");
     },
     listLegacyAttendance: async () => [],
+    listStaffAccountIdentities: async () => [],
   };
 
   const response = await requestFeed(user(), repository);

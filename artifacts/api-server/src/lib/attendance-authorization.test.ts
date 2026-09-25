@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { AuthUser } from "@workspace/api-zod";
 import {
+  auditAttendanceScheduleAssignments,
   canManageAttendanceSchedule,
   filterManageableAttendanceSchedules,
   isStaffAssignedToSchedule,
@@ -133,6 +134,25 @@ test("staff register feeds contain only assigned schedule overrides or course fa
     filterManageableAttendanceSchedules(user({ role: "hod" }), schedules).map(schedule => schedule.id),
     [1, 2, 3],
   );
+});
+
+test("assignment audit keeps counts complete while limiting exposed examples", () => {
+  const audit = auditAttendanceScheduleAssignments(
+    Array.from({ length: 12 }, (_, index) => ({
+      id: index + 1,
+      courseCode: `COURSE-${index + 1}`,
+      scheduleStaffName: `Unknown Staff ${index + 1}`,
+      courseStaffName: null,
+    })),
+    [],
+  );
+
+  assert.equal(audit.scheduleCount, 12);
+  assert.equal(audit.assignedCount, 12);
+  assert.equal(audit.matchedCount, 0);
+  assert.equal(audit.unmatchedCount, 12);
+  assert.equal(audit.uniqueUnmatchedStaffCount, 12);
+  assert.equal(audit.examples.length, 10);
 });
 
 test("attendance dates are accepted when they match the timetable day", () => {

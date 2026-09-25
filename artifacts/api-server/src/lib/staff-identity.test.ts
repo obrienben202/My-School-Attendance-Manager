@@ -3,8 +3,13 @@ import test from "node:test";
 import { normaliseStaffName, staffNameKey, staffNamesMatch } from "./staff-identity";
 
 test("normalises titles, whitespace, case and curly apostrophes", () => {
-  assert.equal(normaliseStaffName("  Mr Ben O’Brien  "), "ben o'brien");
+  assert.equal(normaliseStaffName("  Mr Ben O’Brien  "), "ben obrien");
   assert.equal(normaliseStaffName("DR.  HELEN   CARTER"), "helen carter");
+});
+
+test("matches an apostrophe-less timetable surname to the staff directory spelling", () => {
+  assert.equal(staffNamesMatch("Mr Ben OBrien", "Ben O'Brien"), true);
+  assert.equal(staffNamesMatch("Mrs Ana OConnor", "Ana O’Connor"), true);
 });
 
 test("builds stable name keys from equivalent staff names", () => {

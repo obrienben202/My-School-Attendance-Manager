@@ -6,11 +6,16 @@ import {
   enrollmentsTable,
   attendanceRegistersTable,
   attendanceTable,
+  usersTable,
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { getScheduleDayIndex } from "../lib/schedule-day";
 import { resolveAttendanceRegisterStatus } from "../lib/attendance-register";
-import { filterManageableAttendanceSchedules } from "../lib/attendance-authorization";
+import {
+  auditAttendanceScheduleAssignments,
+  filterManageableAttendanceSchedules,
+} from "../lib/attendance-authorization";
+import type { StaffIdentity } from "../lib/staff-identity";
 
 function formatDate(date: Date) {
   return [
@@ -73,6 +78,7 @@ export type ScheduleFeedRepository = {
     scheduleIds: number[],
     occurrenceDates: string[],
   ): Promise<ScheduleFeedAttendance[]>;
+  listStaffAccountIdentities(): Promise<StaffIdentity[]>;
 };
 
 const databaseScheduleFeedRepository: ScheduleFeedRepository = {
@@ -120,6 +126,22 @@ const databaseScheduleFeedRepository: ScheduleFeedRepository = {
       inArray(attendanceTable.scheduleId, scheduleIds),
       inArray(attendanceTable.date, occurrenceDates),
     )),
+
+  listStaffAccountIdentities: async () => {
+    const users = await db
+      .select({
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        username: usersTable.username,
+      })
+      .from(usersTable)
+      .where(inArray(usersTable.role, ["admin", "hod", "staff"]));
+
+    return users.map(user => ({
+      displayName: [user.firstName, user.lastName].filter(Boolean).join(" ").trim(),
+      username: user.username,
+    }));
+  },
 };
 
 export function buildScheduleFeed(
@@ -221,6 +243,33 @@ export function createScheduleRouter(
       registers,
       legacyAttendance,
       referenceDate,
+    ));
+  });
+
+  router.get("/schedule/staff-assignment-audit", async (req, res): Promise<void> => {
+    res.set("Cache-Control", "private, no-store, max-age=0");
+
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    if (req.user!.role !== "admin") {
+      res.status(403).json({ error: "Staff assignment audit is restricted to administrators" });
+      return;
+    }
+
+    const [records, staffAccounts] = await Promise.all([
+      repository.listActiveScheduleRecords(),
+      repository.listStaffAccountIdentities(),
+    ]);
+    res.json(auditAttendanceScheduleAssignments(
+      records.map(record => ({
+        id: record.id,
+        courseCode: record.courseCode,
+        scheduleStaffName: record.staffName,
+        courseStaffName: record.courseStaffName,
+      })),
+      staffAccounts,
     ));
   });
 
