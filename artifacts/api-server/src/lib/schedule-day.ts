@@ -8,6 +8,13 @@ const DAY_TO_INDEX: Record<string, number> = {
   saturday: 6,
 };
 
+const TEACHING_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
+
+export function normalizeTeachingDay(day: unknown): string | null {
+  if (typeof day !== "string") return null;
+  return TEACHING_DAYS.find(candidate => candidate.toLowerCase() === day.trim().toLowerCase()) ?? null;
+}
+
 export function getScheduleDayIndex(day: string | null | undefined): number | undefined {
   if (!day?.trim()) return undefined;
   return DAY_TO_INDEX[day.trim().toLowerCase()];

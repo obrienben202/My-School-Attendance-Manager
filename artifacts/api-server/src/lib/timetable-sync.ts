@@ -1,4 +1,5 @@
 import { legacyCourseCode } from "./course-sync";
+import { normalizeTeachingDay } from "./schedule-day";
 
 export const TECHNOLOGY_TIMETABLE_SOURCE = "technology-staff-timetable-2025-2026";
 
@@ -45,13 +46,6 @@ const LESSON_TIMES: Record<number, { start: string; end: string }> = {
   5: { start: "13:30", end: "14:30" },
   6: { start: "14:30", end: "15:30" },
 };
-
-const TEACHING_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
-
-function normalizeTeachingDay(day: unknown): string | null {
-  if (typeof day !== "string") return null;
-  return TEACHING_DAYS.find(candidate => candidate.toLowerCase() === day.trim().toLowerCase()) ?? null;
-}
 
 /**
  * Teaching blocks transcribed from the maintained Technology staff timetable.

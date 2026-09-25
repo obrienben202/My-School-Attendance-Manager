@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { coursesTable, studentsTable, enrollmentsTable, scheduleTable, insertScheduleSchema } from "@workspace/db";
+import { coursesTable, studentsTable, enrollmentsTable, scheduleTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   GetCourseParams,
@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAdminOrHod } from "./auth";
 import { canManageAttendanceSchedule } from "../lib/attendance-authorization";
+import { CreateSlotBody, UpdateSlotBody } from "../lib/manual-slot-validation";
 
 const router = Router();
 
@@ -81,8 +82,6 @@ router.get("/courses/:id/students", async (req, res) => {
 
 // ── Timetable Slots ──────────────────────────────────────────────────────────
 
-const SlotBody = insertScheduleSchema.omit({ courseId: true });
-
 // GET /courses/:id/slots
 router.get("/courses/:id/slots", async (req, res) => {
   const id = Number(req.params.id);
@@ -103,7 +102,7 @@ router.post("/courses/:id/slots", requireAdminOrHod, async (req, res) => {
     and(eq(coursesTable.id, id), eq(coursesTable.isActive, true)),
   );
   if (!course) return res.status(404).json({ error: "Course not found" });
-  const parsed = SlotBody.safeParse(req.body);
+  const parsed = CreateSlotBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", issues: parsed.error.issues });
   const [slot] = await db.insert(scheduleTable).values({ courseId: id, ...parsed.data }).returning();
   return res.status(201).json(slot);
@@ -118,7 +117,7 @@ router.put("/courses/:id/slots/:slotId", requireAdminOrHod, async (req, res) => 
     and(eq(coursesTable.id, id), eq(coursesTable.isActive, true)),
   );
   if (!course) return res.status(404).json({ error: "Course not found" });
-  const parsed = SlotBody.safeParse(req.body);
+  const parsed = UpdateSlotBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", issues: parsed.error.issues });
   const [slot] = await db
     .update(scheduleTable)

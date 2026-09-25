@@ -462,7 +462,7 @@ type TimetableSlot = {
 };
 
 type SlotFormState = {
-  day: string;
+  day: string | null;
   startTime: string;
   endTime: string;
   room: string;
@@ -535,7 +535,7 @@ export default function CourseDetail() {
       const r = await fetch(`${base}/api/courses/${id}/slots/${slotId}`, {
         method: "PUT", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(body.day === null ? { ...body, day: undefined } : body),
       });
       if (!r.ok) throw new Error("Failed to update slot");
       return r.json();
@@ -758,8 +758,9 @@ export default function CourseDetail() {
                             editingSlotId === slot.id ? (
                               <tr key={slot.id} className="bg-teal-50">
                                 <td className="py-1.5 pr-2">
-                                  <select value={slotForm.day} onChange={e => setSlotForm(f => ({ ...f, day: e.target.value }))}
+                                  <select value={slotForm.day ?? ""} onChange={e => setSlotForm(f => ({ ...f, day: e.target.value || null }))}
                                     className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full">
+                                    {slotForm.day === null && <option value="">Keep existing day (legacy)</option>}
                                     {DAYS.map(d => <option key={d}>{d}</option>)}
                                   </select>
                                 </td>
@@ -805,7 +806,7 @@ export default function CourseDetail() {
                                 {canEditTimetable && (
                                   <td className="py-1.5">
                                     <div className="flex gap-1 justify-end">
-                                      <button onClick={() => { setEditingSlotId(slot.id); setAddingSlot(false); setSlotForm({ day: slot.day ?? "Monday", startTime: slot.startTime, endTime: slot.endTime, room: slot.room ?? "", weekPattern: slot.weekPattern }); }}
+                                      <button onClick={() => { setEditingSlotId(slot.id); setAddingSlot(false); setSlotForm({ day: DAYS.includes(slot.day ?? "") ? slot.day : null, startTime: slot.startTime, endTime: slot.endTime, room: slot.room ?? "", weekPattern: slot.weekPattern }); }}
                                         className="p-1 rounded text-slate-500 hover:bg-slate-100 hover:text-teal-700" title="Edit">
                                         <Pencil className="w-3.5 h-3.5" />
                                       </button>
@@ -835,7 +836,7 @@ export default function CourseDetail() {
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-5">
                           <div>
                             <label className="text-[10px] text-slate-500 block mb-0.5">Day</label>
-                            <select value={slotForm.day} onChange={e => setSlotForm(f => ({ ...f, day: e.target.value }))}
+                            <select value={slotForm.day ?? ""} onChange={e => setSlotForm(f => ({ ...f, day: e.target.value }))}
                               className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full bg-white">
                               {DAYS.map(d => <option key={d}>{d}</option>)}
                             </select>
