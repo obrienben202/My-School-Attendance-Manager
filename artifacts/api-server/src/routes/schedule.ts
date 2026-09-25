@@ -12,8 +12,6 @@ import { getScheduleDayIndex } from "../lib/schedule-day";
 import { resolveAttendanceRegisterStatus } from "../lib/attendance-register";
 import { filterManageableAttendanceSchedules } from "../lib/attendance-authorization";
 
-const router = Router();
-
 function formatDate(date: Date) {
   return [
     date.getFullYear(),
@@ -32,7 +30,7 @@ export function getLessonOccurrenceDate(day: string | null, referenceDate = new 
   return formatDate(occurrenceDate);
 }
 
-type ScheduleFeedRecord = {
+export type ScheduleFeedRecord = {
   id: number;
   courseId: number;
   startTime: string;
@@ -46,12 +44,12 @@ type ScheduleFeedRecord = {
   courseStaffName: string | null;
 };
 
-type ScheduleFeedEnrollment = {
+export type ScheduleFeedEnrollment = {
   courseId: number;
   studentId: number;
 };
 
-type ScheduleFeedRegister = {
+export type ScheduleFeedRegister = {
   scheduleId: number;
   date: string;
   status: string;
@@ -59,9 +57,69 @@ type ScheduleFeedRegister = {
   submittedAt: Date | null;
 };
 
-type ScheduleFeedAttendance = {
+export type ScheduleFeedAttendance = {
   scheduleId: number | null;
   date: string;
+};
+
+export type ScheduleFeedRepository = {
+  listActiveScheduleRecords(): Promise<ScheduleFeedRecord[]>;
+  listEnrollments(): Promise<ScheduleFeedEnrollment[]>;
+  listRegisters(
+    scheduleIds: number[],
+    occurrenceDates: string[],
+  ): Promise<ScheduleFeedRegister[]>;
+  listLegacyAttendance(
+    scheduleIds: number[],
+    occurrenceDates: string[],
+  ): Promise<ScheduleFeedAttendance[]>;
+};
+
+const databaseScheduleFeedRepository: ScheduleFeedRepository = {
+  listActiveScheduleRecords: () => db
+    .select({
+      id: scheduleTable.id,
+      courseId: scheduleTable.courseId,
+      startTime: scheduleTable.startTime,
+      endTime: scheduleTable.endTime,
+      room: scheduleTable.room,
+      staffName: scheduleTable.staffName,
+      day: scheduleTable.day,
+      registerMarked: scheduleTable.registerMarked,
+      courseCode: coursesTable.code,
+      courseName: coursesTable.name,
+      courseStaffName: coursesTable.staffName,
+    })
+    .from(scheduleTable)
+    .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
+    .where(eq(coursesTable.isActive, true))
+    .orderBy(scheduleTable.startTime),
+
+  listEnrollments: () => db
+    .select({
+      courseId: enrollmentsTable.courseId,
+      studentId: enrollmentsTable.studentId,
+    })
+    .from(enrollmentsTable),
+
+  listRegisters: (scheduleIds, occurrenceDates) => db
+    .select()
+    .from(attendanceRegistersTable)
+    .where(and(
+      inArray(attendanceRegistersTable.scheduleId, scheduleIds),
+      inArray(attendanceRegistersTable.date, occurrenceDates),
+    )),
+
+  listLegacyAttendance: (scheduleIds, occurrenceDates) => db
+    .select({
+      scheduleId: attendanceTable.scheduleId,
+      date: attendanceTable.date,
+    })
+    .from(attendanceTable)
+    .where(and(
+      inArray(attendanceTable.scheduleId, scheduleIds),
+      inArray(attendanceTable.date, occurrenceDates),
+    )),
 };
 
 export function buildScheduleFeed(
@@ -121,81 +179,54 @@ export function buildScheduleFeed(
   });
 }
 
-router.get("/schedule/today", async (req, res) => {
-  res.set("Cache-Control", "private, no-store, max-age=0");
+export function createScheduleRouter(
+  repository: ScheduleFeedRepository = databaseScheduleFeedRepository,
+) {
+  const router = Router();
 
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  router.get("/schedule/today", async (req, res): Promise<void> => {
+    res.set("Cache-Control", "private, no-store, max-age=0");
 
-  const [records, enrollments] = await Promise.all([
-    db
-    .select({
-      id: scheduleTable.id,
-      courseId: scheduleTable.courseId,
-      startTime: scheduleTable.startTime,
-      endTime: scheduleTable.endTime,
-      room: scheduleTable.room,
-      staffName: scheduleTable.staffName,
-      day: scheduleTable.day,
-      registerMarked: scheduleTable.registerMarked,
-      courseCode: coursesTable.code,
-      courseName: coursesTable.name,
-      courseStaffName: coursesTable.staffName,
-    })
-    .from(scheduleTable)
-    .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
-    .where(eq(coursesTable.isActive, true))
-    .orderBy(scheduleTable.startTime),
-    db
-      .select({
-        courseId: enrollmentsTable.courseId,
-        studentId: enrollmentsTable.studentId,
-      })
-      .from(enrollmentsTable),
-  ]);
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
 
-  const occurrences = filterManageableAttendanceSchedules(
-    req.user!,
-    records.map(record => ({
-      ...record,
-      scheduleStaffName: record.staffName,
-    })),
-  );
-  const referenceDate = new Date();
-  const scheduleIds = [...new Set(occurrences.map(occurrence => occurrence.id))];
-  const occurrenceDates = [...new Set(
-    occurrences.map(occurrence => getLessonOccurrenceDate(occurrence.day, referenceDate)),
-  )];
-  const registers = scheduleIds.length > 0
-    ? await db
-      .select()
-      .from(attendanceRegistersTable)
-      .where(and(
-        inArray(attendanceRegistersTable.scheduleId, scheduleIds),
-        inArray(attendanceRegistersTable.date, occurrenceDates),
-      ))
-    : [];
-  const legacyAttendance = scheduleIds.length > 0
-    ? await db
-      .select({
-        scheduleId: attendanceTable.scheduleId,
-        date: attendanceTable.date,
-      })
-      .from(attendanceTable)
-      .where(and(
-        inArray(attendanceTable.scheduleId, scheduleIds),
-        inArray(attendanceTable.date, occurrenceDates),
-      ))
-    : [];
-  return res.json(buildScheduleFeed(
-    occurrences,
-    enrollments,
-    registers,
-    legacyAttendance,
-    referenceDate,
-  ));
-});
+    const [records, enrollments] = await Promise.all([
+      repository.listActiveScheduleRecords(),
+      repository.listEnrollments(),
+    ]);
+    const occurrences = filterManageableAttendanceSchedules(
+      req.user!,
+      records.map(record => ({
+        ...record,
+        scheduleStaffName: record.staffName,
+      })),
+    );
+    const referenceDate = new Date();
+    const scheduleIds = [...new Set(occurrences.map(occurrence => occurrence.id))];
+    const occurrenceDates = [...new Set(
+      occurrences.map(occurrence => getLessonOccurrenceDate(occurrence.day, referenceDate)),
+    )];
+    const registers = scheduleIds.length > 0
+      ? await repository.listRegisters(scheduleIds, occurrenceDates)
+      : [];
+    const legacyAttendance = scheduleIds.length > 0
+      ? await repository.listLegacyAttendance(scheduleIds, occurrenceDates)
+      : [];
+
+    res.json(buildScheduleFeed(
+      occurrences,
+      enrollments,
+      registers,
+      legacyAttendance,
+      referenceDate,
+    ));
+  });
+
+  return router;
+}
+
+const router = createScheduleRouter();
 
 export default router;

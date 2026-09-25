@@ -14,9 +14,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, ChevronUp, ChevronDown, PenSquare, Edit, AlertTriangle, RefreshCw, Users } from "lucide-react";
 import { formatDateOnly } from "@/lib/date-only";
 import { useRole } from "@/hooks/use-role";
-import { hasOnlyEmptyRosters, resolveRegisterListState } from "@/lib/register-list-state";
+import {
+  hasEmptyRoster,
+  hasOnlyEmptyRosters,
+  mapScheduleEntryToRegister,
+  registerActionLabel,
+  registerOccurrencePath,
+  resolveRegisterListState,
+  type RegisterStatus,
+} from "@/lib/register-list-state";
 
-type RegisterStatus = "Open" | "Saved" | "Submitted";
 type SortField = "description" | "date" | "day" | "time" | "room" | "status";
 type SortDir = "asc" | "desc";
 
@@ -44,34 +51,7 @@ export default function ERegisters() {
     request: { cache: "no-store" },
   });
 
-  const registers = useMemo(() => {
-    return schedule.map((entry) => {
-      const status: RegisterStatus = entry.registerStatus === "submitted"
-        ? "Submitted"
-        : entry.registerStatus === "draft"
-          ? "Saved"
-          : "Open";
-
-      return {
-        id: entry.id,
-        description: `${entry.courseCode} — ${entry.courseName}`,
-        courseCode: entry.courseCode,
-        courseName: entry.courseName,
-        date: entry.occurrenceDate,
-        day: entry.day ?? "Not provided",
-        startTime: entry.startTime,
-        endTime: entry.endTime,
-        room: entry.room ?? "Not provided",
-        staff: entry.staffName ?? "TBC",
-        status: status as RegisterStatus,
-        enrolled: entry.enrolledCount,
-      };
-    });
-  }, [schedule]);
-
-  function registerPath(id: number, occurrenceDate: string) {
-    return `/registers/${id}?date=${encodeURIComponent(occurrenceDate)}`;
-  }
+  const registers = useMemo(() => schedule.map(mapScheduleEntryToRegister), [schedule]);
 
   const filtered = useMemo(() => {
     let list = registers;
@@ -120,6 +100,7 @@ export default function ERegisters() {
     registerCount: registers.length,
     filteredCount: filtered.length,
   });
+  const hasOnlyEmptyEnrolments = hasOnlyEmptyRosters(registers);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -170,13 +151,17 @@ export default function ERegisters() {
         <span className="text-xs text-gray-400 ml-auto">{filtered.length} register{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
-      {listState === "ready" && hasOnlyEmptyRosters(registers) && (
+      {listState === "ready" && hasEmptyRoster(registers) && (
         <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
           <Users className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="text-sm font-semibold">No enrolled learners found</p>
+            <p className="text-sm font-semibold">
+              {hasOnlyEmptyEnrolments
+                ? "No enrolled learners found"
+                : "Some assigned lessons have no enrolled learners"}
+            </p>
             <p className="text-xs">
-              These lessons are assigned, but their courses do not currently have enrolment records. Ask an administrator to check the course data before marking.
+              Assigned lessons remain listed when their roster is empty. Ask an administrator to check the course enrolments before marking those registers.
             </p>
           </div>
         </div>
@@ -275,7 +260,7 @@ export default function ERegisters() {
                     <td className="px-4 py-2.5">
                       <button
                         className="font-medium text-blue-700 hover:underline text-left text-sm"
-                        onClick={() => navigate(registerPath(r.id, r.date))}
+                        onClick={() => navigate(registerOccurrencePath(r.id, r.date))}
                       >
                         {r.description}
                       </button>
@@ -294,14 +279,23 @@ export default function ERegisters() {
                         {r.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500">{r.enrolled}</td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500">
+                      {r.enrolled === 0 ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span>0</span>
+                          <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">
+                            Empty roster
+                          </span>
+                        </span>
+                      ) : r.enrolled}
+                    </td>
                     <td className="px-4 py-2.5">
-                      {r.status === "Submitted" ? (
+                      {registerActionLabel(r.status) === "Edit Attendance" ? (
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1"
-                           onClick={() => navigate(registerPath(r.id, r.date))}
+                           onClick={() => navigate(registerOccurrencePath(r.id, r.date))}
                         >
                           <Edit size={12} /> Edit Attendance
                         </Button>
@@ -309,7 +303,7 @@ export default function ERegisters() {
                         <Button
                           size="sm"
                           className="h-7 text-xs bg-teal-700 hover:bg-teal-800 gap-1"
-                           onClick={() => navigate(registerPath(r.id, r.date))}
+                           onClick={() => navigate(registerOccurrencePath(r.id, r.date))}
                         >
                           <PenSquare size={12} /> Mark Register
                         </Button>
