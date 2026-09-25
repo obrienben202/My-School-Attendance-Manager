@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useGetCourse, useListAttendanceRecords, useListAssessments } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ChevronDown, ChevronUp, FileText, Download, Users, BookOpen, Clock, Layers, ClipboardList, UserCheck, PenTool, TrendingUp, Printer, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRole } from "@/hooks/use-role";
+import { slotSaveError } from "./slot-save-error";
 
 function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -523,7 +524,7 @@ export default function CourseDetail() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!r.ok) throw new Error("Failed to create slot");
+      if (!r.ok) throw await slotSaveError(r, "Could not create slot. Please try again.");
       return r.json();
     },
     onSuccess: () => { invalidateSlots(); setAddingSlot(false); setSlotForm(EMPTY_SLOT); },
@@ -537,7 +538,7 @@ export default function CourseDetail() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body.day === null ? { ...body, day: undefined } : body),
       });
-      if (!r.ok) throw new Error("Failed to update slot");
+      if (!r.ok) throw await slotSaveError(r, "Could not update slot. Please try again.");
       return r.json();
     },
     onSuccess: () => { invalidateSlots(); setEditingSlotId(null); setSlotForm(EMPTY_SLOT); },
@@ -756,7 +757,8 @@ export default function CourseDetail() {
                         <tbody className="divide-y divide-slate-50">
                           {timetableSlots.map(slot => (
                             editingSlotId === slot.id ? (
-                              <tr key={slot.id} className="bg-teal-50">
+                              <Fragment key={slot.id}>
+                              <tr className="bg-teal-50">
                                 <td className="py-1.5 pr-2">
                                   <select value={slotForm.day ?? ""} onChange={e => setSlotForm(f => ({ ...f, day: e.target.value || null }))}
                                     className="text-xs border border-slate-300 rounded px-1.5 py-1 w-full">
@@ -789,13 +791,21 @@ export default function CourseDetail() {
                                       className="p-1 rounded text-teal-700 hover:bg-teal-100" title="Save">
                                       <Check className="w-3.5 h-3.5" />
                                     </button>
-                                    <button onClick={() => { setEditingSlotId(null); setSlotForm(EMPTY_SLOT); }}
+                                    <button onClick={() => { updateSlot.reset(); setEditingSlotId(null); setSlotForm(EMPTY_SLOT); }}
                                       className="p-1 rounded text-slate-500 hover:bg-slate-100" title="Cancel">
                                       <X className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
                                 </td>
                               </tr>
+                              {updateSlot.isError && (
+                                <tr className="bg-teal-50">
+                                  <td colSpan={6} className="pb-2 px-2">
+                                    <p role="alert" className="text-xs text-red-700">{updateSlot.error instanceof Error ? updateSlot.error.message : "Could not update slot. Please try again."}</p>
+                                  </td>
+                                </tr>
+                              )}
+                              </Fragment>
                             ) : (
                               <tr key={slot.id} className="hover:bg-slate-50">
                                 <td className="py-1.5 pr-4 text-slate-700">{slot.day ?? "—"}</td>
@@ -806,7 +816,7 @@ export default function CourseDetail() {
                                 {canEditTimetable && (
                                   <td className="py-1.5">
                                     <div className="flex gap-1 justify-end">
-                                      <button onClick={() => { setEditingSlotId(slot.id); setAddingSlot(false); setSlotForm({ day: DAYS.includes(slot.day ?? "") ? slot.day : null, startTime: slot.startTime, endTime: slot.endTime, room: slot.room ?? "", weekPattern: slot.weekPattern }); }}
+                                      <button onClick={() => { createSlot.reset(); updateSlot.reset(); setEditingSlotId(slot.id); setAddingSlot(false); setSlotForm({ day: DAYS.includes(slot.day ?? "") ? slot.day : null, startTime: slot.startTime, endTime: slot.endTime, room: slot.room ?? "", weekPattern: slot.weekPattern }); }}
                                         className="p-1 rounded text-slate-500 hover:bg-slate-100 hover:text-teal-700" title="Edit">
                                         <Pencil className="w-3.5 h-3.5" />
                                       </button>
@@ -864,12 +874,15 @@ export default function CourseDetail() {
                             </select>
                           </div>
                         </div>
+                        {createSlot.isError && (
+                          <p role="alert" className="mt-2 text-xs text-red-700">{createSlot.error instanceof Error ? createSlot.error.message : "Could not create slot. Please try again."}</p>
+                        )}
                         <div className="flex gap-2 mt-3">
                           <button onClick={() => createSlot.mutate(slotForm)} disabled={createSlot.isPending}
                             className="flex items-center gap-1.5 text-xs bg-teal-700 text-white rounded px-3 py-1.5 hover:bg-teal-800 disabled:opacity-50">
                             <Check className="w-3 h-3" /> {createSlot.isPending ? "Saving…" : "Save slot"}
                           </button>
-                          <button onClick={() => { setAddingSlot(false); setSlotForm(EMPTY_SLOT); }}
+                          <button onClick={() => { createSlot.reset(); setAddingSlot(false); setSlotForm(EMPTY_SLOT); }}
                             className="text-xs border border-slate-300 rounded px-3 py-1.5 hover:bg-slate-50">
                             Cancel
                           </button>
@@ -879,7 +892,7 @@ export default function CourseDetail() {
 
                     {/* Add slot button */}
                     {canEditTimetable && !addingSlot && editingSlotId === null && (
-                      <button onClick={() => { setAddingSlot(true); setSlotForm(EMPTY_SLOT); }}
+                      <button onClick={() => { createSlot.reset(); updateSlot.reset(); setAddingSlot(true); setSlotForm(EMPTY_SLOT); }}
                         className="flex items-center gap-1.5 text-xs text-teal-700 border border-teal-300 rounded px-3 py-1.5 hover:bg-teal-50 mt-1">
                         <Plus className="w-3 h-3" /> Add timetable slot
                       </button>
