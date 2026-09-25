@@ -1210,6 +1210,7 @@ paths:
       operationId: listEprogressions
       tags: [eprogressions]
       summary: List eProgressions
+      description: Requires a signed-in admin, head of department, staff, or office user.
       parameters:
         - name: studentId
           in: query
@@ -1235,10 +1236,15 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Eprogression"
+        "401":
+          description: Authentication required
+        "403":
+          description: Insufficient role
     post:
       operationId: createEprogression
       tags: [eprogressions]
       summary: Submit eProgression(s)
+      description: Requires a signed-in admin, head of department, staff, or office user. New submissions are always Pending.
       requestBody:
         required: true
         content:
@@ -1252,12 +1258,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Eprogression"
+        "401":
+          description: Authentication required
+        "403":
+          description: Insufficient role
 
   /eprogressions/{id}:
     patch:
       operationId: updateEprogression
       tags: [eprogressions]
       summary: Update eProgression status (authorise/reject)
+      description: Only admins can authorise or reject a Pending eProgression. A completed decision cannot be reopened.
       parameters:
         - name: id
           in: path
@@ -1277,10 +1288,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Eprogression"
+        "401":
+          description: Authentication required
+        "403":
+          description: Admin access required
+        "404":
+          description: Pending eProgression not found
     delete:
       operationId: deleteEprogression
       tags: [eprogressions]
       summary: Delete an eProgression
+      description: Only admins can permanently delete an eProgression.
       parameters:
         - name: id
           in: path
@@ -1290,6 +1308,10 @@ paths:
       responses:
         "204":
           description: Deleted
+        "401":
+          description: Authentication required
+        "403":
+          description: Admin access required
 
   /concierge/applications:
     get:
@@ -3105,7 +3127,7 @@ components:
       properties:
         status:
           type: string
-          enum: [Pending, Authorised, Rejected]
+          enum: [Authorised, Rejected]
       required: [status]
 
     ConciergeApplication:

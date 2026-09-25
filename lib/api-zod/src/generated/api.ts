@@ -959,6 +959,7 @@ export const UpdateAssessmentResultResponse = zod.object({
 
 
 /**
+ * Requires a signed-in admin, head of department, staff, or office user.
  * @summary List eProgressions
  */
 export const ListEprogressionsQueryParams = zod.object({
@@ -987,6 +988,7 @@ export const ListEprogressionsResponse = zod.array(ListEprogressionsResponseItem
 
 
 /**
+ * Requires a signed-in admin, head of department, staff, or office user. New submissions are always Pending.
  * @summary Submit eProgression(s)
  */
 
@@ -1009,6 +1011,7 @@ export const CreateEprogressionBody = zod.object({
 
 
 /**
+ * Only admins can authorise or reject a Pending eProgression. A completed decision cannot be reopened.
  * @summary Update eProgression status (authorise/reject)
  */
 export const UpdateEprogressionParams = zod.object({
@@ -1016,7 +1019,7 @@ export const UpdateEprogressionParams = zod.object({
 })
 
 export const UpdateEprogressionBody = zod.object({
-  "status": zod.enum(['Pending', 'Authorised', 'Rejected'])
+  "status": zod.enum(['Authorised', 'Rejected'])
 })
 
 export const UpdateEprogressionResponse = zod.object({
@@ -1038,6 +1041,7 @@ export const UpdateEprogressionResponse = zod.object({
 
 
 /**
+ * Only admins can permanently delete an eProgression.
  * @summary Delete an eProgression
  */
 export const DeleteEprogressionParams = zod.object({

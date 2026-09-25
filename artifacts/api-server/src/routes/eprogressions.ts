@@ -17,6 +17,7 @@ import {
   UpdateEprogressionResponse,
   DeleteEprogressionParams,
 } from "@workspace/api-zod";
+import { requireEprogressionAccess } from "../lib/eprogression-access";
 
 const router = Router();
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -40,6 +41,7 @@ function toEprogressionResponse(row: typeof eprogressionsTable.$inferSelect) {
 }
 
 router.get("/eprogressions", async (req, res) => {
+  if (!requireEprogressionAccess(req, res, "list")) return;
   const parsedQuery = ListEprogressionsQueryParams.safeParse(req.query);
   if (!parsedQuery.success) {
     res.status(400).json({ error: parsedQuery.error.message });
@@ -62,6 +64,7 @@ router.get("/eprogressions", async (req, res) => {
 });
 
 router.post("/eprogressions", async (req, res) => {
+  if (!requireEprogressionAccess(req, res, "submit")) return;
   const parsed = CreateEprogressionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -132,6 +135,7 @@ router.post("/eprogressions", async (req, res) => {
 });
 
 router.patch("/eprogressions/:id", async (req, res) => {
+  if (!requireEprogressionAccess(req, res, "decide")) return;
   const parsedParams = UpdateEprogressionParams.safeParse(req.params);
   if (!parsedParams.success) {
     res.status(400).json({ error: parsedParams.error.message });
@@ -146,10 +150,13 @@ router.patch("/eprogressions/:id", async (req, res) => {
   const [row] = await db
     .update(eprogressionsTable)
     .set(parsed.data)
-    .where(eq(eprogressionsTable.id, parsedParams.data.id))
+    .where(and(
+      eq(eprogressionsTable.id, parsedParams.data.id),
+      eq(eprogressionsTable.status, "Pending"),
+    ))
     .returning();
   if (!row) {
-    res.status(404).json({ error: "Not found" });
+    res.status(404).json({ error: "Pending eProgression not found" });
     return;
   }
   const response = toEprogressionResponse(row);
@@ -158,6 +165,7 @@ router.patch("/eprogressions/:id", async (req, res) => {
 });
 
 router.delete("/eprogressions/:id", async (req, res) => {
+  if (!requireEprogressionAccess(req, res, "delete")) return;
   const parsedParams = DeleteEprogressionParams.safeParse(req.params);
   if (!parsedParams.success) {
     res.status(400).json({ error: parsedParams.error.message });

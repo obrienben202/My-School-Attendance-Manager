@@ -3240,6 +3240,7 @@ export const getListEprogressionsUrl = (params?: ListEprogressionsParams,) => {
 }
 
 /**
+ * Requires a signed-in admin, head of department, staff, or office user.
  * @summary List eProgressions
  */
 export const listEprogressions = async (params?: ListEprogressionsParams, options?: RequestInit): Promise<Eprogression[]> => {
@@ -3264,7 +3265,7 @@ export const getListEprogressionsQueryKey = (params?: ListEprogressionsParams,) 
     }
 
 
-export const getListEprogressionsQueryOptions = <TData = Awaited<ReturnType<typeof listEprogressions>>, TError = ErrorType<unknown>>(params?: ListEprogressionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEprogressions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListEprogressionsQueryOptions = <TData = Awaited<ReturnType<typeof listEprogressions>>, TError = ErrorType<void>>(params?: ListEprogressionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEprogressions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -3283,14 +3284,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListEprogressionsQueryResult = NonNullable<Awaited<ReturnType<typeof listEprogressions>>>
-export type ListEprogressionsQueryError = ErrorType<unknown>
+export type ListEprogressionsQueryError = ErrorType<void>
 
 
 /**
  * @summary List eProgressions
  */
 
-export function useListEprogressions<TData = Awaited<ReturnType<typeof listEprogressions>>, TError = ErrorType<unknown>>(
+export function useListEprogressions<TData = Awaited<ReturnType<typeof listEprogressions>>, TError = ErrorType<void>>(
  params?: ListEprogressionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEprogressions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -3317,6 +3318,7 @@ export const getCreateEprogressionUrl = () => {
 }
 
 /**
+ * Requires a signed-in admin, head of department, staff, or office user. New submissions are always Pending.
  * @summary Submit eProgression(s)
  */
 export const createEprogression = async (eprogressionInput: EprogressionInput, options?: RequestInit): Promise<Eprogression> => {
@@ -3334,7 +3336,7 @@ export const createEprogression = async (eprogressionInput: EprogressionInput, o
 
 
 
-export const getCreateEprogressionMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateEprogressionMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEprogression>>, TError,{data: BodyType<EprogressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createEprogression>>, TError,{data: BodyType<EprogressionInput>}, TContext> => {
 
@@ -3363,12 +3365,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateEprogressionMutationResult = NonNullable<Awaited<ReturnType<typeof createEprogression>>>
     export type CreateEprogressionMutationBody = BodyType<EprogressionInput>
-    export type CreateEprogressionMutationError = ErrorType<unknown>
+    export type CreateEprogressionMutationError = ErrorType<void>
 
     /**
  * @summary Submit eProgression(s)
  */
-export const useCreateEprogression = <TError = ErrorType<unknown>,
+export const useCreateEprogression = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEprogression>>, TError,{data: BodyType<EprogressionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createEprogression>>,
@@ -3388,6 +3390,7 @@ export const getUpdateEprogressionUrl = (id: number,) => {
 }
 
 /**
+ * Only admins can authorise or reject a Pending eProgression. A completed decision cannot be reopened.
  * @summary Update eProgression status (authorise/reject)
  */
 export const updateEprogression = async (id: number,
@@ -3406,7 +3409,7 @@ export const updateEprogression = async (id: number,
 
 
 
-export const getUpdateEprogressionMutationOptions = <TError = ErrorType<unknown>,
+export const getUpdateEprogressionMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionUpdate>}, TContext> => {
 
@@ -3435,12 +3438,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateEprogressionMutationResult = NonNullable<Awaited<ReturnType<typeof updateEprogression>>>
     export type UpdateEprogressionMutationBody = BodyType<EprogressionUpdate>
-    export type UpdateEprogressionMutationError = ErrorType<unknown>
+    export type UpdateEprogressionMutationError = ErrorType<void>
 
     /**
  * @summary Update eProgression status (authorise/reject)
  */
-export const useUpdateEprogression = <TError = ErrorType<unknown>,
+export const useUpdateEprogression = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEprogression>>, TError,{id: number;data: BodyType<EprogressionUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateEprogression>>,
@@ -3460,6 +3463,7 @@ export const getDeleteEprogressionUrl = (id: number,) => {
 }
 
 /**
+ * Only admins can permanently delete an eProgression.
  * @summary Delete an eProgression
  */
 export const deleteEprogression = async (id: number, options?: RequestInit): Promise<void> => {
@@ -3476,7 +3480,7 @@ export const deleteEprogression = async (id: number, options?: RequestInit): Pro
 
 
 
-export const getDeleteEprogressionMutationOptions = <TError = ErrorType<unknown>,
+export const getDeleteEprogressionMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEprogression>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteEprogression>>, TError,{id: number}, TContext> => {
 
@@ -3505,12 +3509,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteEprogressionMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEprogression>>>
 
-    export type DeleteEprogressionMutationError = ErrorType<unknown>
+    export type DeleteEprogressionMutationError = ErrorType<void>
 
     /**
  * @summary Delete an eProgression
  */
-export const useDeleteEprogression = <TError = ErrorType<unknown>,
+export const useDeleteEprogression = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEprogression>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteEprogression>>,

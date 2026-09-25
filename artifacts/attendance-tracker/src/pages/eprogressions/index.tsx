@@ -4,6 +4,7 @@ import { useListEprogressions, useUpdateEprogression, useDeleteEprogression } fr
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDateOnly } from "@/lib/date-only";
+import { useRole } from "@/hooks/use-role";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function EprogressionsHub() {
   const [, setLocation] = useLocation();
+  const canManage = useRole() === "admin";
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -83,7 +85,7 @@ export default function EprogressionsHub() {
           Pending progress code changes awaiting authorisation. Submit new progressions from a learner or course record.
         </p>
         <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-800">
-          <strong>Important:</strong> eProgressions do not update the source tables directly. Each submission is reviewed and authorised by an administrator before it takes effect.
+          <strong>Important:</strong> eProgressions do not update the source tables directly. Each submission is reviewed by an administrator before it takes effect.
         </div>
       </div>
 
@@ -218,7 +220,7 @@ export default function EprogressionsHub() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      {p.status === "Pending" && (
+                      {canManage && p.status === "Pending" && (
                         <>
                           <button
                             title="Authorise"
@@ -236,13 +238,15 @@ export default function EprogressionsHub() {
                           </button>
                         </>
                       )}
-                      <button
-                        title="Delete"
-                        onClick={() => setConfirmDelete(p.id)}
-                        className="p-1 text-gray-400 hover:text-red-500 rounded"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {canManage && (
+                        <button
+                          title="Delete"
+                          onClick={() => setConfirmDelete(p.id)}
+                          className="p-1 text-gray-400 hover:text-red-500 rounded"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

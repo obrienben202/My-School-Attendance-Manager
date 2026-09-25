@@ -10,7 +10,6 @@ export type EprogressionUpdateStatus = typeof EprogressionUpdateStatus[keyof typ
 
 
 export const EprogressionUpdateStatus = {
-  Pending: 'Pending',
   Authorised: 'Authorised',
   Rejected: 'Rejected',
 } as const;
