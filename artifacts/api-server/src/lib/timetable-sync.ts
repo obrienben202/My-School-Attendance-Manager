@@ -46,6 +46,13 @@ const LESSON_TIMES: Record<number, { start: string; end: string }> = {
   6: { start: "14:30", end: "15:30" },
 };
 
+const TEACHING_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
+
+function normalizeTeachingDay(day: unknown): string | null {
+  if (typeof day !== "string") return null;
+  return TEACHING_DAYS.find(candidate => candidate.toLowerCase() === day.trim().toLowerCase()) ?? null;
+}
+
 /**
  * Teaching blocks transcribed from the maintained Technology staff timetable.
  * Non-course duties are represented with a null courseSourceId so they never
@@ -105,9 +112,10 @@ export const TECHNOLOGY_STAFF_TIMETABLE: MaintainedTimetableRow[] = [
 export function resolveMaintainedTimetable(
   rows: MaintainedTimetableRow[],
   courses: TimetableCourseIdentity[],
-): { slots: ImportedTimetableSlot[]; skipped: number; errors: string[] } {
+): { slots: ImportedTimetableSlot[]; skipped: number; errors: string[]; invalidDayErrors: string[] } {
   const slots: ImportedTimetableSlot[] = [];
   const errors: string[] = [];
+  const invalidDayErrors: string[] = [];
   let skipped = 0;
   const seenKeys = new Set<string>();
 
@@ -121,6 +129,14 @@ export function resolveMaintainedTimetable(
       continue;
     }
     seenKeys.add(row.slotKey);
+
+    const day = normalizeTeachingDay(row.day);
+    if (!day) {
+      const diagnostic = `${row.slotKey}: invalid weekday ${JSON.stringify(row.day ?? null)}; use Monday, Tuesday, Wednesday, Thursday or Friday`;
+      errors.push(diagnostic);
+      invalidDayErrors.push(diagnostic);
+      continue;
+    }
 
     const start = LESSON_TIMES[row.startLesson];
     const end = LESSON_TIMES[row.endLesson];
@@ -141,7 +157,7 @@ export function resolveMaintainedTimetable(
 
     slots.push({
       courseId: course.id,
-      day: row.day,
+      day,
       startTime: start.start,
       endTime: end.end,
       room: course.room,
@@ -152,7 +168,7 @@ export function resolveMaintainedTimetable(
     });
   }
 
-  return { slots, skipped, errors };
+  return { slots, skipped, errors, invalidDayErrors };
 }
 
 export function findStaleImportedSlotIds(

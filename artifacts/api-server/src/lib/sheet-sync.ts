@@ -222,6 +222,9 @@ export async function runSync(): Promise<SyncSummary> {
         room: coursesTable.room,
       }).from(coursesTable).where(eq(coursesTable.isActive, true));
       const resolved = resolveMaintainedTimetable(TECHNOLOGY_STAFF_TIMETABLE, courses);
+      if (resolved.invalidDayErrors.length > 0) {
+        throw new Error(`Maintained timetable weekday validation failed; existing imported slots were left unchanged: ${resolved.invalidDayErrors.join("; ")}`);
+      }
       if (resolved.slots.length === 0) {
         throw new Error("Maintained timetable matched no active courses; existing imported slots were left unchanged");
       }
