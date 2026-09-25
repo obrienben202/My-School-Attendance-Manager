@@ -35,6 +35,14 @@ function keys(entries) {
   return entries.map(entry => `${entry.id}:${entry.occurrenceDate}`).sort();
 }
 
+function isOtherStaff(staffName, user) {
+  if (!staffName?.trim()) return false;
+  const name = staffName.toLowerCase().replace(/\b(mr|mrs|ms|miss|dr|prof)\b\.?/g, "").replace(/[^a-z]/g, "");
+  const ownName = ([user.firstName, user.lastName].filter(Boolean).join("") || user.username || "")
+    .toLowerCase().replace(/[^a-z]/g, "");
+  return Boolean(ownName) && name !== ownName;
+}
+
 async function visibleKeys(page) {
   return page.locator("tbody tr[data-schedule-id]").evaluateAll(rows =>
     rows.map(row => `${row.dataset.scheduleId}:${row.dataset.occurrenceDate}`).sort(),
@@ -84,6 +92,11 @@ try {
     const loginError = await page.locator("form p").textContent().catch(() => null);
     throw new Error(`HOD sign-in did not establish a hod session${loginError ? `: ${loginError}` : "."}`);
   }
+  const hod = await page.evaluate(async () =>
+    (await (await fetch("/api/auth/user", { credentials: "include", cache: "no-store" })).json()).user
+  );
+  assert.ok(hod.firstName || hod.lastName || hod.username,
+    "HOD identity is needed to select another staff member's lesson");
   // Let the login mutation finish before navigating away from the signed-in page.
   await page.getByRole("link", { name: "eRegisters", exact: true }).waitFor();
   await page.goto(new URL("/attendance", baseUrl).toString(), { waitUntil: "domcontentloaded" });
@@ -166,7 +179,59 @@ try {
   await expectTotals(page, 0, 0, 0);
   await page.getByText("0 registers", { exact: true }).waitFor();
 
-  console.info("HOD eRegisters browser check passed: signed-in HOD feed, cross-staff daily list, totals, and no-lessons-today guidance.");
+  // The synthetic list rows above cannot load detail. Use an actual server-backed
+  // schedule occurrence so authorization, roster and register state remain real.
+  const crossStaff = liveResponse.body.find(entry =>
+    entry.courseId && entry.courseCode && entry.occurrenceDate &&
+    entry.day?.trim().toLowerCase() === weekday(entry.occurrenceDate).toLowerCase() &&
+    isOtherStaff(entry.staffName, hod)
+  );
+  assert.ok(crossStaff,
+    "No cross-staff scheduled occurrence in the HOD feed; provide a real server-backed cross-staff lesson for this check.");
+  await page.evaluate(key => localStorage.removeItem(key), fixtureKey);
+  // The feed covers a school week, while the list only displays today's rows.
+  // Pin the browser's date to the real occurrence, without changing the server.
+  await page.clock.setFixedTime(new Date(`${crossStaff.occurrenceDate}T12:00:00Z`));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const row = page.locator(
+    `tbody tr[data-schedule-id="${crossStaff.id}"][data-occurrence-date="${crossStaff.occurrenceDate}"]`
+  );
+  await row.waitFor();
+  assert.ok((await row.textContent()).includes(crossStaff.staffName),
+    "the selected row must belong to another staff member");
+
+  const detailResponses = [
+    "/api/attendance/register/roster",
+    "/api/attendance/register/state",
+    "/api/attendance",
+  ].map(path => page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname === path &&
+      url.searchParams.get("scheduleId") === String(crossStaff.id) &&
+      url.searchParams.get("date") === crossStaff.occurrenceDate;
+  }));
+  await row.getByRole("button", { name: new RegExp(`${crossStaff.courseCode}`) }).click();
+  await page.waitForURL(url =>
+    url.pathname === `/registers/${crossStaff.id}` &&
+    url.searchParams.get("date") === crossStaff.occurrenceDate
+  );
+  for (const response of await Promise.all(detailResponses)) {
+    assert.equal(response.status(), 200, `${new URL(response.url()).pathname} should allow HOD access`);
+  }
+  await page.getByRole("heading", { name: "Mark Register" }).waitFor();
+  await page.getByText("Session Details", { exact: true }).waitFor();
+  const expectedDate = await page.evaluate(
+    date => new Date(`${date}T00:00:00`).toLocaleDateString("en-GB"),
+    crossStaff.occurrenceDate
+  );
+  const dateLine = await page.getByText("Session Date", { exact: true })
+    .evaluate(element => element.parentElement?.textContent ?? "");
+  assert.ok(dateLine.includes(expectedDate), "detail should display the selected occurrence date");
+  const codeLine = await page.getByText("Course Code", { exact: true })
+    .evaluate(element => element.parentElement?.textContent ?? "");
+  assert.ok(codeLine.includes(crossStaff.courseCode), "detail should show the selected lesson's course");
+
+  console.info("HOD eRegisters browser check passed: signed-in feed, cross-staff list and totals, empty day, and server-backed cross-staff register detail.");
   await context.close();
 } finally {
   await browser.close();
