@@ -210,7 +210,7 @@ export default function SafeguardingAdmin() {
           <span className="text-[10px] px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 rounded font-medium">Administrator role</span>
         </div>
         <p className="text-sm text-gray-500">
-          Set up templates, categories, KPIs, distribution lists, and notification settings. This role does not grant access to viewing records or notes.
+          Set up templates, categories, KPIs, distribution lists, and notification settings. Admins can view and create protected notes from the main Safeguarding page.
         </p>
       </div>
 

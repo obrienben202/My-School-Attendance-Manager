@@ -252,7 +252,7 @@ paths:
       operationId: listSafeguardingNotes
       tags: [safeguarding]
       summary: List protected safeguarding notes
-      description: Lists safeguarding notes for authorised safeguarding staff only.
+      description: Lists protected safeguarding notes for authenticated admins, heads of department, and staff.
       responses:
         "200":
           description: Protected safeguarding notes
@@ -276,7 +276,7 @@ paths:
       operationId: createSafeguardingNote
       tags: [safeguarding]
       summary: Create a protected safeguarding note
-      description: Creates a note attributed to the authenticated authorised staff member.
+      description: Creates a note attributed to the authenticated admin, head of department, or staff member.
       requestBody:
         required: true
         content:

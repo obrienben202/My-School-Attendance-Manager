@@ -6,7 +6,7 @@ import {
   ListSafeguardingNotesResponse,
   ListSafeguardingNotesResponseItem,
 } from "@workspace/api-zod";
-import { canAccessSafeguarding } from "../lib/safeguarding-access";
+import { canAccessSafeguardingNotes } from "../lib/safeguarding-access";
 import { validateSafeguardingNoteInput } from "../lib/safeguarding-note-validation";
 
 const router = Router();
@@ -17,7 +17,7 @@ function requireSafeguardingAccess(req: Request, res: Response): boolean {
     return false;
   }
 
-  if (!canAccessSafeguarding(req.user)) {
+  if (!canAccessSafeguardingNotes(req.user)) {
     res.status(403).json({ error: "Safeguarding access denied" });
     return false;
   }

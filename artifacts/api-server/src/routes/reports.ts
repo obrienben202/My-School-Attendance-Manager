@@ -20,7 +20,7 @@ import {
   GetReportParams,
 } from "@workspace/api-zod";
 import { canAccessReports } from "../lib/report-access";
-import { canAccessSafeguarding } from "../lib/safeguarding-access";
+import { canAccessSafeguardingAtRiskReport } from "../lib/safeguarding-access";
 
 const router = Router();
 
@@ -901,7 +901,7 @@ router.get("/reports/:reportId", async (req: Request, res: Response) => {
   const parsedId = GetReportParams.safeParse({ reportId: req.params.reportId });
   if (!parsedId.success) return res.status(400).json({ error: "Unknown report identifier" });
   const reportId = parsedId.data.reportId;
-  if (reportId === "sg-at-risk" && !canAccessSafeguarding(req.user)) {
+  if (reportId === "sg-at-risk" && !canAccessSafeguardingAtRiskReport(req.user)) {
     return res.status(403).json({ error: "Safeguarding access required for this report" });
   }
   const parsedQuery = parseQuery(req, reportId);

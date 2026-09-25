@@ -160,7 +160,7 @@ export const CreatePlannedAbsenceBody = zod.object({
 
 
 /**
- * Lists safeguarding notes for authorised safeguarding staff only.
+ * Lists protected safeguarding notes for authenticated admins, heads of department, and staff.
  * @summary List protected safeguarding notes
  */
 export const ListSafeguardingNotesResponseItem = zod.object({
@@ -179,7 +179,7 @@ export const ListSafeguardingNotesResponse = zod.array(ListSafeguardingNotesResp
 
 
 /**
- * Creates a note attributed to the authenticated authorised staff member.
+ * Creates a note attributed to the authenticated admin, head of department, or staff member.
  * @summary Create a protected safeguarding note
  */
 export const createSafeguardingNoteBodyContentMax = 10000;

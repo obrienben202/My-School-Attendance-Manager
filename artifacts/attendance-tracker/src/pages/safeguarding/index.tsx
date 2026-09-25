@@ -90,13 +90,18 @@ type NavView = "inbox" | "archived" | "search" | "add-record" | "add-note";
 export default function SafeguardingTutor() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
-  const canAccessSafeguarding = user?.role === "staff" || user?.role === "hod";
+  const canAccessSafeguarding = user?.role === "admin" || user?.role === "staff" || user?.role === "hod";
   const { data: students = [] } = useListStudents();
   const {
     data: savedNotes = [],
     isLoading: notesLoading,
     error: notesError,
-  } = useListSafeguardingNotes();
+  } = useListSafeguardingNotes({
+    query: {
+      enabled: canAccessSafeguarding,
+      queryKey: getListSafeguardingNotesQueryKey(),
+    },
+  });
   const createNote = useCreateSafeguardingNote();
   const [messages, setMessages] = useState<SafeguardingMessage[]>(SAMPLE_MESSAGES);
   const [navView, setNavView] = useState<NavView>("inbox");

@@ -663,7 +663,7 @@ export const getListSafeguardingNotesUrl = () => {
 }
 
 /**
- * Lists safeguarding notes for authorised safeguarding staff only.
+ * Lists protected safeguarding notes for authenticated admins, heads of department, and staff.
  * @summary List protected safeguarding notes
  */
 export const listSafeguardingNotes = async ( options?: RequestInit): Promise<ListSafeguardingNotesResponse> => {
@@ -741,7 +741,7 @@ export const getCreateSafeguardingNoteUrl = () => {
 }
 
 /**
- * Creates a note attributed to the authenticated authorised staff member.
+ * Creates a note attributed to the authenticated admin, head of department, or staff member.
  * @summary Create a protected safeguarding note
  */
 export const createSafeguardingNote = async (safeguardingNoteInput: SafeguardingNoteInput, options?: RequestInit): Promise<SafeguardingNote> => {
