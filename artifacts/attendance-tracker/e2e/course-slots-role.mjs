@@ -42,30 +42,31 @@ async function signIn(role) {
 
 const admin = await signIn("admin");
 const staff = await signIn("staff");
-const courses = await request("/api/courses", { cookie: admin });
-assert.equal(courses.status, 200);
-assert.ok(Array.isArray(courses.body) && courses.body.length, "An active course is needed for the role check");
-const courseId = courses.body[0].id;
-const path = `/api/courses/${courseId}/slots`;
-
-async function readSlots() {
-  const response = await request(path, { cookie: admin });
-  assert.equal(response.status, 200);
-  return response.body;
-}
-
-const original = await readSlots();
+const fixturePath = "/api/__e2e/course-slots-fixture";
+const fixture = await request(fixturePath, { cookie: admin, method: "POST" });
+const courseId = fixture.body?.id;
 const slotBody = {
   day: "Friday", startTime: "08:30", endTime: "09:30",
   room: "E2E role check", weekPattern: "Every week",
 };
-let createdId;
 try {
+  assert.equal(fixture.status, 201, `administrator must be able to create an isolated fixture: ${JSON.stringify(fixture.body)}`);
+  assert.ok(Number.isSafeInteger(courseId) && courseId > 0, "fixture must have a course id");
+  const path = `/api/courses/${courseId}/slots`;
+  const readSlots = async () => {
+    const response = await request(path, { cookie: admin });
+    assert.equal(response.status, 200);
+    return response.body;
+  };
+  assert.equal((await request(`/api/courses/${courseId}`, { cookie: admin })).status, 404,
+    "the inactive fixture must not appear as an active course");
+  assert.deepEqual(await readSlots(), [], "fixture must begin without slots");
+
   const created = await request(path, { cookie: admin, method: "POST", body: slotBody });
   assert.equal(created.status, 201, `administrator must be able to create a slot: ${JSON.stringify(created.body)}`);
-  createdId = created.body.id;
+  const createdId = created.body.id;
   const unchanged = await readSlots();
-  assert.equal(unchanged.length, original.length + 1);
+  assert.equal(unchanged.length, 1);
 
   for (const [method, target, body] of [
     ["POST", path, slotBody],
@@ -82,11 +83,14 @@ try {
   });
   assert.equal(updated.status, 200, "administrator must be able to update a slot");
   assert.equal(updated.body.room, "E2E role check updated");
+
+  const removed = await request(`${path}/${createdId}`, { cookie: admin, method: "DELETE" });
+  assert.equal(removed.status, 204, "administrator must be able to delete the temporary slot");
+  assert.deepEqual(await readSlots(), [], "fixture slots must be empty after deletion");
 } finally {
-  if (createdId !== undefined) {
-    const removed = await request(`${path}/${createdId}`, { cookie: admin, method: "DELETE" });
-    assert.equal(removed.status, 204, "administrator must be able to delete the temporary slot");
-    assert.deepEqual(await readSlots(), original, "original slots must be restored after the check");
+  if (Number.isSafeInteger(courseId) && courseId > 0) {
+    const removed = await request(`${fixturePath}/${courseId}`, { cookie: admin, method: "DELETE" });
+    assert.equal(removed.status, 204, "isolated fixture and any remaining slots must be removed");
   }
 }
 
