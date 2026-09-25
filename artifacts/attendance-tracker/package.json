@@ -11,6 +11,7 @@
     "test:e2e": "node e2e/register-session.mjs",
     "test:e2e:admin": "node e2e/register-admin-session.mjs",
     "test:e2e:slots": "node e2e/course-slots-save.mjs",
+    "test:e2e:slots:roles": "node e2e/course-slots-role.mjs",
     "test:e2e:hod": "node e2e/register-hod-session.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

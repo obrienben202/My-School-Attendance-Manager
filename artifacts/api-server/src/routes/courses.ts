@@ -95,7 +95,8 @@ router.get("/courses/:id/slots", async (req, res) => {
 });
 
 // POST /courses/:id/slots  (admin / hod only)
-router.post("/courses/:id/slots", requireAdminOrHod, async (req, res) => {
+router.post("/courses/:id/slots", async (req, res) => {
+  if (!requireAdminOrHod(req, res)) return;
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
   const [course] = await db.select({ id: coursesTable.id }).from(coursesTable).where(
@@ -109,7 +110,8 @@ router.post("/courses/:id/slots", requireAdminOrHod, async (req, res) => {
 });
 
 // PUT /courses/:id/slots/:slotId  (admin / hod only)
-router.put("/courses/:id/slots/:slotId", requireAdminOrHod, async (req, res) => {
+router.put("/courses/:id/slots/:slotId", async (req, res) => {
+  if (!requireAdminOrHod(req, res)) return;
   const id = Number(req.params.id);
   const slotId = Number(req.params.slotId);
   if (isNaN(id) || isNaN(slotId)) return res.status(400).json({ error: "Invalid id" });
@@ -129,7 +131,8 @@ router.put("/courses/:id/slots/:slotId", requireAdminOrHod, async (req, res) => 
 });
 
 // DELETE /courses/:id/slots/:slotId  (admin / hod only)
-router.delete("/courses/:id/slots/:slotId", requireAdminOrHod, async (req, res) => {
+router.delete("/courses/:id/slots/:slotId", async (req, res) => {
+  if (!requireAdminOrHod(req, res)) return;
   const id = Number(req.params.id);
   const slotId = Number(req.params.slotId);
   if (isNaN(id) || isNaN(slotId)) return res.status(400).json({ error: "Invalid id" });
