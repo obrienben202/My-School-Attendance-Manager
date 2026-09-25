@@ -256,7 +256,12 @@ export default function ERegisters() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={r.id}
+                    data-schedule-id={r.id}
+                    data-occurrence-date={r.date}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-4 py-2.5">
                       <button
                         className="font-medium text-blue-700 hover:underline text-left text-sm"
