@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { getGetTodayScheduleQueryKey, useGetTodaySchedule } from "@workspace/api-client-react";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,7 @@ const STATUS_STYLES: Record<RegisterStatus, string> = {
 
 export default function ERegisters() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const [filter, setFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sort, setSort] = useState<SortField>("date");
@@ -65,9 +67,12 @@ export default function ERegisters() {
   } = useGetTodaySchedule({
     request: { cache: "no-store" },
     query: {
-      queryKey: [...getGetTodayScheduleQueryKey(), today],
+      queryKey: [...getGetTodayScheduleQueryKey(), user?.id, today],
+      enabled: !!user,
       refetchOnMount: "always",
       refetchOnWindowFocus: "always",
+      refetchInterval: 60_000,
+      refetchIntervalInBackground: false,
     },
   });
 
