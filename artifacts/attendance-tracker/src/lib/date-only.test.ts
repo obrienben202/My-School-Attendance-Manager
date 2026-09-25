@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatDateOnly, toLocalDateOnlyValue } from "./date-only.ts";
+import { formatDateOnly, toLocalDateOnlyValue, toSchoolDateOnlyValue } from "./date-only.ts";
 
 test("uses the local calendar day rather than the UTC day", () => {
   const previousTimezone = process.env.TZ;
@@ -23,4 +23,10 @@ test("formats date-only values without shifting the calendar day", () => {
   } finally {
     process.env.TZ = previousTimezone;
   }
+});
+
+test("school date follows London daylight saving regardless of the viewer's timezone", () => {
+  assert.equal(toSchoolDateOnlyValue(new Date("2026-09-27T22:30:00Z")), "2026-09-27");
+  assert.equal(toSchoolDateOnlyValue(new Date("2026-09-27T23:30:00Z")), "2026-09-28");
+  assert.equal(toSchoolDateOnlyValue(new Date("2026-11-01T00:30:00Z")), "2026-11-01");
 });

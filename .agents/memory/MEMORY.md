@@ -2,3 +2,4 @@
 - [OpenAPI date-only output validation](openapi-date-only-output-validation.md) — generated Zod response parsers coerce date-only strings; validate without returning transformed values.
 - [Concierge action honesty](concierge-action-honesty.md) — success requires a persisted record; learner PII and uploads must stay role-scoped and server-verified.
 - [User-scoped feed caching](user-scoped-feed-caching.md) — dynamic authenticated feeds must bypass conditional browser/proxy caching or reloads can lose their response body.
+- [Staff browser checks](staff-browser-checks.md) — test staff can have no assigned lessons; wait for sign-in to finish and use controlled fixtures for daily register checks.

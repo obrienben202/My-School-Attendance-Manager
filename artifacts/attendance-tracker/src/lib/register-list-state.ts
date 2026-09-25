@@ -4,6 +4,7 @@ export type RegisterListState =
   | "loading"
   | "error"
   | "no-assigned-lessons"
+  | "no-lessons-today"
   | "filter-empty"
   | "ready";
 
@@ -27,9 +28,21 @@ export type RegisterRow = {
 type RegisterListStateInput = {
   isLoading: boolean;
   isError: boolean;
+  assignedCount: number;
   registerCount: number;
   filteredCount: number;
 };
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export function todayScheduleEntries(entries: ScheduleEntry[], schoolDate: string): ScheduleEntry[] {
+  const weekday = WEEKDAYS[new Date(`${schoolDate}T00:00:00Z`).getUTCDay()];
+  return entries.filter(entry =>
+    entry.occurrenceDate === schoolDate &&
+    typeof entry.day === "string" &&
+    entry.day.trim().toLowerCase() === weekday.toLowerCase()
+  );
+}
 
 export function mapScheduleEntryToRegister(entry: ScheduleEntry): RegisterRow {
   const status: RegisterStatus = entry.registerStatus === "submitted"
@@ -65,12 +78,14 @@ export function registerActionLabel(status: RegisterStatus): "Mark Register" | "
 export function resolveRegisterListState({
   isLoading,
   isError,
+  assignedCount,
   registerCount,
   filteredCount,
 }: RegisterListStateInput): RegisterListState {
   if (isError) return "error";
   if (isLoading) return "loading";
-  if (registerCount === 0) return "no-assigned-lessons";
+  if (assignedCount === 0) return "no-assigned-lessons";
+  if (registerCount === 0) return "no-lessons-today";
   if (filteredCount === 0) return "filter-empty";
   return "ready";
 }

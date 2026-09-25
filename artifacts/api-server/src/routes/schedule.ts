@@ -17,22 +17,27 @@ import {
 } from "../lib/attendance-authorization";
 import type { StaffIdentity } from "../lib/staff-identity";
 
-function formatDate(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
+function schoolDate(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (part: "year" | "month" | "day") =>
+    parts.find(item => item.type === part)?.value;
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 export function getLessonOccurrenceDate(day: string | null, referenceDate = new Date()) {
+  const today = schoolDate(referenceDate);
   const targetDay = getScheduleDayIndex(day);
-  if (targetDay === undefined) return formatDate(referenceDate);
+  if (targetDay === undefined) return today;
 
-  const occurrenceDate = new Date(referenceDate);
-  const daysSinceOccurrence = (referenceDate.getDay() - targetDay + 7) % 7;
-  occurrenceDate.setDate(referenceDate.getDate() - daysSinceOccurrence);
-  return formatDate(occurrenceDate);
+  const occurrenceDate = new Date(`${today}T00:00:00Z`);
+  const daysSinceOccurrence = (occurrenceDate.getUTCDay() - targetDay + 7) % 7;
+  occurrenceDate.setUTCDate(occurrenceDate.getUTCDate() - daysSinceOccurrence);
+  return occurrenceDate.toISOString().slice(0, 10);
 }
 
 export type ScheduleFeedRecord = {

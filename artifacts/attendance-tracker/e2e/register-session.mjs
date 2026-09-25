@@ -20,6 +20,26 @@ function scheduleKeys(entries) {
     .sort();
 }
 
+function schoolDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(date);
+  const value = (type) => parts.find(part => part.type === type).value;
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function schoolWeekday(date) {
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][
+    new Date(`${date}T00:00:00Z`).getUTCDay()
+  ];
+}
+
+function dueToday(entries, today) {
+  return entries.filter(entry =>
+    entry.occurrenceDate === today && entry.day?.trim().toLowerCase() === schoolWeekday(today).toLowerCase()
+  );
+}
+
 async function visibleScheduleKeys(page) {
   return page.locator("tbody tr[data-schedule-id]").evaluateAll((rows) =>
     rows
@@ -99,6 +119,8 @@ try {
       `Staff sign-in did not establish an authenticated staff session${loginError ? `: ${loginError}` : "."}`,
     );
   }
+  // Wait for the login mutation and redirect before navigating again.
+  await page.getByRole("link", { name: "eRegisters", exact: true }).waitFor();
 
   await page.goto(new URL("/attendance", baseUrl).toString(), {
     waitUntil: "domcontentloaded",
@@ -116,16 +138,16 @@ try {
   assert.equal(liveFeedResponse.status, 200, "the signed-in staff feed should load");
   assert.ok(Array.isArray(liveFeedResponse.body), "the staff feed should be a list");
   const liveFeed = liveFeedResponse.body;
-  assert.ok(
-    liveFeed.length > 0,
-    "use a staff test account with at least one active assigned lesson to check register navigation",
-  );
 
-  await page.locator("tbody tr[data-schedule-id]").first().waitFor();
+  const today = schoolDate();
+  const liveToday = dueToday(liveFeed, today);
+  if (liveToday.length) await page.locator("tbody tr[data-schedule-id]").first().waitFor();
+  else if (liveFeed.length) await page.getByText("No registers scheduled today", { exact: true }).waitFor();
+  else await page.getByText("No timetable lessons are assigned to you", { exact: true }).waitFor();
   assert.deepEqual(
     await visibleScheduleKeys(page),
-    scheduleKeys(liveFeed),
-    "the signed-in page should show exactly the active schedule feed returned for this staff account",
+    scheduleKeys(liveToday),
+    "the signed-in page should show only today's assigned timetable lessons",
   );
 
   await context.addInitScript(
@@ -157,7 +179,7 @@ try {
     { modeKey: fixtureModeKey, feedKey: fixtureFeedKey },
   );
 
-  const initialKeys = scheduleKeys(liveFeed);
+  const initialKeys = scheduleKeys(liveToday);
   const reloadScheduleResponse = page.waitForResponse(
     (response) => new URL(response.url()).pathname === "/api/schedule/today",
   );
@@ -166,10 +188,20 @@ try {
   assert.equal(reloadResponse.status(), 200, "the session should survive a page reload");
   const reloadedFeed = await reloadResponse.json();
   assert.deepEqual(scheduleKeys(reloadedFeed), initialKeys);
-  await page.locator("tbody tr[data-schedule-id]").first().waitFor();
+  if (initialKeys.length) await page.locator("tbody tr[data-schedule-id]").first().waitFor();
+  else if (liveFeed.length) await page.getByText("No registers scheduled today", { exact: true }).waitFor();
+  else await page.getByText("No timetable lessons are assigned to you", { exact: true }).waitFor();
   assert.deepEqual(await visibleScheduleKeys(page), initialKeys);
 
-  const selectedEntry = liveFeed[0];
+  const selectedEntry = {
+    ...(liveFeed[0] ?? {
+      id: 999991, courseId: 1, courseCode: "TEST", courseName: "Fixture lesson",
+      startTime: "10:00", endTime: "11:00", room: "B12", staffName: "Fixture staff",
+      enrolledCount: 1, registerMarked: false, registerStatus: "open",
+      registerUpdatedAt: null, registerSubmittedAt: null,
+    }),
+    day: schoolWeekday(today), occurrenceDate: today,
+  };
   const emptyRosterEntry = { ...selectedEntry, enrolledCount: 0 };
   await setScheduleFixture(page, "feed", [emptyRosterEntry]);
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -208,7 +240,10 @@ try {
     `tr[data-schedule-id="${openEntry.id}"][data-occurrence-date="${openEntry.occurrenceDate}"]`,
   );
   await openRow.getByRole("button", { name: "Mark Register" }).click();
-  await expectDetailRoute(page, openEntry);
+  if (liveFeed.length) await expectDetailRoute(page, openEntry);
+  else await page.waitForURL((url) =>
+    url.pathname === `/registers/${openEntry.id}` && url.searchParams.get("date") === today,
+  );
 
   const submittedEntry = { ...selectedEntry, registerStatus: "submitted" };
   await setScheduleFixture(page, "feed", [submittedEntry]);
@@ -219,10 +254,36 @@ try {
     `tr[data-schedule-id="${submittedEntry.id}"][data-occurrence-date="${submittedEntry.occurrenceDate}"]`,
   );
   await submittedRow.getByRole("button", { name: "Edit Attendance" }).click();
-  await expectDetailRoute(page, submittedEntry);
+  if (liveFeed.length) await expectDetailRoute(page, submittedEntry);
+  else await page.waitForURL((url) =>
+    url.pathname === `/registers/${submittedEntry.id}` && url.searchParams.get("date") === today,
+  );
+
+  const previous = new Date(`${today}T12:00:00Z`);
+  previous.setUTCDate(previous.getUTCDate() - 1);
+  const yesterday = previous.toISOString().slice(0, 10);
+  await setScheduleFixture(page, "feed", [{
+    ...selectedEntry, day: schoolWeekday(yesterday), occurrenceDate: yesterday,
+  }]);
+  await page.goto(new URL("/attendance", baseUrl).toString(), { waitUntil: "domcontentloaded" });
+  await page.getByText("No registers scheduled today", { exact: true }).waitFor();
+  assert.deepEqual(await visibleScheduleKeys(page), []);
+
+  // A new school date must refetch instead of displaying yesterday's cached query.
+  await page.clock.install({ time: new Date("2026-09-27T22:30:00Z") });
+  const sunday = { ...selectedEntry, id: selectedEntry.id + 10_000, day: "Sunday", occurrenceDate: "2026-09-27" };
+  const monday = { ...selectedEntry, id: selectedEntry.id + 10_001, day: "Monday", occurrenceDate: "2026-09-28" };
+  await setScheduleFixture(page, "feed", [sunday, monday]);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator(`tr[data-schedule-id="${sunday.id}"]`).waitFor();
+  assert.deepEqual(await visibleScheduleKeys(page), scheduleKeys([sunday]));
+  await page.clock.setFixedTime(new Date("2026-09-27T23:30:00Z"));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.locator(`tr[data-schedule-id="${monday.id}"]`).waitFor();
+  assert.deepEqual(await visibleScheduleKeys(page), scheduleKeys([monday]));
 
   console.info(
-    `eRegisters browser check passed: staff session, ${liveFeed.length} live assigned lessons, reload, empty/error/filter states, and register navigation.`,
+    `eRegisters browser check passed: staff session, ${liveToday.length} due-today lessons, reload, rollover, empty/error/filter states, and register navigation.`,
   );
   await context.close();
 } finally {

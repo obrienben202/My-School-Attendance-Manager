@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useGetTodaySchedule } from "@workspace/api-client-react";
+import { getGetTodayScheduleQueryKey, useGetTodaySchedule } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, ChevronUp, ChevronDown, PenSquare, Edit, AlertTriangle, RefreshCw, Users } from "lucide-react";
-import { formatDateOnly } from "@/lib/date-only";
+import { formatDateOnly, toSchoolDateOnlyValue } from "@/lib/date-only";
 import { useRole } from "@/hooks/use-role";
 import {
   hasEmptyRoster,
@@ -22,6 +22,7 @@ import {
   registerOccurrencePath,
   registerSummary,
   resolveRegisterListState,
+  todayScheduleEntries,
   type RegisterStatus,
 } from "@/lib/register-list-state";
 
@@ -40,7 +41,20 @@ export default function ERegisters() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sort, setSort] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [today, setToday] = useState(() => toSchoolDateOnlyValue());
   const role = useRole();
+
+  useEffect(() => {
+    const checkDate = () => setToday(toSchoolDateOnlyValue());
+    const timer = window.setInterval(checkDate, 15_000);
+    window.addEventListener("focus", checkDate);
+    document.addEventListener("visibilitychange", checkDate);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", checkDate);
+      document.removeEventListener("visibilitychange", checkDate);
+    };
+  }, []);
 
   const {
     data: schedule = [],
@@ -50,9 +64,17 @@ export default function ERegisters() {
     refetch,
   } = useGetTodaySchedule({
     request: { cache: "no-store" },
+    query: {
+      queryKey: [...getGetTodayScheduleQueryKey(), today],
+      refetchOnMount: "always",
+      refetchOnWindowFocus: "always",
+    },
   });
 
-  const registers = useMemo(() => schedule.map(mapScheduleEntryToRegister), [schedule]);
+  const registers = useMemo(
+    () => todayScheduleEntries(schedule, today).map(mapScheduleEntryToRegister),
+    [schedule, today],
+  );
 
   const filtered = useMemo(() => {
     let list = registers;
@@ -95,6 +117,7 @@ export default function ERegisters() {
   const listState = resolveRegisterListState({
     isLoading,
     isError,
+    assignedCount: schedule.length,
     registerCount: registers.length,
     filteredCount: filtered.length,
   });
@@ -108,8 +131,8 @@ export default function ERegisters() {
         <h1 className="text-2xl font-bold text-gray-900">eRegisters</h1>
         <p className="text-gray-500 mt-1 text-sm">
           {role === "admin" || role === "hod"
-            ? "Active eRegisters across staff. "
-            : "eRegisters assigned to you. "}
+            ? "Today's eRegisters across staff. "
+            : "Your eRegisters scheduled for today. "}
           Click <strong>Mark Register</strong> to open and mark attendance, or <strong>Edit Attendance</strong> to correct a submitted register.
         </p>
       </div>
@@ -210,6 +233,16 @@ export default function ERegisters() {
               {role === "admin" || role === "hod"
                 ? "Add or activate timetable lessons before attendance registers can be opened."
                 : "Ask an administrator to check that your staff name matches the lesson or course assignment."}
+            </p>
+          </div>
+        ) : listState === "no-lessons-today" ? (
+          <div className="p-14 flex flex-col items-center text-center text-gray-500">
+            <ClipboardList className="w-12 h-12 mb-4 text-gray-300" />
+            <p className="text-sm font-semibold text-gray-700" data-testid="status-no-registers-today">No registers scheduled today</p>
+            <p className="mt-1 max-w-md text-xs">
+              {role === "admin" || role === "hod"
+                ? "There are no active timetable lessons on today's school calendar day."
+                : "Your assigned timetable has no lessons on today's school calendar day."}
             </p>
           </div>
         ) : listState === "filter-empty" ? (
@@ -329,7 +362,7 @@ export default function ERegisters() {
       </div>
 
       <p className="mt-3 text-xs text-gray-400">
-        Each eRegister shows its most recent timetable occurrence. Registers are automatically assigned from the timetable.
+        Showing only today's scheduled eRegisters ({formatDateOnly(today)}). Registers are automatically assigned from the timetable.
       </p>
     </div>
   );

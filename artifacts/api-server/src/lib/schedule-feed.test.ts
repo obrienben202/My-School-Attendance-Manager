@@ -105,3 +105,12 @@ test("schedule feed ignores legacy attendance from another occurrence", () => {
 test("missing timetable days use the reference date without timezone drift", () => {
   assert.equal(getLessonOccurrenceDate(null, referenceDate), "2026-09-01");
 });
+
+test("feed occurrence dates follow the school day through Sunday to next Monday", () => {
+  const beforeMidnight = new Date("2026-09-27T22:30:00Z");
+  const afterMidnight = new Date("2026-09-27T23:30:00Z");
+  assert.equal(getLessonOccurrenceDate("Monday", beforeMidnight), "2026-09-21");
+  assert.equal(getLessonOccurrenceDate("Monday", afterMidnight), "2026-09-28");
+  assert.equal(getLessonOccurrenceDate("Friday", afterMidnight), "2026-09-25");
+  assert.equal(getLessonOccurrenceDate("Monday", new Date("2026-10-04T23:30:00Z")), "2026-10-05");
+});

@@ -8,45 +8,26 @@ import {
   registerOccurrencePath,
   registerSummary,
   resolveRegisterListState,
+  todayScheduleEntries,
 } from "./register-list-state.ts";
 
 test("register list states distinguish loading, failure, assignment, filter, and populated results", () => {
-  assert.equal(resolveRegisterListState({
-    isLoading: true,
-    isError: false,
-    registerCount: 0,
-    filteredCount: 0,
-  }), "loading");
-  assert.equal(resolveRegisterListState({
-    isLoading: false,
-    isError: true,
-    registerCount: 0,
-    filteredCount: 0,
-  }), "error");
-  assert.equal(resolveRegisterListState({
-    isLoading: true,
-    isError: true,
-    registerCount: 2,
-    filteredCount: 2,
-  }), "error");
-  assert.equal(resolveRegisterListState({
-    isLoading: false,
-    isError: false,
-    registerCount: 0,
-    filteredCount: 0,
-  }), "no-assigned-lessons");
-  assert.equal(resolveRegisterListState({
-    isLoading: false,
-    isError: false,
-    registerCount: 2,
-    filteredCount: 0,
-  }), "filter-empty");
-  assert.equal(resolveRegisterListState({
-    isLoading: false,
-    isError: false,
-    registerCount: 2,
-    filteredCount: 1,
-  }), "ready");
+  const state = (overrides: Partial<Parameters<typeof resolveRegisterListState>[0]>) =>
+    resolveRegisterListState({
+      isLoading: false,
+      isError: false,
+      assignedCount: 2,
+      registerCount: 2,
+      filteredCount: 2,
+      ...overrides,
+    });
+  assert.equal(state({ isLoading: true, registerCount: 0 }), "loading");
+  assert.equal(state({ isError: true, registerCount: 0 }), "error");
+  assert.equal(state({ isLoading: true, isError: true }), "error");
+  assert.equal(state({ assignedCount: 0, registerCount: 0 }), "no-assigned-lessons");
+  assert.equal(state({ registerCount: 0, filteredCount: 0 }), "no-lessons-today");
+  assert.equal(state({ filteredCount: 0 }), "filter-empty");
+  assert.equal(state({ filteredCount: 1 }), "ready");
 });
 
 test("empty roster guidance is shown only when every assigned register has no learners", () => {
@@ -99,4 +80,33 @@ test("schedule feed entries map to actionable rows with the exact occurrence pat
   assert.deepEqual(registerSummary(rows, "ready"), { Open: 1, Saved: 1, Submitted: 1 });
   assert.deepEqual(registerSummary(rows, "error"), { Open: null, Saved: null, Submitted: null });
   assert.deepEqual(registerSummary([], "no-assigned-lessons"), { Open: 0, Saved: 0, Submitted: 0 });
+});
+
+test("daily list excludes other weekdays, old occurrences, and unknown days before totals or roster checks", () => {
+  const base = {
+    id: 1, courseId: 1, courseCode: "ENG", courseName: "English",
+    startTime: "09:00", endTime: "10:00", enrolledCount: 2,
+    room: null, staffName: null, registerMarked: false,
+    registerUpdatedAt: null, registerSubmittedAt: null,
+  };
+  const feed = [
+    { ...base, id: 1, day: "Monday", occurrenceDate: "2026-09-28", registerStatus: "open" },
+    { ...base, id: 2, day: "Monday", occurrenceDate: "2026-09-28", registerStatus: "draft" },
+    { ...base, id: 3, day: "Monday", occurrenceDate: "2026-09-28", registerStatus: "submitted" },
+    { ...base, id: 4, day: "Friday", occurrenceDate: "2026-09-25", registerStatus: "submitted", enrolledCount: 0 },
+    { ...base, id: 5, day: null, occurrenceDate: "2026-09-28", registerStatus: "open" },
+    { ...base, id: 6, day: "Tuesday", occurrenceDate: "2026-09-28", registerStatus: "open" },
+    { ...base, id: 7, day: "Monday", occurrenceDate: "2026-09-21", registerStatus: "open" },
+  ];
+  const monday = todayScheduleEntries(feed, "2026-09-28").map(mapScheduleEntryToRegister);
+  assert.deepEqual(monday.map(row => row.id), [1, 2, 3]);
+  assert.deepEqual(registerSummary(monday, "ready"), { Open: 1, Saved: 1, Submitted: 1 });
+  assert.equal(hasEmptyRoster(monday), false);
+  assert.equal(registerOccurrencePath(monday[2].id, monday[2].date), "/registers/3?date=2026-09-28");
+  assert.deepEqual(todayScheduleEntries(feed, "2026-09-29"), []);
+  assert.equal(todayScheduleEntries(feed, "2026-10-05").length, 0, "old Monday rows are not reused next week");
+  const nextMonday = feed.map(entry => ({
+    ...entry, occurrenceDate: entry.day === "Monday" ? "2026-10-05" : entry.occurrenceDate,
+  }));
+  assert.deepEqual(todayScheduleEntries(nextMonday, "2026-10-05").map(row => row.id), [1, 2, 3, 7]);
 });
