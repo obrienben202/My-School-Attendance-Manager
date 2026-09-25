@@ -9,6 +9,7 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "test": "node --experimental-strip-types --test src/**/*.test.ts",
     "test:e2e": "node e2e/register-session.mjs",
+    "test:e2e:admin": "node e2e/register-admin-session.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
