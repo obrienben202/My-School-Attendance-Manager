@@ -8,7 +8,7 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/db run migrate:development` — apply reviewed additive database changes to development
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
@@ -38,7 +38,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- The shared development database contains populated course, timetable, and attendance data. Do not force a global Drizzle push. Add reviewed, idempotent development migrations and let Publish apply the development-to-production schema diff.
 
 ## Pointers
 
