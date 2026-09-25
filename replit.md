@@ -9,6 +9,7 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run migrate:development` — apply reviewed additive database changes to development
+- `node scripts/check-production-db-commands.mjs` — validate that production build and startup commands do not run schema changes
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
@@ -39,6 +40,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 ## Gotchas
 
 - The shared development database contains populated course, timetable, and attendance data. Do not force a global Drizzle push. Add reviewed, idempotent development migrations and let Publish apply the development-to-production schema diff.
+- Production builds and startup must not run Drizzle push, migrations, or SQL schema scripts. Apply reviewed changes to development through the post-merge script; use Replit Publish to review and apply the development-to-production schema diff.
 
 ## Pointers
 
