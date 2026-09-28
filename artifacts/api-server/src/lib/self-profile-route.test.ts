@@ -25,6 +25,9 @@ const accounts: Record<string, AuthUser> = {
 
 test("GET /api/staff/me/profile isolates directory fields across signed-in accounts", async () => {
   let directoryReads = 0;
+  let currentCsv = directory;
+  let unavailable = false;
+  let time = Date.parse("2026-09-28T12:00:00.000Z");
   const app = express();
   // Simulate the authenticated request established by the session middleware.
   // Keep the server and URL constant while changing the session cookie.
@@ -38,8 +41,9 @@ test("GET /api/staff/me/profile isolates directory fields across signed-in accou
   });
   app.use("/api", createSelfProfileRouter(async () => {
     directoryReads++;
-    return directory;
-  }));
+    if (unavailable) throw new Error("Directory is offline");
+    return currentCsv;
+  }, () => time));
 
   const server = app.listen(0);
   try {
@@ -53,7 +57,7 @@ test("GET /api/staff/me/profile isolates directory fields across signed-in accou
       return {
         status: response.status,
         cacheControl: response.headers.get("cache-control"),
-        body: await response.json(),
+        body: await response.json() as Record<string, unknown>,
       };
     };
 
@@ -62,12 +66,14 @@ test("GET /api/staff/me/profile isolates directory fields across signed-in accou
       department: "Science", role: "staff", phone: "111", address: "Alpha Lane",
       postcode: "AA1 1AA", staffCode: "A-01", jobTitle: "Tutor",
       organisation: "North School", startDate: "2020-09-01",
+      directoryStatus: "fresh", directoryVerifiedAt: "2026-09-28T12:00:00.000Z",
     };
     const betaProfile = {
       firstName: "Bob", lastName: "Head", email: "bob@school.example",
       department: "English", role: "hod", phone: "222", address: "Beta Road",
       postcode: "BB2 2BB", staffCode: "B-02", jobTitle: "Head of English",
       organisation: "South School", startDate: "2021-04-05",
+      directoryStatus: "fresh", directoryVerifiedAt: "2026-09-28T12:00:00.000Z",
     };
 
     const first = await request("alpha");
@@ -88,9 +94,63 @@ test("GET /api/staff/me/profile isolates directory fields across signed-in accou
     const switchedBack = await request("alpha");
     assert.equal(switchedBack.status, 200);
     assert.deepEqual(switchedBack.body, alphaProfile);
-    assert.equal(directoryReads, 3, "each authenticated request resolves its own directory identity");
+    assert.equal(directoryReads, 2, "recent verified profile is reused only for its account");
 
-    for (const result of [first, unsigned, second, switchedBack]) {
+    time += 5 * 60_000;
+    unavailable = true;
+    const staleAlpha = await request("alpha");
+    assert.equal(staleAlpha.status, 200);
+    assert.deepEqual(staleAlpha.body, { ...alphaProfile, directoryStatus: "stale" });
+    assert.equal(GetMyProfileResponse.safeParse(staleAlpha.body).success, true);
+    const staleBeta = await request("beta");
+    assert.equal(staleBeta.status, 200);
+    assert.deepEqual(staleBeta.body, { ...betaProfile, directoryStatus: "stale" });
+    assert.equal(directoryReads, 4);
+
+    // A valid sheet that no longer contains the signed-in account revokes its
+    // cached directory fields; a later outage must not revive those fields.
+    unavailable = false;
+    currentCsv = directory.split("\n").filter(line => !line.startsWith("alpha,")).join("\n");
+    const missing = await request("alpha");
+    assert.equal(missing.status, 200);
+    assert.equal(missing.body.directoryStatus, "missing");
+    assert.equal(missing.body.directoryVerifiedAt, null);
+    assert.equal(missing.body.phone, null);
+    unavailable = true;
+    const noCachedAlpha = await request("alpha");
+    assert.equal(noCachedAlpha.status, 502);
+    assert.deepEqual(noCachedAlpha.body, { error: "Profile source is unavailable" });
+    assert.equal((await request("beta")).body.directoryStatus, "stale");
+
+    // Expired verified details must not be kept indefinitely.
+    time += 24 * 60 * 60_000 + 1;
+    const expired = await request("beta");
+    assert.equal(expired.status, 502);
+
+    // An invalid directory is not a transport outage and cannot be served as stale.
+    unavailable = false;
+    currentCsv = directory;
+    const restored = await request("beta");
+    assert.equal(restored.status, 200);
+    time += 5 * 60_000;
+    currentCsv = directory + "\nBETA,duplicate,staff,Other";
+    const invalid = await request("beta");
+    assert.equal(invalid.status, 502);
+
+    // Same account ID with a different username must not see the previous identity.
+    accounts.beta.username = "gamma";
+    unavailable = true;
+    assert.equal((await request("beta")).status, 502);
+    accounts.beta.username = "beta";
+    unavailable = false;
+    currentCsv = directory.replace("bob@school.example", "bob.new@school.example");
+    const recovered = await request("beta");
+    assert.equal(recovered.status, 200);
+    assert.equal(recovered.body.email, "bob.new@school.example");
+    assert.equal(recovered.body.directoryStatus, "fresh");
+    assert.equal(recovered.body.directoryVerifiedAt, new Date(time).toISOString());
+
+    for (const result of [first, unsigned, second, switchedBack, staleAlpha, staleBeta, missing, noCachedAlpha, expired, invalid]) {
       assert.match(result.cacheControl ?? "", /\bno-store\b/);
       const wireBody = JSON.stringify(result.body);
       for (const secret of ["alpha-password", "beta-password", "alpha-secret-note", "beta-secret-note"]) {

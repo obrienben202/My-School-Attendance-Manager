@@ -81,6 +81,7 @@ export * from './logoutSuccess';
 export * from './mobileTokenExchangeRequest';
 export * from './mobileTokenExchangeSuccess';
 export * from './myProfile';
+export * from './myProfileDirectoryStatus';
 export * from './myProfileRole';
 export * from './plannedAbsence';
 export * from './plannedAbsenceInput';

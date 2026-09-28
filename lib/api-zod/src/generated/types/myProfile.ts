@@ -5,9 +5,17 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+import type { MyProfileDirectoryStatus } from './myProfileDirectoryStatus';
 import type { MyProfileRole } from './myProfileRole';
 
 export interface MyProfile {
+  /** Fresh means verified within five minutes; stale means a fetch failed and a previously verified result is shown; missing means no matching directory account. */
+  directoryStatus: MyProfileDirectoryStatus;
+  /**
+     * Time the returned directory fields were last verified. Null when no matching account exists.
+     * @nullable
+     */
+  directoryVerifiedAt: Date | null;
   /** @nullable */
   firstName: string | null;
   /** @nullable */

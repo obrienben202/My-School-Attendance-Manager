@@ -1728,7 +1728,7 @@ paths:
       operationId: getMyProfile
       tags: [staff]
       summary: Get the signed-in user's verified contact and employment details
-      description: Identity comes from the authenticated account; optional details come from the school directory matched by the account username. Never accepts a staff ID.
+      description: Identity comes from the authenticated account; optional details come from the validated school directory matched by the account username. A process-local per-account cache serves previously verified fields for up to 24 hours when the directory fetch fails; invalid directory data still fails closed. Never accepts a staff ID.
       responses:
         "200":
           description: Own profile
@@ -2928,8 +2928,10 @@ components:
 
     MyProfile:
       type: object
-      required: [firstName, lastName, email, department, role, phone, address, postcode, staffCode, jobTitle, organisation, startDate]
+      required: [firstName, lastName, email, department, role, phone, address, postcode, staffCode, jobTitle, organisation, startDate, directoryStatus, directoryVerifiedAt]
       properties:
+        directoryStatus: { type: string, enum: [fresh, stale, missing], description: "Fresh means verified within five minutes; stale means a fetch failed and a previously verified result is shown; missing means no matching directory account." }
+        directoryVerifiedAt: { type: ["string", "null"], format: date-time, description: "Time the returned directory fields were last verified. Null when no matching account exists." }
         firstName: { type: ["string", "null"] }
         lastName: { type: ["string", "null"] }
         email: { type: ["string", "null"], format: email }

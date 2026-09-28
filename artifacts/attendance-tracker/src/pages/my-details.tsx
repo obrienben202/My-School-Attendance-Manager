@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { displayAccountEmail } from "@/lib/profile-display";
 
 interface PersonalSlot {
   id: number;
@@ -130,7 +131,7 @@ export default function MyDetails() {
               </span>
             </div>
             <div className="min-w-0 sm:max-w-[45%] sm:text-right">
-              <p className="break-all text-[13px] font-semibold text-[#263d4d] dark:text-foreground" data-testid="text-account-email">{recorded(profile?.email ?? user?.email)}</p>
+              <p className="break-all text-[13px] font-semibold text-[#263d4d] dark:text-foreground" data-testid="text-account-email">{recorded(displayAccountEmail(user?.email, profile?.email, profileError))}</p>
               <p className="mt-1 text-[11px] text-[#83919e] dark:text-muted-foreground">Account details are read-only</p>
             </div>
           </div>
@@ -142,6 +143,16 @@ export default function MyDetails() {
             Verified contact and employment details could not be loaded. <button type="button" className="font-semibold underline" onClick={() => refetchProfile()}>Try again</button>
           </div>
         )}
+        {!profileError && profile?.directoryStatus === "stale" && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-[12px] text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200" role="alert" data-testid="status-profile-stale">
+            The directory is unavailable. Contact and employment details shown below were last verified {profile.directoryVerifiedAt ? new Date(profile.directoryVerifiedAt).toLocaleString() : "previously"} and may be out of date. <button type="button" className="font-semibold underline" onClick={() => refetchProfile()}>Try again</button>
+          </div>
+        )}
+        {!profileError && profile?.directoryStatus === "missing" && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-[12px] text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200" role="status">
+            No directory record matches this account. Contact and employment details cannot be verified; please contact your administrator.
+          </div>
+        )}
         <div className="mb-4 flex items-start gap-3 rounded-lg border border-[#dbe9f0] bg-[#ecf5f9] px-4 py-3 text-[#416176] dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-200" role="note">
           <Info size={16} className="mt-0.5 shrink-0" />
           <div className="text-[12px] leading-relaxed">
@@ -150,7 +161,7 @@ export default function MyDetails() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+        {!profileError && <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
           <DetailCard title="Personal Details" icon={UserRound}>
             <Facts items={[
               { label: "Forename", value: profile?.firstName ?? firstName }, { label: "Surname", value: profile?.lastName ?? lastName },
@@ -177,7 +188,7 @@ export default function MyDetails() {
               { label: "Site" }, { label: "Academic year" },
             ]} />
           </DetailCard>
-        </div>
+        </div>}
 
         <div className="mt-3.5 grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[minmax(0,1.9fr)_minmax(250px,0.9fr)]">
           <section className="min-w-0 overflow-hidden rounded-xl border border-[#dde7e8] bg-[#fefefd] shadow-[0_2px_10px_rgba(24,59,68,0.035)] dark:border-border dark:bg-card">

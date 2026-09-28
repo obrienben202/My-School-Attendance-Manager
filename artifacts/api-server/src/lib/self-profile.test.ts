@@ -14,13 +14,13 @@ test("self profile selects only the exact username and explicit verified columns
     postcode: "AB1 2CD", staffCode: "A-01", jobTitle: "Tutor",
     organisation: "School A", startDate: "2020-09-01",
   });
-  assert.equal(profileForUsername(csv, "beta").startDate, null);
-  assert.ok(Object.values(profileForUsername(csv, "alpha")).every(value => value !== "secret"));
+  assert.equal(profileForUsername(csv, "beta")?.startDate, null);
+  assert.ok(Object.values(profileForUsername(csv, "alpha")!).every(value => value !== "secret"));
 });
 
 test("missing identity or columns return null rather than a different person's details", () => {
-  assert.ok(Object.values(profileForUsername(csv, "unknown")).every(value => value === null));
-  assert.ok(Object.values(profileForUsername("Username,Password,Role\nalpha,secret,staff", "alpha")).every(value => value === null));
+  assert.equal(profileForUsername(csv, "unknown"), null);
+  assert.ok(Object.values(profileForUsername("Username,Password,Role\nalpha,secret,staff", "alpha")!).every(value => value === null));
 });
 
 test("invalid or duplicate directory records fail closed", () => {

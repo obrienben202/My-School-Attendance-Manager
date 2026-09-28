@@ -12,19 +12,26 @@ import { normaliseStaffName, staffNameKey, staffNamesMatch } from "../lib/staff-
 import { isStaffAssignedToSchedule } from "../lib/attendance-authorization";
 import { GetMyProfileResponse } from "@workspace/api-zod";
 import { fetchDirectoryCsv } from "../lib/user-directory";
-import { profileForUsername } from "../lib/self-profile";
+import { createSelfProfileCache } from "../lib/self-profile";
 
-export function createSelfProfileRouter(loadDirectoryCsv: () => Promise<string> = fetchDirectoryCsv) {
+export function createSelfProfileRouter(loadDirectoryCsv: () => Promise<string> = fetchDirectoryCsv, now: () => number = Date.now) {
   const profileRouter = Router();
+  const loadProfile = createSelfProfileCache(loadDirectoryCsv, now);
   profileRouter.get("/staff/me/profile", async (req, res): Promise<void> => {
     res.setHeader("Cache-Control", "no-store");
     if (!requireAuthenticated(req, res)) return;
     const user = req.user!;
     try {
-      const directory = user.username
-        ? profileForUsername(await loadDirectoryCsv(), user.username)
-        : null;
+      const source = user.username
+        ? await loadProfile(user.id, user.username)
+        : { profile: null, directoryStatus: "missing" as const, directoryVerifiedAt: null };
+      if (source.directoryStatus === "stale") {
+        req.log?.warn("Directory fetch failed; serving previously verified self profile");
+      }
+      const directory = source.profile;
       const profile = {
+        directoryStatus: source.directoryStatus,
+        directoryVerifiedAt: source.directoryVerifiedAt,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email ?? directory?.email ?? null,
@@ -43,7 +50,7 @@ export function createSelfProfileRouter(loadDirectoryCsv: () => Promise<string> 
       GetMyProfileResponse.parse(profile);
       res.json(profile);
     } catch (err) {
-      req.log.error({ err }, "Could not load self profile from directory");
+      req.log?.error({ err }, "Could not load self profile from directory");
       res.status(502).json({ error: "Profile source is unavailable" });
     }
   });

@@ -4861,7 +4861,7 @@ export const getGetMyProfileUrl = () => {
 }
 
 /**
- * Identity comes from the authenticated account; optional details come from the school directory matched by the account username. Never accepts a staff ID.
+ * Identity comes from the authenticated account; optional details come from the validated school directory matched by the account username. A process-local per-account cache serves previously verified fields for up to 24 hours when the directory fetch fails; invalid directory data still fails closed. Never accepts a staff ID.
  * @summary Get the signed-in user's verified contact and employment details
  */
 export const getMyProfile = async ( options?: RequestInit): Promise<MyProfile> => {

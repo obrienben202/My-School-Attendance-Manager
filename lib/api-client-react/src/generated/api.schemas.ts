@@ -744,6 +744,18 @@ export interface ScheduleEntry {
   registerSubmittedAt: string | null;
 }
 
+/**
+ * Fresh means verified within five minutes; stale means a fetch failed and a previously verified result is shown; missing means no matching directory account.
+ */
+export type MyProfileDirectoryStatus = typeof MyProfileDirectoryStatus[keyof typeof MyProfileDirectoryStatus];
+
+
+export const MyProfileDirectoryStatus = {
+  fresh: 'fresh',
+  stale: 'stale',
+  missing: 'missing',
+} as const;
+
 export type MyProfileRole = typeof MyProfileRole[keyof typeof MyProfileRole];
 
 
@@ -755,6 +767,13 @@ export const MyProfileRole = {
 } as const;
 
 export interface MyProfile {
+  /** Fresh means verified within five minutes; stale means a fetch failed and a previously verified result is shown; missing means no matching directory account. */
+  directoryStatus: MyProfileDirectoryStatus;
+  /**
+     * Time the returned directory fields were last verified. Null when no matching account exists.
+     * @nullable
+     */
+  directoryVerifiedAt: string | null;
   /** @nullable */
   firstName: string | null;
   /** @nullable */

@@ -1444,10 +1444,12 @@ export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)
 
 
 /**
- * Identity comes from the authenticated account; optional details come from the school directory matched by the account username. Never accepts a staff ID.
+ * Identity comes from the authenticated account; optional details come from the validated school directory matched by the account username. A process-local per-account cache serves previously verified fields for up to 24 hours when the directory fetch fails; invalid directory data still fails closed. Never accepts a staff ID.
  * @summary Get the signed-in user's verified contact and employment details
  */
 export const GetMyProfileResponse = zod.object({
+  "directoryStatus": zod.enum(['fresh', 'stale', 'missing']).describe('Fresh means verified within five minutes; stale means a fetch failed and a previously verified result is shown; missing means no matching directory account.'),
+  "directoryVerifiedAt": zod.coerce.date().nullable().describe('Time the returned directory fields were last verified. Null when no matching account exists.'),
   "firstName": zod.string().nullable(),
   "lastName": zod.string().nullable(),
   "email": zod.string().email().nullable(),
