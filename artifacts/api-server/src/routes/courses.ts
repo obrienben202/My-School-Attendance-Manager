@@ -11,15 +11,12 @@ import {
 import { requireAdminOrHod } from "./auth";
 import { canManageAttendanceSchedule } from "../lib/attendance-authorization";
 import { CreateSlotBody, UpdateSlotBody } from "../lib/manual-slot-validation";
+import {
+  isRoleFixture, roleFixtureName, roleFixturePrefix, roleFixtureStatus,
+  roleFixtureMaxAgeMs, staleRoleFixtureCondition,
+} from "../lib/course-slots-role-fixture";
 
 const router = Router();
-const roleFixturePrefix = "__e2e_course_slots_";
-const roleFixtureStatus = "e2e-role-fixture";
-
-function isRoleFixture(course: typeof coursesTable.$inferSelect) {
-  return !course.isActive && course.sourceId === null &&
-    course.status === roleFixtureStatus && course.code.startsWith(roleFixturePrefix);
-}
 
 async function slotCourseAvailable(id: number, req: { isAuthenticated(): boolean; user?: unknown }) {
   const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, id));
@@ -36,9 +33,15 @@ if (process.env.NODE_ENV === "development") {
   router.post("/__e2e/course-slots-fixture", async (req, res) => {
     if (!requireAdminOrHod(req, res)) return;
     if ((req.user as { role?: string }).role !== "admin") return res.status(403).json({ error: "Admin access required" });
+    // An interrupted run skips finally. Reclaim only fixtures older than a full day;
+    // newly created fixtures belonging to concurrent checks cannot match.
+    const reclaimed = await db.delete(coursesTable)
+      .where(staleRoleFixtureCondition(new Date(Date.now() - roleFixtureMaxAgeMs)))
+      .returning({ id: coursesTable.id });
+    if (reclaimed.length) req.log.info({ count: reclaimed.length }, "Removed abandoned timetable role-check fixtures");
     const [course] = await db.insert(coursesTable).values({
       code: `${roleFixturePrefix}${randomUUID()}`,
-      name: "E2E role check fixture",
+      name: roleFixtureName,
       status: roleFixtureStatus,
       isActive: false,
     }).returning({ id: coursesTable.id });
@@ -56,6 +59,8 @@ if (process.env.NODE_ENV === "development") {
       eq(coursesTable.id, id),
       eq(coursesTable.code, course.code),
       eq(coursesTable.isActive, false),
+      eq(coursesTable.name, roleFixtureName),
+      eq(coursesTable.status, roleFixtureStatus),
     ));
     return res.status(204).send();
   });
