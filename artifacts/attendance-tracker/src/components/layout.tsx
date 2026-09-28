@@ -68,10 +68,14 @@ const ADMIN_ONLY: Role[] = ["admin"];
 
 const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
-    heading: "Staff Portal",
+    heading: "",
     items: [
       { icon: Home, label: "Dashboard", href: "/" },
-      { icon: UserCircle, label: "My Details", href: "/my-details" },
+    ],
+  },
+  {
+    heading: "Workspace",
+    items: [
       { icon: BookOpen, label: "My Courses", href: "/courses" },
       { icon: ClipboardList, label: "eRegisters", href: "/attendance" },
       { icon: BookMarked, label: "Markbook", href: "/markbook", roles: ADMIN_HOD_STAFF },
@@ -79,6 +83,11 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       { icon: PenTool, label: "My Assessments", href: "/assessments", roles: ADMIN_HOD_STAFF },
       { icon: ClipboardCheck, label: "My Unconfirmed Assessments", href: "/assessments?unconfirmed=1", roles: ADMIN_HOD_STAFF },
       { icon: Users, label: "My Assignments / Groups", href: "/assignments-groups", roles: ADMIN_HOD_STAFF },
+    ],
+  },
+  {
+    heading: "Learner tools",
+    items: [
       { icon: AlertTriangle, label: "At Risk Learners", href: "/students?atRisk=true", color: "text-red-400", roles: ADMIN_HOD_OFFICE },
       { icon: Target, label: "Targets", href: "/targets", roles: ADMIN_HOD_OFFICE },
       { icon: FileText, label: "ILP", href: "/ilps", roles: ADMIN_HOD_STAFF },
@@ -165,7 +174,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = Number(window.localStorage.getItem("attendance-sidebar-width"));
-    return saved >= 208 && saved <= 360 ? saved : 256;
+    return saved >= 184 && saved <= 360 ? saved : 192;
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
     window.localStorage.getItem("attendance-sidebar-collapsed") === "true",
@@ -288,12 +297,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     .filter((section) => section.items.length > 0);
 
   const renderNavigation = (closeOnNavigate = false) => (
-    <nav aria-label="Main navigation" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <nav aria-label="Main navigation" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2.5 py-3">
       {visibleSections.map((section) => (
         <div key={section.heading}>
-          <p className={cn("mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/65", sidebarCollapsed && !closeOnNavigate && "sr-only")}>
+          {section.heading && <p className={cn("mb-2 mt-1 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-sidebar-foreground/60", sidebarCollapsed && !closeOnNavigate && "sr-only")}>
             {section.heading}
-          </p>
+          </p>}
           <ul className="space-y-0.5">
             {section.items.map((item) => (
               <li key={item.href}>
@@ -301,36 +310,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <SheetClose asChild>
                     <Link
                       href={item.href}
-                       title={sidebarCollapsed ? item.label : undefined}
-                       aria-label={sidebarCollapsed ? item.label : undefined}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors",
-                         sidebarCollapsed && "justify-center px-2",
+                         "flex items-start gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-snug transition-colors",
                         isActive(item.href)
-                          ? "bg-blue-600 font-semibold text-white"
+                           ? "bg-[#458980] font-semibold text-white"
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                         item.color,
                       )}
                       aria-current={isActive(item.href) ? "page" : undefined}
                     >
-                      <item.icon className="w-4 h-4 flex-shrink-0" />
-                       <span className={cn("truncate", sidebarCollapsed && "sr-only")}>{item.label}</span>
+                       <item.icon className="mt-0.5 w-4 h-4 flex-shrink-0" />
+                       <span>{item.label}</span>
                     </Link>
                   </SheetClose>
                 ) : (
                   <Link
                     href={item.href}
+                     title={sidebarCollapsed ? item.label : undefined}
+                     aria-label={sidebarCollapsed ? item.label : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors",
+                       "flex items-start gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-snug transition-colors",
+                       sidebarCollapsed && "justify-center px-2",
                       isActive(item.href)
-                        ? "bg-blue-600 font-semibold text-white"
+                         ? "bg-[#458980] font-semibold text-white"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                       item.color,
                     )}
                     aria-current={isActive(item.href) ? "page" : undefined}
                   >
-                    <item.icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="truncate">{item.label}</span>
+                     <item.icon className="mt-0.5 w-4 h-4 flex-shrink-0" />
+                     <span className={cn(sidebarCollapsed && "sr-only")}>{item.label}</span>
                   </Link>
                 )}
               </li>
@@ -346,10 +355,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <div className="sticky top-0 hidden h-screen flex-shrink-0 md:flex" style={{ width: sidebarCollapsed ? 68 : sidebarWidth }}>
         <aside className="flex min-w-0 flex-1 flex-col bg-sidebar text-sidebar-foreground">
-        <div className={cn("border-b border-sidebar-border p-5", sidebarCollapsed && "px-4")}>
+        <div className={cn("border-b border-sidebar-border px-3.5 py-4", sidebarCollapsed && "px-4")}>
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 font-bold text-white">AT</div>
-            {!sidebarCollapsed && <span className="leading-tight"><strong className="block text-sm tracking-tight">Attendance</strong><span className="block text-[10px] font-semibold uppercase tracking-widest text-blue-200">Learning hub</span></span>}
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#458980] text-[11px] font-bold text-white">AT</div>
+            {!sidebarCollapsed && <span className="min-w-0 leading-tight"><strong className="block text-[13px] tracking-tight">Attendance</strong><span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/55">Learning hub</span></span>}
           </div>
         </div>
 
@@ -360,23 +369,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
             role="separator"
             aria-label="Resize sidebar"
             aria-orientation="vertical"
-            aria-valuemin={208}
+            aria-valuemin={184}
             aria-valuemax={360}
             aria-valuenow={sidebarWidth}
             tabIndex={0}
             title="Drag to resize sidebar, or use arrow keys"
             data-testid="handle-resize-sidebar"
-            className="w-1.5 cursor-col-resize bg-sidebar-border transition-colors hover:bg-blue-500 focus:bg-blue-500 focus:outline-none"
+            className="w-1.5 cursor-col-resize bg-sidebar-border/50 transition-colors hover:bg-[#458980] focus:bg-[#458980] focus:outline-none"
             onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
             onPointerMove={(event) => {
               if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                setSidebarWidth(Math.max(208, Math.min(360, event.clientX)));
+                setSidebarWidth(Math.max(184, Math.min(360, event.clientX)));
               }
             }}
             onKeyDown={(event) => {
               if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                 event.preventDefault();
-                setSidebarWidth((current) => Math.max(208, Math.min(360, current + (event.key === "ArrowRight" ? 16 : -16))));
+                setSidebarWidth((current) => Math.max(184, Math.min(360, current + (event.key === "ArrowRight" ? 16 : -16))));
               }
             }}
           />
@@ -387,7 +396,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <TopBar
           user={user}
           role={role}
-          page={visibleSections.flatMap((section) => section.items).filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0]?.label ?? "Attendance"}
+          page={location === "/" ? "Attendance Dashboard" : visibleSections.flatMap((section) => section.items).filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0]?.label ?? "Attendance"}
           theme={theme}
           onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")}
           collapsed={sidebarCollapsed}
@@ -411,7 +420,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex h-full min-h-0 flex-col">
               <div className="border-b border-sidebar-border p-4">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-500 font-bold text-white">AT</div>
+                   <div className="flex h-8 w-8 items-center justify-center rounded bg-[#458980] font-bold text-white">AT</div>
                   <span className="font-semibold text-lg tracking-tight">Attendance</span>
                 </div>
               </div>
@@ -431,7 +440,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
 
       {/* Main content */}
-        <main className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-auto p-4 sm:px-8 sm:py-4">{children}</main>
       </div>
     </div>
   );

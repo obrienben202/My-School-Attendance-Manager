@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Calendar, BookOpen, AlertTriangle, ChevronRight, ChevronsUpDown, X, Plus, CheckCircle, Users } from "lucide-react";
+import { Search, Calendar, BookOpen, AlertTriangle, ChevronRight, ChevronsUpDown, X, Plus, CheckCircle, Users, SlidersHorizontal, RotateCcw, Target } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -125,7 +125,7 @@ function CourseSearchResults({ results }: { results: CourseRow[] }) {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-slate-700">{c.name}</td>
-                <td className="px-3 py-2 text-slate-500">Current Year</td>
+                <td className="px-3 py-2 text-slate-500">—</td>
                 <td className="px-3 py-2 text-slate-500">—</td>
                 <td className="px-3 py-2 text-slate-500">—</td>
                 <td className="px-3 py-2 text-slate-500">{c.staffName ?? "—"}</td>
@@ -333,8 +333,6 @@ function CourseSearchTab() {
   );
 }
 
-const START_TIMES_REG = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
-
 type RegisterRow = {
   id: number;
   code: string;
@@ -392,27 +390,22 @@ function RegisterSearchResults({ results }: { results: RegisterRow[] }) {
               <td colSpan={7} className="px-3 py-6 text-center text-slate-400">No registers found.</td>
             </tr>
           ) : (
-            pageRows.map(r => {
-              const startTime = START_TIMES_REG[r.id % START_TIMES_REG.length];
-              const [h, m] = startTime.split(":").map(Number);
-              const endTime = `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-              return (
+            pageRows.map(r => (
                 <tr key={r.id} className="hover:bg-blue-50 cursor-pointer" onClick={() => navigate(`/registers/${r.id}`)}>
                   <td className="px-3 py-2">
                     <span className="flex items-center gap-1.5">
                       <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span className="text-sky-700 font-medium hover:underline">{r.name} (CLASS)</span>
+                       <span className="text-sky-700 font-medium hover:underline">{r.name}</span>
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-slate-600">{1000 + r.id}</td>
-                  <td className="px-3 py-2 text-slate-600">Current</td>
-                  <td className="px-3 py-2 text-slate-500">01/08/2024</td>
-                  <td className="px-3 py-2 text-slate-500">31/07/2025</td>
-                  <td className="px-3 py-2 text-slate-600">{startTime}</td>
-                  <td className="px-3 py-2 text-slate-600">{endTime}</td>
+                   <td className="px-3 py-2 text-slate-600">{r.id}</td>
+                   <td className="px-3 py-2 text-slate-600">—</td>
+                   <td className="px-3 py-2 text-slate-500">—</td>
+                   <td className="px-3 py-2 text-slate-500">—</td>
+                   <td className="px-3 py-2 text-slate-600">—</td>
+                   <td className="px-3 py-2 text-slate-600">—</td>
                 </tr>
-              );
-            })
+            ))
           )}
         </tbody>
       </table>
@@ -538,21 +531,6 @@ function RegisterSearchTab() {
   );
 }
 
-const EXAM_NAMES_LIST = [
-  "Functional Skills English Level 1 - Reading",
-  "Functional Skills English Level 1 - Writing",
-  "Functional Skills English Level 2 - Reading",
-  "Functional Skills Maths Level 1",
-  "Functional Skills Maths Level 2",
-  "BTEC Business Unit Assessment",
-  "A Level Business Studies Paper 1",
-  "A Level Mathematics Paper 2",
-];
-const EXAM_START_TIMES = ["09:00", "10:00", "13:00", "13:30", "14:00"];
-const EXAM_FINISH_TIMES = ["10:00", "11:00", "14:00", "14:30", "15:00"];
-const EXAM_DATES_LIST = ["23/01/2025", "24/01/2025", "24/01/2025", "25/01/2025"];
-const BOARD_OCC_LIST = ["23JAN17AM", "24JAN17PM", "24JAN17AM", "25JAN17PM"];
-
 type ExamRow = {
   id: number;
   code: string;
@@ -579,7 +557,7 @@ function ExamSearchResults({ results }: { results: ExamRow[] }) {
   return (
     <div className="border border-slate-300 rounded overflow-hidden text-sm">
       <div className="bg-slate-700 text-white px-4 py-2 font-semibold text-sm">
-        Exam Search Results
+        Related Course Results
       </div>
       <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200">
         <span className="text-xs text-slate-500">
@@ -593,7 +571,7 @@ function ExamSearchResults({ results }: { results: ExamRow[] }) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50">
-            {["Board Code", "Exam Code", "Exam Name", "Board Occurrence", "Exam Date", "Start Time", "Finish Time", "Entries"].map(col => (
+            {["Course Code", "Course Name", "Staff", "Enrolled Learners"].map(col => (
               <th key={col} className="text-left text-xs font-semibold text-slate-600 px-3 py-2">
                 <span className="flex items-center gap-1 cursor-pointer select-none hover:text-slate-900">
                   {col} <ChevronsUpDown className="w-3 h-3 opacity-50" />
@@ -605,31 +583,22 @@ function ExamSearchResults({ results }: { results: ExamRow[] }) {
         <tbody className="divide-y divide-slate-100">
           {filtered.length === 0 ? (
             <tr>
-              <td colSpan={8} className="px-3 py-6 text-center text-slate-400">No exams found.</td>
+              <td colSpan={4} className="px-3 py-6 text-center text-slate-400">No related courses found.</td>
             </tr>
           ) : (
-            pageRows.map(r => {
-              const idx = r.id % EXAM_START_TIMES.length;
-              const examName = EXAM_NAMES_LIST[(r.id - 1) % EXAM_NAMES_LIST.length];
-              const examCode = `${r.id * 374801}-${String(r.id).padStart(3, "0")}`;
-              return (
-                <tr key={r.id} className="hover:bg-blue-50 cursor-pointer" onClick={() => navigate(`/exams/${r.id}`)}>
-                  <td className="px-3 py-2 text-slate-600">CG</td>
+            pageRows.map(r => (
+                <tr key={r.id} className="hover:bg-blue-50 cursor-pointer" onClick={() => navigate(`/courses/${r.id}`)}>
                   <td className="px-3 py-2">
                     <span className="flex items-center gap-1.5">
                       <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span className="text-sky-700 font-medium hover:underline">{examCode}</span>
+                      <span className="text-sky-700 font-medium hover:underline">{r.code}</span>
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-slate-700">{examName}</td>
-                  <td className="px-3 py-2 text-slate-600">{BOARD_OCC_LIST[r.id % BOARD_OCC_LIST.length]}</td>
-                  <td className="px-3 py-2 text-slate-500">{EXAM_DATES_LIST[r.id % EXAM_DATES_LIST.length]}</td>
-                  <td className="px-3 py-2 text-slate-600">{EXAM_START_TIMES[idx]}</td>
-                  <td className="px-3 py-2 text-slate-600">{EXAM_FINISH_TIMES[idx]}</td>
+                  <td className="px-3 py-2 text-slate-700">{r.name}</td>
+                  <td className="px-3 py-2 text-slate-600">{r.staffName ?? "—"}</td>
                   <td className="px-3 py-2 text-slate-600">{r.enrolledCount}</td>
                 </tr>
-              );
-            })
+            ))
           )}
         </tbody>
       </table>
@@ -771,17 +740,8 @@ function ExamSearchTab() {
   );
 }
 
-const ROOM_TYPES = ["Classroom", "Laboratory", "Sports Hall", "IT Suite", "Music Room", "Art Room", "Library", "Conference Room"];
-const SITES = ["Main Campus", "North Block", "South Annexe", "Sports Centre"];
-
 type RoomRow = { id: number; code: string; description: string; roomType: string; site: string };
 type StaffRow = StaffSource;
-
-const SAMPLE_STAFF = [
-  "Adams, Claire", "Bailey, James", "Carter, Helen", "Davies, Mark",
-  "Evans, Ruth", "Fletcher, Tom", "Green, Sandra", "Harris, Paul",
-  "Ingram, Lisa", "Johnson, Kieran",
-];
 
 type BookingState = {
   room: RoomRow;
@@ -796,6 +756,7 @@ type BookingState = {
 function RoomBookingDialog({
   room, onClose,
 }: { room: RoomRow | null; onClose: () => void }) {
+  const { data: availableStaff = [] } = useListStaff();
   const [reason, setReason] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -807,7 +768,7 @@ function RoomBookingDialog({
 
   if (!room) return null;
 
-  const filteredStaff = SAMPLE_STAFF.filter(
+  const filteredStaff = availableStaff.map(staff => staff.fullName).filter(
     s => s.toLowerCase().includes(staffSearch.toLowerCase()) && !addedStaff.includes(s)
   );
 
@@ -1040,13 +1001,14 @@ function RoomSearchTab() {
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<RoomRow[]>([]);
 
-  const allRooms: RoomRow[] = [...new Set((courses ?? []).map(c => c.room).filter(Boolean))]
-    .map((name, idx) => ({
-      id: idx,
-      code: name as string,
-      description: `${ROOM_TYPES[idx % ROOM_TYPES.length]} — ${name}`,
-      roomType: ROOM_TYPES[idx % ROOM_TYPES.length],
-      site: SITES[idx % SITES.length],
+  const allRooms: RoomRow[] = (courses ?? [])
+    .filter((c, index, rows) => !!c.room && rows.findIndex(other => other.room === c.room) === index)
+    .map(c => ({
+      id: c.id,
+      code: c.room as string,
+      description: "—",
+      roomType: "—",
+      site: "—",
     }));
 
   function handleSearch() {
@@ -1417,14 +1379,14 @@ function StaffSearchTab() {
 
 function StatsCard({ title, value, unit = "", caption, colorClass = "bg-white text-slate-800 border-slate-200", isLoading = false }: { title: string, value?: string | number, unit?: string, caption: string, colorClass?: string, isLoading?: boolean }) {
   return (
-    <Card className={`min-w-0 rounded-xl shadow-sm border ${colorClass}`}>
-      <CardContent className="flex min-h-28 flex-col items-start justify-between p-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-85">{title}</p>
+    <Card className={`min-w-0 rounded-lg border shadow-[0_2px_8px_rgba(25,42,66,0.04)] ${colorClass}`}>
+      <CardContent className="flex min-h-[104px] flex-col items-start justify-between gap-1 p-3.5">
+        <p className="text-[10px] font-bold uppercase leading-3 tracking-[0.1em] opacity-85">{title}</p>
         <div className="flex items-baseline gap-0.5">
-          <span className="text-2xl font-bold tabular-nums">{isLoading ? <Skeleton className="h-7 w-14" /> : value ?? "—"}</span>
+          <span className="text-[22px] leading-7 font-bold tabular-nums">{isLoading ? <Skeleton className="h-7 w-14" /> : value ?? "—"}</span>
           {!isLoading && value !== undefined && unit && <span className="text-base font-semibold">{unit}</span>}
         </div>
-        <p className="text-xs opacity-80">{!isLoading && value === undefined ? "Unavailable" : caption}</p>
+        <p className="text-[11px] leading-[1.2] opacity-75">{!isLoading && value === undefined ? "Unavailable" : caption}</p>
       </CardContent>
     </Card>
   );
@@ -1517,6 +1479,8 @@ export default function Home() {
   const [confirmedLearners, setConfirmedLearners] = useState("");
   const [orgContacts, setOrgContacts] = useState("");
   const [searchEnabled, setSearchEnabled] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [activeSearchTab, setActiveSearchTab] = useState("learner");
 
   const { data: searchResults, isLoading: isSearchLoading, isError: isSearchError } = useListStudents(
     { personCode, forename, surname, gender },
@@ -1527,35 +1491,37 @@ export default function Home() {
     setSearchEnabled(true);
   }
 
+  function resetLearnerSearch() {
+    setPersonCode(""); setPersonCodeOp("="); setForename(""); setSurname("");
+    setPostCode(""); setMiddleNames(""); setTitle(""); setGender("");
+    setDateOfBirth(""); setConfirmedLearners(""); setOrgContacts("");
+    setSearchEnabled(false);
+  }
+
   return (
-    <div className="dashboard-home mx-auto max-w-[1600px] space-y-5">
-      <header className="border-b border-slate-200 pb-4">
-        <p className="mb-1 text-xs font-medium text-slate-500">Home / Attendance</p>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Attendance Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-600">Your registers, learners and courses at a glance.</p>
-      </header>
+    <div className="dashboard-home mx-auto max-w-[1600px] space-y-4">
       {/* Stats Bar */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         <StatsCard 
           title="Attendance" 
-          value={summary ? Math.round(summary.attendancePercent) : undefined} 
+          value={summary ? Math.round(summary.attendancePercent) : undefined}
           unit="%" 
           caption="Overall attendance"
           isLoading={isSummaryLoading}
-          colorClass="bg-emerald-700 text-white border-emerald-800"
+          colorClass="bg-[#46837d] text-white border-[#46837d]"
         />
         <StatsCard 
           title="Punctuality" 
-          value={summary ? Math.round(summary.punctualityPercent) : undefined} 
+          value={summary ? Math.round(summary.punctualityPercent) : undefined}
           unit="%" 
           caption="Overall punctuality"
           isLoading={isSummaryLoading}
-          colorClass="bg-teal-700 text-white border-teal-800"
+          colorClass="bg-[#46837d] text-white border-[#46837d]"
         />
         <StatsCard 
           title="Registers" 
           value={summary?.registersCount} 
-          caption="Available registers"
+          caption="Available to complete"
           isLoading={isSummaryLoading}
         />
         <StatsCard 
@@ -1563,12 +1529,12 @@ export default function Home() {
           value={summary?.atRiskCount} 
           caption="Learners flagged"
           isLoading={isSummaryLoading}
-          colorClass="bg-red-50 text-red-700 border-red-200" 
+          colorClass="bg-[#fffafb] text-[#91394b] border-[#f3e5e8]"
         />
         <StatsCard 
           title="SMART Targets" 
           value={summary?.smartTargetsCount} 
-          caption="SMART targets"
+          caption="Current targets"
           isLoading={isSummaryLoading}
         />
         <StatsCard 
@@ -1580,27 +1546,56 @@ export default function Home() {
       </div>
 
       {/* Tabbed Search Panel */}
-      <Card className="dashboard-search overflow-hidden rounded-xl border-slate-200 shadow-sm">
-        <Tabs defaultValue="learner" className="w-full">
-          <CardHeader className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:px-5">
-            <CardTitle className="flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-900"><Search className="h-4 w-4 text-blue-700" />Search records</CardTitle>
-            <TabsList aria-label="Search record type" className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 lg:w-auto">
+      <Card className="dashboard-search overflow-hidden rounded-lg border-slate-200 shadow-[0_2px_10px_rgba(25,42,66,0.04)]">
+        <Tabs value={activeSearchTab} onValueChange={setActiveSearchTab} className="w-full">
+          <CardHeader className="flex flex-col gap-2 border-b border-slate-200 px-3.5 py-2.5 lg:flex-row lg:items-center lg:justify-between lg:px-4">
+            <CardTitle className="flex shrink-0 items-center gap-2 text-[13px] font-bold text-slate-800">
+              <Search className="h-4 w-4 text-[#46837d]" />Search records
+              <button type="button" data-testid="button-advanced-learner-search" aria-label={advancedOpen ? "Hide advanced search" : "Show advanced search"} title={advancedOpen ? "Hide advanced search" : "Advanced search"} aria-expanded={advancedOpen} onClick={() => { setActiveSearchTab("learner"); setAdvancedOpen(!advancedOpen); }} className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-[#326d67] hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+                <SlidersHorizontal className="h-4 w-4" />
+              </button>
+            </CardTitle>
+            <TabsList aria-label="Search record type" className="flex h-auto w-full justify-start gap-0 overflow-x-auto rounded-none bg-transparent p-0 lg:w-auto">
               {['Learner', 'Course', 'Register', 'Exam', 'Room', 'Staff'].map(tab => (
                 <TabsTrigger 
                   key={tab} 
                   value={tab.toLowerCase()}
-                  className="shrink-0 rounded-md px-3 py-2 text-xs font-semibold text-slate-600 shadow-none data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800"
+                   className="shrink-0 rounded-none border-b-2 border-transparent px-2.5 py-1.5 text-xs font-semibold text-slate-500 shadow-none data-[state=active]:border-[#46837d] data-[state=active]:bg-transparent data-[state=active]:text-[#326d67]"
                 >
                   {tab}
                 </TabsTrigger>
               ))}
             </TabsList>
           </CardHeader>
-          <CardContent className="min-w-0 overflow-x-auto p-4 lg:p-5">
+           <CardContent className="min-w-0 overflow-x-auto p-3.5 lg:px-4 lg:py-3">
             <TabsContent value="learner" className="mt-0 outline-none">
               <div className="space-y-0">
-                {/* 2-column label+field layout matching reference */}
-                <div className="grid grid-cols-2 gap-x-8">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto_auto] lg:items-end">
+                  <label className="min-w-0 text-[11px] font-semibold text-slate-600">Learner name
+                    <Input data-testid="input-learner-name" aria-label="Learner name" placeholder="Enter learner name" value={forename} onChange={e => { setForename(e.target.value); setSearchEnabled(false); }} className="mt-1 h-8 w-full text-xs font-normal" />
+                  </label>
+                  <label className="min-w-0 text-[11px] font-semibold text-slate-600">Surname
+                    <Input data-testid="input-learner-surname" aria-label="Surname" placeholder="Enter surname" value={surname} onChange={e => { setSurname(e.target.value); setSearchEnabled(false); }} className="mt-1 h-8 w-full text-xs font-normal" />
+                  </label>
+                  <label className="min-w-0 text-[11px] font-semibold text-slate-600">Middle names
+                    <Input data-testid="input-learner-middle-names" aria-label="Middle Names" placeholder="Enter middle names" value={middleNames} onChange={e => { setMiddleNames(e.target.value); setSearchEnabled(false); }} className="mt-1 h-8 w-full text-xs font-normal" />
+                  </label>
+                  <div className="min-w-0 text-[11px] font-semibold text-slate-600">Gender
+                    <Select value={gender || "_all"} onValueChange={v => { setGender(v === "_all" ? "" : v); setSearchEnabled(false); }}>
+                      <SelectTrigger data-testid="select-learner-gender" aria-label="Gender" className="mt-1 h-8 w-full text-xs font-normal"><SelectValue placeholder="All genders" /></SelectTrigger>
+                      <SelectContent><SelectItem value="_all">All genders</SelectItem><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem><SelectItem value="Other">Other</SelectItem><SelectItem value="Prefer not to say">Prefer not to say</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0 text-[11px] font-semibold text-slate-600">Confirmed learners
+                    <Select value={confirmedLearners || "_all"} onValueChange={v => setConfirmedLearners(v === "_all" ? "" : v)}>
+                      <SelectTrigger data-testid="select-confirmed-learners" aria-label="Confirmed Learners" className="mt-1 h-8 w-full text-xs font-normal"><SelectValue placeholder="All learners" /></SelectTrigger>
+                      <SelectContent><SelectItem value="_all">All learners</SelectItem><SelectItem value="yes">Yes</SelectItem><SelectItem value="no">No</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <Button data-testid="button-search-learners" aria-label="Search learners" onClick={handleSearch} disabled={isSearchLoading} className="h-8 bg-[#46837d] px-3 text-white hover:bg-[#326d67]"><Search className="h-4 w-4" /><span className="ml-1 lg:sr-only">Search</span></Button>
+                  <Button data-testid="button-reset-learners" variant="outline" onClick={resetLearnerSearch} className="h-8 gap-1 px-3 text-xs text-slate-600"><RotateCcw className="h-3 w-3" />Reset</Button>
+                </div>
+                {advancedOpen && <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 md:grid-cols-2 md:gap-x-8">
                   {/* LEFT COLUMN */}
                   <div className="space-y-2">
                     {/* Person Code */}
@@ -1625,53 +1620,10 @@ export default function Home() {
                         />
                       </div>
                     </div>
-                    {/* Surname */}
-                    <div className="flex items-center gap-2">
-                      <span className="w-36 shrink-0 text-sm text-slate-700">Surname</span>
-                      <Input aria-label="Surname" value={surname} onChange={e => { setSurname(e.target.value); setSearchEnabled(false); }} className="flex-1 h-8 text-sm" />
-                    </div>
-                    {/* Middle Names */}
-                    <div className="flex items-center gap-2">
-                      <span className="w-36 shrink-0 text-sm text-slate-700">Middle Names</span>
-                      <Input aria-label="Middle Names" value={middleNames} onChange={e => setMiddleNames(e.target.value)} className="flex-1 h-8 text-sm" />
-                    </div>
-                    {/* Gender */}
-                    <div className="flex items-center gap-2">
-                      <span className="w-36 shrink-0 text-sm text-slate-700">Gender</span>
-                      <Select value={gender} onValueChange={v => { setGender(v); setSearchEnabled(false); }}>
-                        <SelectTrigger aria-label="Gender" className="flex-1 h-8 text-sm">
-                          <SelectValue placeholder="" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Male">Male</SelectItem>
-                          <SelectItem value="Female">Female</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                          <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {/* Confirmed Learners */}
-                    <div className="flex items-center gap-2">
-                      <span className="w-36 shrink-0 text-sm text-slate-700">Confirmed Learners</span>
-                      <Select value={confirmedLearners} onValueChange={setConfirmedLearners}>
-                        <SelectTrigger aria-label="Confirmed Learners" className="flex-1 h-8 text-sm">
-                          <SelectValue placeholder="" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
                   {/* RIGHT COLUMN */}
                   <div className="space-y-2">
-                    {/* Forename */}
-                    <div className="flex items-center gap-2">
-                      <span className="w-36 shrink-0 text-sm text-slate-700">Forename</span>
-                      <Input aria-label="Forename" value={forename} onChange={e => { setForename(e.target.value); setSearchEnabled(false); }} className="flex-1 h-8 text-sm" />
-                    </div>
                     {/* Post Code */}
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Post Code</span>
@@ -1733,14 +1685,7 @@ export default function Home() {
                       </Select>
                     </div>
                   </div>
-                </div>
-
-                {/* Search button — bottom right */}
-                <div className="flex justify-end pt-3">
-                  <Button onClick={handleSearch} disabled={isSearchLoading} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
-                    <Search className="w-3.5 h-3.5" /> Search
-                  </Button>
-                </div>
+                </div>}
 
                 {/* Search Results */}
                  {searchEnabled && (
@@ -1773,13 +1718,13 @@ export default function Home() {
       </Card>
 
       {/* Bottom Panels */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-3">
         
         {/* Today's Schedule */}
-        <Card className="col-span-1 min-w-0 overflow-hidden rounded-xl border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-center gap-2 border-b bg-white px-4 py-3">
-            <Calendar className="w-5 h-5 text-primary" />
-            <CardTitle className="text-base">Today's Schedule</CardTitle>
+        <Card className="col-span-1 min-w-0 overflow-hidden rounded-lg border-slate-200 shadow-[0_2px_10px_rgba(25,42,66,0.04)]">
+          <CardHeader className="flex min-h-12 flex-row items-center gap-2 border-b bg-white px-3.5 py-2.5">
+            <Calendar className="h-4 w-4 shrink-0 text-[#46837d]" />
+            <CardTitle className="text-[15px] font-bold text-slate-800">Today's Schedule</CardTitle>
             {!isScheduleLoading && schedule && <span className="ml-auto text-xs text-slate-500">{schedule.length} sessions</span>}
           </CardHeader>
           <CardContent className="p-0">
@@ -1792,7 +1737,7 @@ export default function Home() {
               <>
                 <ul className="divide-y">
                   {scheduleRows.map(entry => (
-                     <li key={entry.id} className="flex flex-wrap items-center justify-between gap-2 p-4 transition-colors hover:bg-slate-50">
+                      <li key={entry.id} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-3 transition-colors hover:bg-slate-50">
                        <div className="min-w-0">
                         <p className="font-semibold text-sm">{entry.courseName}</p>
                          <p className="text-xs text-muted-foreground">{[entry.room, entry.staffName].filter(Boolean).join(" • ")}</p>
@@ -1822,10 +1767,10 @@ export default function Home() {
         </Card>
 
         {/* Overdue Targets */}
-        <Card className="col-span-1 min-w-0 overflow-hidden rounded-xl border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-center gap-2 border-b bg-white px-4 py-3">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
-             <CardTitle className="text-base">Overdue SMART Targets</CardTitle>
+        <Card className="col-span-1 min-w-0 overflow-hidden rounded-lg border-slate-200 shadow-[0_2px_10px_rgba(25,42,66,0.04)]">
+          <CardHeader className="flex min-h-12 flex-row items-center gap-2 border-b bg-white px-3.5 py-2.5">
+            <Target className="h-4 w-4 shrink-0 text-[#46837d]" />
+             <CardTitle className="text-[15px] font-bold text-slate-800">Overdue SMART Targets</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
              {isTargetsLoading ? (
@@ -1837,7 +1782,7 @@ export default function Home() {
                <>
                  <ul className="divide-y divide-red-100">
                    {targetRows.map(target => (
-                     <li key={target.id} className="p-4 hover:bg-red-50/50 transition-colors">
+                      <li key={target.id} className="px-3.5 py-3 hover:bg-red-50/50 transition-colors">
                        <div className="flex justify-between items-start mb-1">
                          <p className="font-semibold text-sm text-red-900">{target.title}</p>
                          <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded">
@@ -1856,7 +1801,7 @@ export default function Home() {
                  />
                </>
               ) : targets ? (
-                <div className="flex flex-col items-center gap-2 p-8 text-center text-sm text-slate-600"><CheckCircle className="h-8 w-8 text-emerald-600" /><strong className="text-slate-900">You're all caught up</strong>No overdue targets right now.</div>
+                 <div className="flex min-h-56 flex-col items-center justify-center gap-2 px-7 py-8 text-center text-xs leading-snug text-slate-500"><span className="rounded-full bg-[#edf6f2] p-3"><CheckCircle className="h-5 w-5 text-[#46837d]" /></span><strong className="mt-1 text-sm text-slate-800">You're all caught up</strong><span>There are no overdue SMART targets right now.</span></div>
               ) : (
                 <div role="alert" className="p-8 text-center text-sm text-red-700">SMART targets are unavailable.</div>
              )}
@@ -1864,10 +1809,10 @@ export default function Home() {
         </Card>
 
         {/* My Courses */}
-        <Card className="col-span-1 min-w-0 overflow-hidden rounded-xl border-slate-200 shadow-sm">
-          <CardHeader className="flex flex-row items-center gap-2 border-b bg-white px-4 py-3">
-            <BookOpen className="w-5 h-5 text-primary" />
-            <CardTitle className="text-base">My Courses</CardTitle>
+        <Card className="col-span-1 min-w-0 overflow-hidden rounded-lg border-slate-200 shadow-[0_2px_10px_rgba(25,42,66,0.04)]">
+          <CardHeader className="flex min-h-12 flex-row items-center gap-2 border-b bg-white px-3.5 py-2.5">
+            <BookOpen className="h-4 w-4 shrink-0 text-[#46837d]" />
+             <CardTitle className="text-[15px] font-bold text-slate-800">My Courses</CardTitle>
             {!isCoursesLoading && courses && <span className="ml-auto text-xs text-slate-500">{courses.length} courses</span>}
           </CardHeader>
           <CardContent className="p-0">
@@ -1880,12 +1825,12 @@ export default function Home() {
                <>
                  <ul className="divide-y">
                    {courseRows.map(course => (
-                      <li key={course.id} className="flex flex-wrap items-center justify-between gap-2 p-4 transition-colors hover:bg-slate-50">
+                      <li key={course.id} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-3 transition-colors hover:bg-slate-50">
                         <div className="min-w-0">
                           <button type="button" onClick={() => navigate(`/courses/${course.id}`)} className="text-left text-sm font-semibold text-blue-800 hover:underline focus-visible:underline">{course.code}</button>
                          <p className="text-xs text-muted-foreground">{course.name}</p>
                        </div>
-                       <Badge variant="outline">{course.enrolledCount} learners</Badge>
+                       <Badge variant="outline" className="border-0 bg-emerald-50 font-semibold text-emerald-800">{course.enrolledCount} learners</Badge>
                      </li>
                    ))}
                  </ul>
