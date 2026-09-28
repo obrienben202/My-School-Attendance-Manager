@@ -1,11 +1,12 @@
 export interface PersonalSlot {
-  id: number;
+  id: string | number;
   day: string;
   startTime: string | null;
   endTime: string | null;
   description: string;
   groupLabel: string | null;
   room: string | null;
+  weekPattern?: string | null;
 }
 
 export function myTimetableQuery(userId: string | undefined, timetableOpen: boolean) {

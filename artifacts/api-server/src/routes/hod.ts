@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { scheduleTable, coursesTable, usersTable, staffTimetableTable } from "@workspace/db";
 import { and, eq, ilike, or, inArray } from "drizzle-orm";
+import { buildMyTimetable } from "../lib/my-timetable";
 
 const router = Router();
 
@@ -142,26 +143,31 @@ router.get("/staff/my-timetable", async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: "Not authenticated" });
 
   const u = req.user as {
-    firstName?: string; lastName?: string; name?: string; role?: string;
+    firstName?: string; lastName?: string; name?: string; username?: string; role?: string;
   } | undefined;
 
-  const fullName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.name || "";
-  const isHodOrAdmin = u?.role === "hod" || u?.role === "admin";
+  const fullName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.name || u?.username || "";
+  const [courseSlots, staffSlots] = await Promise.all([
+    db.select({
+      id: scheduleTable.id,
+      day: scheduleTable.day,
+      startTime: scheduleTable.startTime,
+      endTime: scheduleTable.endTime,
+      room: scheduleTable.room,
+      weekPattern: scheduleTable.weekPattern,
+      scheduleStaffName: scheduleTable.staffName,
+      courseStaffName: coursesTable.staffName,
+      courseName: coursesTable.name,
+      courseCode: coursesTable.code,
+    }).from(scheduleTable)
+      .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
+      .where(eq(coursesTable.isActive, true)),
+    db.select().from(staffTimetableTable),
+  ]);
 
-  const allSlots = await db
-    .select()
-    .from(staffTimetableTable)
-    .orderBy(staffTimetableTable.day, staffTimetableTable.lessonNumber);
-
-  const mySlots = allSlots.filter(row => {
-    if (row.isHodShared) return isHodOrAdmin;        // shared HoD entries for hod/admin only
-    if (!row.staffName || !fullName) return false;
-    const a = stripTitle(row.staffName);
-    const b = stripTitle(fullName);
-    return a === b || a.includes(b) || b.includes(a);
-  });
-
-  return res.json(mySlots);
+  // Match against the authenticated identity, never a staff name supplied by the client.
+  res.set("Cache-Control", "private, no-store");
+  return res.json(buildMyTimetable(courseSlots, staffSlots, fullName, u?.role));
 });
 
 export default router;

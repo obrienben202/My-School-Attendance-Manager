@@ -252,6 +252,7 @@ router.get("/staff/:id/timetable", async (req, res) => {
     })),
   ];
 
+  res.set("Cache-Control", "private, no-store");
   return res.json({
     staffId: record.source.id,
     staffName: record.source.fullName,
