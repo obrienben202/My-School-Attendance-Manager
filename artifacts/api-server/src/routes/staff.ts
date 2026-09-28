@@ -14,39 +14,44 @@ import { GetMyProfileResponse } from "@workspace/api-zod";
 import { fetchDirectoryCsv } from "../lib/user-directory";
 import { profileForUsername } from "../lib/self-profile";
 
-const router = Router();
+export function createSelfProfileRouter(loadDirectoryCsv: () => Promise<string> = fetchDirectoryCsv) {
+  const profileRouter = Router();
+  profileRouter.get("/staff/me/profile", async (req, res): Promise<void> => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!requireAuthenticated(req, res)) return;
+    const user = req.user!;
+    try {
+      const directory = user.username
+        ? profileForUsername(await loadDirectoryCsv(), user.username)
+        : null;
+      const profile = {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email ?? directory?.email ?? null,
+        department: user.department,
+        role: user.role,
+        phone: directory?.phone ?? null,
+        address: directory?.address ?? null,
+        postcode: directory?.postcode ?? null,
+        staffCode: directory?.staffCode ?? null,
+        jobTitle: directory?.jobTitle ?? null,
+        organisation: directory?.organisation ?? null,
+        startDate: directory?.startDate ?? null,
+      };
+      // The generated date validator coerces YYYY-MM-DD into a Date; send the
+      // original calendar string to preserve the API contract.
+      GetMyProfileResponse.parse(profile);
+      res.json(profile);
+    } catch (err) {
+      req.log.error({ err }, "Could not load self profile from directory");
+      res.status(502).json({ error: "Profile source is unavailable" });
+    }
+  });
+  return profileRouter;
+}
 
-router.get("/staff/me/profile", async (req, res): Promise<void> => {
-  res.setHeader("Cache-Control", "no-store");
-  if (!requireAuthenticated(req, res)) return;
-  const user = req.user!;
-  try {
-    const directory = user.username
-      ? profileForUsername(await fetchDirectoryCsv(), user.username)
-      : null;
-    const profile = {
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email ?? directory?.email ?? null,
-      department: user.department,
-      role: user.role,
-      phone: directory?.phone ?? null,
-      address: directory?.address ?? null,
-      postcode: directory?.postcode ?? null,
-      staffCode: directory?.staffCode ?? null,
-      jobTitle: directory?.jobTitle ?? null,
-      organisation: directory?.organisation ?? null,
-      startDate: directory?.startDate ?? null,
-    };
-    // The generated date validator coerces YYYY-MM-DD into a Date; send the
-    // original calendar string to preserve the API contract.
-    GetMyProfileResponse.parse(profile);
-    res.json(profile);
-  } catch (err) {
-    req.log.error({ err }, "Could not load self profile from directory");
-    res.status(502).json({ error: "Profile source is unavailable" });
-  }
-});
+const router = Router();
+router.use(createSelfProfileRouter());
 
 type StaffSource = {
   id: string;
