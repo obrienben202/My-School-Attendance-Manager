@@ -69,6 +69,11 @@ function PendingBadge() {
 }
 
 export default function PlannedAbsence() {
+  const { user } = useAuth();
+  return <PlannedAbsenceForUser key={user?.id ?? "signed-out"} />;
+}
+
+function PlannedAbsenceForUser() {
   const createRequested = new URLSearchParams(window.location.search).get("create") === "1";
   const [activeTab, setActiveTab] = useState<"view" | "create">(createRequested ? "create" : "view");
 
