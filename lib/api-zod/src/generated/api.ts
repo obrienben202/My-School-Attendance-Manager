@@ -1444,6 +1444,26 @@ export const GetTodayScheduleResponse = zod.array(GetTodayScheduleResponseItem)
 
 
 /**
+ * Identity comes from the authenticated account; optional details come from the school directory matched by the account username. Never accepts a staff ID.
+ * @summary Get the signed-in user's verified contact and employment details
+ */
+export const GetMyProfileResponse = zod.object({
+  "firstName": zod.string().nullable(),
+  "lastName": zod.string().nullable(),
+  "email": zod.string().email().nullable(),
+  "department": zod.string().nullable(),
+  "role": zod.enum(['admin', 'hod', 'staff', 'office']),
+  "phone": zod.string().nullable(),
+  "address": zod.string().nullable(),
+  "postcode": zod.string().nullable(),
+  "staffCode": zod.string().nullable(),
+  "jobTitle": zod.string().nullable(),
+  "organisation": zod.string().nullable(),
+  "startDate": zod.coerce.date().nullable()
+})
+
+
+/**
  * @summary List staff records
  */
 export const ListStaffResponseItem = zod.object({

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
-import { useListCourses } from "@workspace/api-client-react";
+import { useGetMyProfile, useListCourses } from "@workspace/api-client-react";
 import {
   ArrowRight, BookOpen, BriefcaseBusiness, CalendarDays, ClipboardList,
   ExternalLink, FileText, Info, Landmark, LockKeyhole, Mail, Printer,
@@ -79,6 +79,9 @@ function printTimetable(name: string, slots: PersonalSlot[]) {
 export default function MyDetails() {
   const { user } = useAuth();
   const [timetableOpen, setTimetableOpen] = useState(false);
+  const { data: profile, isLoading: profileLoading, isError: profileError, refetch: refetchProfile } = useGetMyProfile({
+    query: { queryKey: ["my-profile", user?.id], enabled: !!user?.id, staleTime: 0, refetchOnMount: "always" },
+  });
   const { data: courses = [], isLoading: coursesLoading, isError: coursesError, refetch: refetchCourses } = useListCourses();
   const { data: slots = [], isLoading: timetableLoading, isError: timetableError, refetch: refetchTimetable } = useQuery<PersonalSlot[]>({
     queryKey: ["my-timetable"],
@@ -127,12 +130,18 @@ export default function MyDetails() {
               </span>
             </div>
             <div className="min-w-0 sm:max-w-[45%] sm:text-right">
-              <p className="break-all text-[13px] font-semibold text-[#263d4d] dark:text-foreground" data-testid="text-account-email">{recorded(user?.email)}</p>
+              <p className="break-all text-[13px] font-semibold text-[#263d4d] dark:text-foreground" data-testid="text-account-email">{recorded(profile?.email ?? user?.email)}</p>
               <p className="mt-1 text-[11px] text-[#83919e] dark:text-muted-foreground">Account details are read-only</p>
             </div>
           </div>
         </section>
 
+        {profileLoading && <p className="mb-3 text-[12px] text-[#758595]" role="status">Loading verified profile details…</p>}
+        {profileError && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-[12px] text-amber-900" role="alert">
+            Verified contact and employment details could not be loaded. <button type="button" className="font-semibold underline" onClick={() => refetchProfile()}>Try again</button>
+          </div>
+        )}
         <div className="mb-4 flex items-start gap-3 rounded-lg border border-[#dbe9f0] bg-[#ecf5f9] px-4 py-3 text-[#416176] dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-200" role="note">
           <Info size={16} className="mt-0.5 shrink-0" />
           <div className="text-[12px] leading-relaxed">
@@ -144,27 +153,27 @@ export default function MyDetails() {
         <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
           <DetailCard title="Personal Details" icon={UserRound}>
             <Facts items={[
-              { label: "Forename", value: firstName }, { label: "Surname", value: lastName },
+              { label: "Forename", value: profile?.firstName ?? firstName }, { label: "Surname", value: profile?.lastName ?? lastName },
               { label: "Title" }, { label: "Date of birth" },
               { label: "Gender" }, { label: "Nationality" },
             ]} />
           </DetailCard>
           <DetailCard title="Contact Details" icon={Mail}>
             <Facts items={[
-              { label: "Email", value: user?.email }, { label: "Phone" },
-              { label: "Address" }, { label: "Postcode" },
+              { label: "Email", value: profile?.email ?? user?.email }, { label: "Phone", value: profile?.phone },
+              { label: "Address", value: profile?.address }, { label: "Postcode", value: profile?.postcode },
             ]} />
           </DetailCard>
           <DetailCard title="Employment Details" icon={BriefcaseBusiness}>
             <Facts items={[
-              { label: "Staff code" }, { label: "Job title" },
-              { label: "Department", value: user?.department }, { label: "Start date" },
-              { label: "Contract" }, { label: "Account role", value: roleLabel(user?.role) },
+              { label: "Staff code", value: profile?.staffCode }, { label: "Job title", value: profile?.jobTitle },
+              { label: "Department", value: profile?.department ?? user?.department }, { label: "Start date", value: profile?.startDate },
+              { label: "Contract" }, { label: "Account role", value: roleLabel(profile?.role ?? user?.role) },
             ]} />
           </DetailCard>
           <DetailCard title="Organisation" icon={Landmark}>
             <Facts items={[
-              { label: "Organisation" }, { label: "Provider" },
+              { label: "Organisation", value: profile?.organisation }, { label: "Provider" },
               { label: "Site" }, { label: "Academic year" },
             ]} />
           </DetailCard>

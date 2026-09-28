@@ -1723,6 +1723,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /staff/me/profile:
+    get:
+      operationId: getMyProfile
+      tags: [staff]
+      summary: Get the signed-in user's verified contact and employment details
+      description: Identity comes from the authenticated account; optional details come from the school directory matched by the account username. Never accepts a staff ID.
+      responses:
+        "200":
+          description: Own profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyProfile"
+        "401":
+          description: Authentication required
+        "502":
+          description: Directory unavailable or invalid
+
   /staff:
     get:
       operationId: listStaff
@@ -2907,6 +2925,23 @@ components:
         - registerStatus
         - registerUpdatedAt
         - registerSubmittedAt
+
+    MyProfile:
+      type: object
+      required: [firstName, lastName, email, department, role, phone, address, postcode, staffCode, jobTitle, organisation, startDate]
+      properties:
+        firstName: { type: ["string", "null"] }
+        lastName: { type: ["string", "null"] }
+        email: { type: ["string", "null"], format: email }
+        department: { type: ["string", "null"] }
+        role: { type: string, enum: [admin, hod, staff, office] }
+        phone: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        postcode: { type: ["string", "null"] }
+        staffCode: { type: ["string", "null"] }
+        jobTitle: { type: ["string", "null"] }
+        organisation: { type: ["string", "null"] }
+        startDate: { type: ["string", "null"], format: date }
 
     StaffSource:
       type: object

@@ -80,6 +80,8 @@ export * from './logout200';
 export * from './logoutSuccess';
 export * from './mobileTokenExchangeRequest';
 export * from './mobileTokenExchangeSuccess';
+export * from './myProfile';
+export * from './myProfileRole';
 export * from './plannedAbsence';
 export * from './plannedAbsenceInput';
 export * from './plannedAbsenceStatus';

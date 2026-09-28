@@ -744,6 +744,42 @@ export interface ScheduleEntry {
   registerSubmittedAt: string | null;
 }
 
+export type MyProfileRole = typeof MyProfileRole[keyof typeof MyProfileRole];
+
+
+export const MyProfileRole = {
+  admin: 'admin',
+  hod: 'hod',
+  staff: 'staff',
+  office: 'office',
+} as const;
+
+export interface MyProfile {
+  /** @nullable */
+  firstName: string | null;
+  /** @nullable */
+  lastName: string | null;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  department: string | null;
+  role: MyProfileRole;
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  address: string | null;
+  /** @nullable */
+  postcode: string | null;
+  /** @nullable */
+  staffCode: string | null;
+  /** @nullable */
+  jobTitle: string | null;
+  /** @nullable */
+  organisation: string | null;
+  /** @nullable */
+  startDate: string | null;
+}
+
 export interface StaffSource {
   id: string;
   fullName: string;

@@ -4,3 +4,4 @@
 - [User-scoped feed caching](user-scoped-feed-caching.md) — dynamic authenticated feeds must bypass conditional browser/proxy caching or reloads can lose their response body.
 - [Staff browser checks](staff-browser-checks.md) — test staff can have no assigned lessons; wait for sign-in to finish and use controlled fixtures for daily register checks.
 - [Browser route matching](browser-route-matching.md) — match nested API routes with a pathname regex, not a trailing glob star that stops at a slash.
+- [Self-profile source boundary](self-profile-source-boundary.md) — optional staff details come from the validated school directory by authenticated username, never by name.
