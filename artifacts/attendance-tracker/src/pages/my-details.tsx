@@ -10,16 +10,7 @@ import {
 import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { displayAccountEmail } from "@/lib/profile-display";
-
-interface PersonalSlot {
-  id: number;
-  day: string;
-  startTime: string | null;
-  endTime: string | null;
-  description: string;
-  groupLabel: string | null;
-  room: string | null;
-}
+import { myTimetableQuery, type PersonalSlot } from "./my-timetable-query";
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const recorded = (value: string | null | undefined) => value?.trim() || "Not recorded";
@@ -84,15 +75,9 @@ export default function MyDetails() {
     query: { queryKey: ["my-profile", user?.id], enabled: !!user?.id, staleTime: 0, refetchOnMount: "always" },
   });
   const { data: courses = [], isLoading: coursesLoading, isError: coursesError, refetch: refetchCourses } = useListCourses();
-  const { data: slots = [], isLoading: timetableLoading, isError: timetableError, refetch: refetchTimetable } = useQuery<PersonalSlot[]>({
-    queryKey: ["my-timetable"],
-    queryFn: async () => {
-      const response = await fetch("/api/staff/my-timetable", { credentials: "include" });
-      if (!response.ok) throw new Error("Could not load timetable");
-      return response.json();
-    },
-    enabled: timetableOpen,
-  });
+  const { data: slots = [], isLoading: timetableLoading, isError: timetableError, refetch: refetchTimetable } = useQuery(
+    myTimetableQuery(user?.id, timetableOpen),
+  );
 
   const firstName = user?.firstName?.trim();
   const lastName = user?.lastName?.trim();
