@@ -396,7 +396,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <TopBar
           user={user}
           role={role}
-          page={location === "/" ? "Attendance Dashboard" : visibleSections.flatMap((section) => section.items).filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0]?.label ?? "Attendance"}
+          page={location === "/" ? "Attendance Dashboard" : location === "/my-details" ? "My Details" : visibleSections.flatMap((section) => section.items).filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0]?.label ?? "Attendance"}
           theme={theme}
           onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")}
           collapsed={sidebarCollapsed}

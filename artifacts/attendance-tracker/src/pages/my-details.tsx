@@ -1,643 +1,274 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@workspace/replit-auth-web";
-import { useListCourses, useListPlannedAbsences } from "@workspace/api-client-react";
+import { useListCourses } from "@workspace/api-client-react";
 import {
-  UserCircle, Mail, Phone, MapPin, Building2, BadgeCheck,
-  Calendar, BookOpen, ClipboardList, Info, ExternalLink,
-  ShieldCheck, Lock, Printer,
+  ArrowRight, BookOpen, BriefcaseBusiness, CalendarDays, ClipboardList,
+  ExternalLink, FileText, Info, Landmark, LockKeyhole, Mail, Printer,
+  UserRound, UsersRound,
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
 interface PersonalSlot {
   id: number;
-  staffName: string | null;
   day: string;
-  lessonNumber: number | null;
   startTime: string | null;
   endTime: string | null;
   description: string;
   groupLabel: string | null;
   room: string | null;
-  isHodShared: boolean;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const recorded = (value: string | null | undefined) => value?.trim() || "Not recorded";
+const normalizeName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+const roleLabel = (role: string | undefined) => ({
+  admin: "Administrator", hod: "Head of department", staff: "Staff member", office: "Office staff",
+}[role ?? ""] ?? "Not recorded");
 
-function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function DetailCard({
+  title, icon: Icon, children,
+}: {
+  title: string;
+  icon: typeof UserRound;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50">
-        <span className="text-teal-700">{icon}</span>
-        <h2 className="text-sm font-bold text-gray-700">{title}</h2>
+    <section className="min-w-0 overflow-hidden rounded-xl border border-[#dde7e8] bg-[#fefefd] shadow-[0_2px_10px_rgba(24,59,68,0.035)] dark:border-border dark:bg-card">
+      <div className="flex items-center gap-2.5 border-b border-[#e8eeee] px-5 py-3.5 dark:border-border">
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#e9f5f2] text-[#287c75] dark:bg-teal-900/40 dark:text-teal-300"><Icon size={15} strokeWidth={1.8} /></span>
+        <h2 className="text-[15px] font-bold tracking-[-0.02em] text-[#1d3044] dark:text-foreground">{title}</h2>
       </div>
-      <div className="px-5 py-4">{children}</div>
-    </div>
+      <div className="px-5 py-1">{children}</div>
+    </section>
   );
 }
 
-function Row({ label, value }: { label: string; value?: string | null }) {
+function Facts({ items }: { items: { label: string; value?: string | null }[] }) {
   return (
-    <div className="flex gap-3 py-2 border-b border-gray-50 last:border-0">
-      <span className="w-44 shrink-0 text-xs font-semibold text-gray-500">{label}</span>
-      <span className="text-sm text-gray-800">{value || "—"}</span>
-    </div>
+    <dl className="grid grid-cols-1 sm:grid-cols-2">
+      {items.map(({ label, value }) => (
+        <div key={label} className="min-w-0 border-b border-[#eef1f1] py-3 pr-3 last:border-0 sm:[&:nth-last-child(2)]:border-b-0 dark:border-border">
+          <dt className="mb-1 text-[10px] font-bold uppercase tracking-[0.105em] text-[#7b8a98] dark:text-muted-foreground">{label}</dt>
+          <dd className={`break-words text-[13px] leading-snug ${!value || value === "Not recorded" ? "italic text-[#94a0aa] dark:text-muted-foreground" : "font-medium text-[#23394a] dark:text-foreground"}`} data-testid={`text-detail-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+            {recorded(value)}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
-function formatAbsenceDate(value: string) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB");
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[character] ?? character));
 }
 
-// ─── Timetable constants ────────────────────────────────────────────────────────
-const TT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-const TT_PERIODS = ["09:00–10:00", "10:00–11:00", "11:15–12:15", "13:00–14:00", "14:00–15:00", "15:00–16:00"];
-
-// Time-axis grid: 08:30 → 15:30 = 420 mins
-const GRID_START = 8.5 * 60;   // 510 mins
-const GRID_SPAN  = 7 * 60;     // 420 mins
-
-function toMins(t: string | null | undefined): number {
-  if (!t) return 0;
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + (m || 0);
+function printTimetable(name: string, slots: PersonalSlot[]) {
+  const rows = slots.map(slot => `<tr><td>${escapeHtml(slot.day)}</td><td>${escapeHtml(slot.startTime ?? "Not recorded")}–${escapeHtml(slot.endTime ?? "Not recorded")}</td><td>${escapeHtml(slot.description)}</td><td>${escapeHtml(slot.groupLabel ?? "")}</td><td>${escapeHtml(slot.room ?? "")}</td></tr>`).join("");
+  const windowToPrint = window.open("", "_blank", "width=900,height=700");
+  if (!windowToPrint) return;
+  windowToPrint.document.write(`<!doctype html><html><head><title>My timetable</title><style>body{font:14px system-ui,sans-serif;color:#23394a;margin:32px}h1{font-size:22px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #dce6e7}th{background:#e9f5f2}</style></head><body><h1>My timetable</h1><p>${escapeHtml(name)}</p><table><thead><tr><th>Day</th><th>Time</th><th>Session</th><th>Group</th><th>Room</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  windowToPrint.document.close();
+  windowToPrint.focus();
+  windowToPrint.print();
 }
-function gridLeft(t: string | null | undefined): string {
-  return `${Math.max(0, (toMins(t) - GRID_START) / GRID_SPAN * 100).toFixed(2)}%`;
-}
-function gridWidth(start: string | null | undefined, end: string | null | undefined): string {
-  const w = (toMins(end) - toMins(start)) / GRID_SPAN * 100;
-  return `${Math.max(1, w).toFixed(2)}%`;
-}
-
-const HOUR_LABELS = ["09:00","10:00","11:00","12:00","13:00","14:00","15:00"];
-
-// Non-teaching keywords → neutral grey styling
-const NON_TEACHING = /admin|cover|time.?out|free lesson|one.?to.?one|meeting/i;
-
-function slotColor(slot: PersonalSlot): string {
-  if (slot.isHodShared) return "bg-amber-100 border-amber-400 text-amber-900";
-  if (NON_TEACHING.test(slot.description)) return "bg-slate-100 border-slate-400 text-slate-700";
-  const palette = [
-    "bg-teal-200 border-teal-500 text-teal-900",
-    "bg-indigo-200 border-indigo-500 text-indigo-900",
-    "bg-rose-200 border-rose-500 text-rose-900",
-    "bg-violet-200 border-violet-500 text-violet-900",
-    "bg-sky-200 border-sky-500 text-sky-900",
-    "bg-emerald-200 border-emerald-500 text-emerald-900",
-  ];
-  return palette[(slot.lessonNumber ?? slot.id) % palette.length];
-}
-
-function printPersonalTimetable(fullName: string, slots: PersonalSlot[]) {
-  const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
-  const dayHeaders = TT_DAYS.map(d =>
-    `<th style="border:1px solid #bbb;padding:6px 8px;text-align:left;background:#f0f0f0;font-size:11px;">${d}</th>`
-  ).join("");
-  const rows = slots.map(s =>
-    `<tr>
-      <td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;white-space:nowrap;">${s.day}</td>
-      <td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;font-family:monospace;">${s.startTime ?? ""}–${s.endTime ?? ""}</td>
-      <td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;"><strong>${s.description}</strong>${s.groupLabel ? ` — ${s.groupLabel}` : ""}</td>
-      <td style="border:1px solid #bbb;padding:4px 6px;font-size:10px;color:#555;">${s.room ?? ""}</td>
-    </tr>`
-  ).join("");
-  const html = `
-<h1 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;">Staff Timetable</h1>
-<p style="font-size:11px;color:#555;text-align:center;margin-bottom:12px;">${fullName} &nbsp;|&nbsp; Generated: ${today} &nbsp;|&nbsp; Academic Year 2024/25</p>
-<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;">
-  <thead><tr>
-    <th style="border:1px solid #bbb;padding:6px 8px;background:#f0f0f0;font-size:11px;">Day</th>
-    <th style="border:1px solid #bbb;padding:6px 8px;background:#f0f0f0;font-size:11px;">Time</th>
-    <th style="border:1px solid #bbb;padding:6px 8px;background:#f0f0f0;font-size:11px;">Session</th>
-    <th style="border:1px solid #bbb;padding:6px 8px;background:#f0f0f0;font-size:11px;">Room</th>
-  </tr></thead>
-  <tbody>${rows}</tbody>
-</table>`;
-  const w = window.open("", "_blank", "width=820,height=700");
-  if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>Staff Timetable</title>
-<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#222;}@media print{body{margin:10px;}}</style>
-</head><body onload="window.print()">${html}</body></html>`);
-  w.document.close();
-}
-
-// ─── Sample employment data ────────────────────────────────────────────────────
-// In a real EBS deployment these would come from the staff record in the back-end.
-
-const EMPLOYMENT = {
-  staffCode: "S0001",
-  title: "Mr",
-  knownAs: "",
-  gender: "Not disclosed",
-  dateOfBirth: "—",
-  niNumber: "•••• ••••",
-  startDate: "01 Sep 2019",
-  contractType: "Permanent",
-  fte: "1.0 (Full-time)",
-  position: "Senior Teacher",
-  department: "Mathematics",
-  organisation: "Riverside College",
-  room: "Maths Block — Room M4",
-  phone: "01234 567890",
-  mobile: "—",
-  address: "Riverside College, Education Road, Riverside, RS1 2AB",
-  roles: ["Create Schedules", "Safeguarding Tutor", "Reports User"],
-};
-
-// ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function MyDetails() {
   const { user } = useAuth();
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [, navigate] = useLocation();
-  const { data: courses = [] } = useListCourses({ query: { enabled: true } as any });
-  const { data: plannedAbsences = [], isLoading: absencesLoading, isError: absencesError } =
-    useListPlannedAbsences({ query: { enabled: activeModal === "Planned Absences" } as any });
-
-  const firstName = user?.firstName ?? "Staff";
-  const lastName = user?.lastName ?? "Member";
-  const fullName = `${firstName} ${lastName}`;
-  const email = user?.email ?? "—";
-  const avatarUrl = user?.profileImageUrl;
-
-  // Filter courses loosely attributed to this user (demo — in real EBS, filtered by staffId)
-  const myCourses = courses.slice(0, 5);
-
-  // ── Personal timetable from staff_timetable_slots ────────────────────────
-  const { data: mySlots = [] } = useQuery<PersonalSlot[]>({
+  const [timetableOpen, setTimetableOpen] = useState(false);
+  const { data: courses = [], isLoading: coursesLoading, isError: coursesError, refetch: refetchCourses } = useListCourses();
+  const { data: slots = [], isLoading: timetableLoading, isError: timetableError, refetch: refetchTimetable } = useQuery<PersonalSlot[]>({
     queryKey: ["my-timetable"],
     queryFn: async () => {
-      const r = await fetch("/api/staff/my-timetable", { credentials: "include" });
-      if (!r.ok) return [];
-      return r.json();
+      const response = await fetch("/api/staff/my-timetable", { credentials: "include" });
+      if (!response.ok) throw new Error("Could not load timetable");
+      return response.json();
     },
-    enabled: activeModal === "My Timetable",
-    refetchInterval: activeModal === "My Timetable" ? 5000 : false,
+    enabled: timetableOpen,
   });
 
+  const firstName = user?.firstName?.trim();
+  const lastName = user?.lastName?.trim();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ");
+  const avatarInitials = [firstName?.[0], lastName?.[0]].filter(Boolean).join("").toUpperCase() || "AT";
+  // A complete name and an exact, whitespace/case-normalised staffName match are required.
+  // In particular, never treat the first few courses in the catalogue as assignments.
+  const myCourses = fullName && firstName && lastName
+    ? courses.filter(course => course.staffName && normalizeName(course.staffName) === normalizeName(fullName))
+    : [];
+
   return (
-    <div className="-mx-6 -mt-6 min-h-screen bg-slate-50">
-      {/* Page header */}
-      <div className="px-6 py-4 bg-white border-b border-gray-200 flex items-center gap-3">
-        <UserCircle size={18} className="text-teal-700" />
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">My Details</h1>
-          <p className="text-sm text-gray-500">Your staff record — read-only. Contact your administrator to update any details.</p>
-        </div>
-      </div>
-
-      {/* Read-only notice */}
-      <div className="px-6 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center gap-2 text-xs text-amber-700">
-        <Lock size={12} className="shrink-0" />
-        <span>
-          <strong>Read-only view.</strong> You cannot edit your details from this page. Any changes must be made by your administrator in the EBS back-end system.
-        </span>
-      </div>
-
-      <div className="px-6 py-6 max-w-4xl space-y-5">
-
-        {/* Profile card */}
-        <div className="bg-white border border-gray-200 rounded-lg px-6 py-5 flex items-center gap-5">
-          <div className="shrink-0">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={fullName} className="w-16 h-16 rounded-full object-cover border-2 border-teal-200" />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center border-2 border-teal-200">
-                <span className="text-2xl font-bold text-teal-700">
-                  {firstName[0]}{lastName[0]}
-                </span>
-              </div>
-            )}
+    <div className="min-h-[100dvh] rounded-xl bg-[#f3f7fa] px-4 py-6 text-[#23394a] sm:px-7 sm:py-7 dark:bg-background dark:text-foreground">
+      <div className="mx-auto max-w-[1140px]">
+        <header className="mb-5">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-[#8695a3]">
+            <Link href="/" className="hover:text-[#257c75]" data-testid="link-home">Home</Link>
+            <span>/</span><span>My Details</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-gray-900">{EMPLOYMENT.title} {fullName}</h2>
-            <p className="text-sm text-gray-500">{EMPLOYMENT.position} · {EMPLOYMENT.department}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{EMPLOYMENT.organisation}</p>
-          </div>
-          <div className="flex flex-col gap-1.5 shrink-0">
-            <span className="text-xs font-mono text-gray-500 bg-gray-100 border border-gray-200 rounded px-2 py-0.5">
-              Staff code: {EMPLOYMENT.staffCode}
-            </span>
-            <div className="flex flex-wrap gap-1 justify-end">
-              {EMPLOYMENT.roles.map((r) => (
-                <span key={r} className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-full font-medium">
-                  <ShieldCheck size={9} /> {r}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-5">
-          {/* Personal details */}
-          <Section title="Personal Details" icon={<UserCircle size={14} />}>
-            <Row label="Title" value={EMPLOYMENT.title} />
-            <Row label="Forename" value={firstName} />
-            <Row label="Known as" value={EMPLOYMENT.knownAs || firstName} />
-            <Row label="Surname" value={lastName} />
-            <Row label="Full name" value={fullName} />
-            <Row label="Gender" value={EMPLOYMENT.gender} />
-            <Row label="Date of birth" value={EMPLOYMENT.dateOfBirth} />
-            <Row label="NI number" value={EMPLOYMENT.niNumber} />
-          </Section>
-
-          {/* Contact details */}
-          <Section title="Contact Details" icon={<Mail size={14} />}>
-            <div className="flex items-center gap-2 py-2 border-b border-gray-50">
-              <Mail size={13} className="text-gray-400 shrink-0" />
-              <span className="w-28 shrink-0 text-xs font-semibold text-gray-500">Email</span>
-              <span className="text-sm text-gray-800 break-all">{email}</span>
-            </div>
-            <div className="flex items-center gap-2 py-2 border-b border-gray-50">
-              <Phone size={13} className="text-gray-400 shrink-0" />
-              <span className="w-28 shrink-0 text-xs font-semibold text-gray-500">Phone</span>
-              <span className="text-sm text-gray-800">{EMPLOYMENT.phone}</span>
-            </div>
-            <div className="flex items-center gap-2 py-2 border-b border-gray-50">
-              <Phone size={13} className="text-gray-400 shrink-0" />
-              <span className="w-28 shrink-0 text-xs font-semibold text-gray-500">Mobile</span>
-              <span className="text-sm text-gray-800">{EMPLOYMENT.mobile || "—"}</span>
-            </div>
-            <div className="flex items-start gap-2 py-2">
-              <MapPin size={13} className="text-gray-400 shrink-0 mt-0.5" />
-              <span className="w-28 shrink-0 text-xs font-semibold text-gray-500">Address</span>
-              <span className="text-sm text-gray-800 leading-snug">{EMPLOYMENT.address}</span>
-            </div>
-          </Section>
-
-          {/* Employment details */}
-          <Section title="Employment Details" icon={<Building2 size={14} />}>
-            <Row label="Staff code" value={EMPLOYMENT.staffCode} />
-            <Row label="Department" value={EMPLOYMENT.department} />
-            <Row label="Position" value={EMPLOYMENT.position} />
-            <Row label="Organisation" value={EMPLOYMENT.organisation} />
-            <Row label="Room" value={EMPLOYMENT.room} />
-            <Row label="Contract type" value={EMPLOYMENT.contractType} />
-            <Row label="FTE" value={EMPLOYMENT.fte} />
-            <Row label="Start date" value={EMPLOYMENT.startDate} />
-          </Section>
-
-          {/* Organisations */}
-          <Section title="Organisations" icon={<BadgeCheck size={14} />}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left text-xs font-semibold text-gray-500 pb-2 pr-4">Organisation</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 pb-2">Position</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 pb-2">Start</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                <tr>
-                  <td className="py-2 pr-4 text-gray-700">{EMPLOYMENT.department}</td>
-                  <td className="py-2 text-gray-700">{EMPLOYMENT.position}</td>
-                  <td className="py-2 text-gray-500 text-xs">{EMPLOYMENT.startDate}</td>
-                </tr>
-                <tr>
-                  <td className="py-2 pr-4 text-gray-700">{EMPLOYMENT.organisation}</td>
-                  <td className="py-2 text-gray-700">Staff Member</td>
-                  <td className="py-2 text-gray-500 text-xs">{EMPLOYMENT.startDate}</td>
-                </tr>
-              </tbody>
-            </table>
-          </Section>
-        </div>
-
-        {/* Courses / timetable */}
-        <Section title="My Courses" icon={<BookOpen size={14} />}>
-          {myCourses.length === 0 ? (
-            <p className="text-sm text-gray-400">No courses currently assigned.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  {["Code", "Course name", "Room", "Enrolled", ""].map((h) => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-500 pb-2 pr-4">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {myCourses.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-2 pr-4 font-mono text-xs text-teal-700 font-semibold">{c.code}</td>
-                    <td className="py-2 pr-4 text-gray-800">{c.name}</td>
-                    <td className="py-2 pr-4 text-gray-500">{c.room ?? "—"}</td>
-                    <td className="py-2 pr-4 text-gray-500">{c.enrolledCount}</td>
-                    <td className="py-2">
-                      <Link href={`/courses/${c.id}`} className="text-[10px] text-teal-700 hover:underline flex items-center gap-0.5">
-                        View <ExternalLink size={9} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Section>
-
-        {/* Reports links */}
-        <Section title="Reports &amp; Links" icon={<ClipboardList size={14} />}>
-          <p className="text-xs text-gray-500 mb-3">
-            Timetable and other reports are accessible from the Reports section of the navigation pane.
+          <h1 className="text-[25px] font-bold leading-tight tracking-[-0.035em] text-[#1c3045] dark:text-foreground">My details</h1>
+          <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#758595] dark:text-muted-foreground">
+            Your account information, course assignments and useful workspace links, all in one place.
           </p>
-          <div className="flex flex-wrap gap-2">
-            {["My Attendance Reports", "My Timetable", "Register History", "My Schedules", "Planned Absences"].map(label => (
-              <button
-                key={label}
-                onClick={() => setActiveModal(label)}
-                className="flex items-center gap-1 text-xs text-teal-700 bg-teal-50 border border-teal-200 rounded px-3 py-1.5 hover:bg-teal-100 transition-colors font-medium"
-              >
-                <ExternalLink size={11} /> {label}
-              </button>
-            ))}
-          </div>
-        </Section>
+        </header>
 
-        {/* Admin notice */}
-        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700">
-          <Info size={14} className="shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold mb-0.5">Need to update your details?</p>
-            <p className="text-xs leading-relaxed">
-              Your personal details, contact information, and employment record are managed by your institution's administrator in the EBS back-end system.
-              Please contact your administrator or HR department to request any changes.
-            </p>
+        <section className="mb-3 overflow-hidden rounded-xl border border-[#dce6e7] border-t-[3px] border-t-[#26877e] bg-[#fefefd] shadow-[0_5px_18px_rgba(24,59,68,0.06)] dark:border-border dark:border-t-teal-500 dark:bg-card" aria-label="Account identity">
+          <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[4px] border-[#eff9f6] bg-[#dff2ed] text-[20px] font-bold text-[#167169] shadow-sm dark:border-teal-900/30 dark:bg-teal-900/50 dark:text-teal-200">
+              {user?.profileImageUrl ? <img src={user.profileImageUrl} alt="" className="h-full w-full object-cover" /> : avatarInitials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[19px] font-bold tracking-[-0.025em] text-[#1d3044] dark:text-foreground" data-testid="text-account-name">{fullName || "Name not recorded"}</h2>
+              <p className="mt-0.5 text-[13px] text-[#758595] dark:text-muted-foreground">{roleLabel(user?.role)}{user?.department ? ` · ${user.department}` : ""}</p>
+              <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#edf6f3] px-2.5 py-1 text-[10px] font-bold text-[#26756d] dark:bg-teal-900/30 dark:text-teal-300">
+                <LockKeyhole size={11} /> Signed-in profile
+              </span>
+            </div>
+            <div className="min-w-0 sm:max-w-[45%] sm:text-right">
+              <p className="break-all text-[13px] font-semibold text-[#263d4d] dark:text-foreground" data-testid="text-account-email">{recorded(user?.email)}</p>
+              <p className="mt-1 text-[11px] text-[#83919e] dark:text-muted-foreground">Account details are read-only</p>
+            </div>
+          </div>
+        </section>
+
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-[#dbe9f0] bg-[#ecf5f9] px-4 py-3 text-[#416176] dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-200" role="note">
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <div className="text-[12px] leading-relaxed">
+            <p className="font-bold">Need to update your details?</p>
+            <p className="mt-0.5">This page is read-only. Contact your administrator or HR team to correct your account, contact or employment information.</p>
           </div>
         </div>
 
-      </div>
+        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+          <DetailCard title="Personal Details" icon={UserRound}>
+            <Facts items={[
+              { label: "Forename", value: firstName }, { label: "Surname", value: lastName },
+              { label: "Title" }, { label: "Date of birth" },
+              { label: "Gender" }, { label: "Nationality" },
+            ]} />
+          </DetailCard>
+          <DetailCard title="Contact Details" icon={Mail}>
+            <Facts items={[
+              { label: "Email", value: user?.email }, { label: "Phone" },
+              { label: "Address" }, { label: "Postcode" },
+            ]} />
+          </DetailCard>
+          <DetailCard title="Employment Details" icon={BriefcaseBusiness}>
+            <Facts items={[
+              { label: "Staff code" }, { label: "Job title" },
+              { label: "Department", value: user?.department }, { label: "Start date" },
+              { label: "Contract" }, { label: "Account role", value: roleLabel(user?.role) },
+            ]} />
+          </DetailCard>
+          <DetailCard title="Organisation" icon={Landmark}>
+            <Facts items={[
+              { label: "Organisation" }, { label: "Provider" },
+              { label: "Site" }, { label: "Academic year" },
+            ]} />
+          </DetailCard>
+        </div>
 
-      {/* ── My Timetable Dialog ── */}
-      <Dialog open={activeModal === "My Timetable"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden p-0">
-
-          {/* Header bar */}
-          <div className="bg-teal-800 text-white px-5 py-3 flex items-start justify-between shrink-0">
-            <div>
-              <DialogHeader>
-                <DialogTitle className="text-white text-base font-bold">My Timetable</DialogTitle>
-              </DialogHeader>
-              <p className="text-teal-200 text-xs mt-0.5">
-                {EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; {user?.department ?? EMPLOYMENT.department} &nbsp;|&nbsp; Academic Year 2024/25 &nbsp;|&nbsp; Session: 1718 &nbsp;|&nbsp; Weeks: 10
-              </p>
+        <div className="mt-3.5 grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[minmax(0,1.9fr)_minmax(250px,0.9fr)]">
+          <section className="min-w-0 overflow-hidden rounded-xl border border-[#dde7e8] bg-[#fefefd] shadow-[0_2px_10px_rgba(24,59,68,0.035)] dark:border-border dark:bg-card">
+            <div className="flex items-center justify-between border-b border-[#e8eeee] px-5 py-3.5 dark:border-border">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#e9f5f2] text-[#287c75] dark:bg-teal-900/40 dark:text-teal-300"><BookOpen size={15} /></span>
+                <h2 className="text-[15px] font-bold tracking-[-0.02em] text-[#1d3044] dark:text-foreground">My Courses</h2>
+              </div>
+              {!coursesLoading && !coursesError && <span className="text-[11px] text-[#8a98a4]" data-testid="text-course-count">{myCourses.length} matched</span>}
             </div>
-            <button
-              onClick={() => printPersonalTimetable(`${EMPLOYMENT.title} ${fullName}`, mySlots)}
-              className="ml-4 flex items-center gap-1.5 bg-white text-teal-800 text-xs font-semibold px-3 py-1.5 rounded hover:bg-teal-50 shrink-0"
-            >
-              <Printer size={13} /> Print
-            </button>
-          </div>
-
-          {/* Time-axis calendar body */}
-          <div className="flex-1 overflow-auto bg-slate-50 p-4">
-            <p className="text-xs text-slate-500 mb-3">Showing week view — Mon to Fri.</p>
-
-            {mySlots.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-sm text-slate-400">
-                No personal timetable found for your account.
+            {coursesLoading ? (
+              <div className="space-y-3 p-5" aria-label="Loading courses">
+                {[0, 1, 2].map(index => <div key={index} className="h-9 animate-pulse rounded bg-[#eaf1f2] dark:bg-muted" />)}
+              </div>
+            ) : coursesError ? (
+              <div className="px-5 py-8 text-center text-[13px]">
+                <p className="text-[#647987]">Courses could not be loaded.</p>
+                <button type="button" onClick={() => refetchCourses()} className="mt-2 font-semibold text-[#227e76] hover:underline" data-testid="button-retry-courses">Try again</button>
+              </div>
+            ) : myCourses.length === 0 ? (
+              <div className="px-5 py-9 text-center">
+                <BookOpen className="mx-auto mb-2 text-[#8aafa9]" size={24} strokeWidth={1.5} />
+                <p className="text-[13px] font-semibold text-[#344f60]" data-testid="status-no-courses">No courses matched to your account</p>
+                <p className="mx-auto mt-1 max-w-sm text-[12px] leading-relaxed text-[#81909c]">Only courses whose staff name matches your account are shown here. Check the course directory for the full list.</p>
+                <Link href="/courses" className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[#227e76] hover:underline" data-testid="link-course-directory">Browse courses <ArrowRight size={13} /></Link>
               </div>
             ) : (
-              <div style={{ minWidth: 820 }}>
-                {/* ── Time-axis header ── */}
-                <div className="flex mb-0.5">
-                  <div className="shrink-0" style={{ width: 72 }} />
-                  <div className="relative flex-1 h-5">
-                    {HOUR_LABELS.map(lbl => (
-                      <span
-                        key={lbl}
-                        className="absolute text-[10px] font-mono text-slate-400 -translate-x-1/2"
-                        style={{ left: gridLeft(lbl) }}
-                      >
-                        {lbl}
-                      </span>
-                    ))}
-                  </div>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[540px] text-left">
+                    <thead className="bg-[#f8fafb] text-[10px] font-bold uppercase tracking-[0.08em] text-[#7c8b98] dark:bg-muted/40 dark:text-muted-foreground">
+                      <tr><th className="px-5 py-2.5">Course code</th><th className="px-3 py-2.5">Course</th><th className="px-3 py-2.5">Year</th><th className="px-3 py-2.5">Enrolled</th><th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5"><span className="sr-only">Open</span></th></tr>
+                    </thead>
+                    <tbody>
+                      {myCourses.map(course => (
+                        <tr key={course.id} className="border-t border-[#edf1f1] text-[12px] dark:border-border" data-testid={`row-course-${course.id}`}>
+                          <td className="px-5 py-3 font-semibold text-[#18766d] dark:text-teal-300">{course.code}</td>
+                          <td className="px-3 py-3 font-semibold text-[#263c4d] dark:text-foreground">{course.name}</td>
+                          <td className="px-3 py-3 text-[#647584]">{recorded(course.yearGroup)}</td>
+                          <td className="px-3 py-3 text-[#435869]">{course.enrolledCount}</td>
+                          <td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${course.isActive ? "bg-[#eaf6f1] text-[#27765b]" : "bg-[#f1f2f3] text-[#6d7883]"}`}>{course.isActive ? "Active" : "Inactive"}</span></td>
+                          <td className="px-3 py-3"><Link href={`/courses/${course.id}`} className="inline-flex text-[#277e76] hover:text-[#155c55]" aria-label={`View ${course.name}`} data-testid={`link-course-${course.id}`}><ExternalLink size={14} /></Link></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+                <p className="border-t border-[#edf1f1] px-5 py-2.5 text-[11px] text-[#8997a3] dark:border-border">Showing courses matched to your account name.</p>
+              </>
+            )}
+          </section>
 
-                {/* ── Day rows ── */}
-                {TT_DAYS.map(day => {
-                  const daySlots = mySlots.filter(s => s.day === day);
-                  return (
-                    <div key={day} className="flex border-b border-slate-200 last:border-0" style={{ minHeight: 72 }}>
-                      {/* Day label */}
-                      <div
-                        className="shrink-0 flex items-center justify-center bg-slate-100 border-r border-slate-200 text-[11px] font-bold text-slate-600"
-                        style={{ width: 72 }}
-                      >
-                        {day.slice(0, 3)}
-                      </div>
+          <section className="overflow-hidden rounded-xl border border-[#dde7e8] bg-[#fefefd] shadow-[0_2px_10px_rgba(24,59,68,0.035)] dark:border-border dark:bg-card">
+            <div className="flex items-center gap-2.5 border-b border-[#e8eeee] px-5 py-3.5 dark:border-border">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#e9f5f2] text-[#287c75] dark:bg-teal-900/40 dark:text-teal-300"><FileText size={15} /></span>
+              <h2 className="text-[15px] font-bold tracking-[-0.02em] text-[#1d3044] dark:text-foreground">Reports &amp; Links</h2>
+            </div>
+            <nav className="px-4 py-2" aria-label="Related pages">
+              <Link href="/attendance" className="flex items-center gap-2.5 rounded-md px-2 py-2.5 text-[12px] font-semibold text-[#3a5a6a] hover:bg-[#eff6f5] dark:text-foreground dark:hover:bg-muted" data-testid="link-attendance"><ClipboardList size={14} className="text-[#54817c]" /> eRegisters <ArrowRight size={13} className="ml-auto opacity-60" /></Link>
+              <Link href="/courses" className="flex items-center gap-2.5 rounded-md px-2 py-2.5 text-[12px] font-semibold text-[#3a5a6a] hover:bg-[#eff6f5] dark:text-foreground dark:hover:bg-muted" data-testid="link-all-courses"><BookOpen size={14} className="text-[#54817c]" /> Course directory <ArrowRight size={13} className="ml-auto opacity-60" /></Link>
+              <button type="button" onClick={() => setTimetableOpen(true)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-2.5 text-left text-[12px] font-semibold text-[#3a5a6a] hover:bg-[#eff6f5] dark:text-foreground dark:hover:bg-muted" data-testid="button-my-timetable"><CalendarDays size={14} className="text-[#54817c]" /> My timetable <ArrowRight size={13} className="ml-auto opacity-60" /></button>
+              <Link href="/planned-absence" className="flex items-center gap-2.5 rounded-md px-2 py-2.5 text-[12px] font-semibold text-[#3a5a6a] hover:bg-[#eff6f5] dark:text-foreground dark:hover:bg-muted" data-testid="link-planned-absence"><UsersRound size={14} className="text-[#54817c]" /> Planned absence <ArrowRight size={13} className="ml-auto opacity-60" /></Link>
+              {(user?.role === "admin" || user?.role === "hod" || user?.role === "office") && (
+                <Link href="/reports" className="flex items-center gap-2.5 rounded-md px-2 py-2.5 text-[12px] font-semibold text-[#3a5a6a] hover:bg-[#eff6f5] dark:text-foreground dark:hover:bg-muted" data-testid="link-reports"><FileText size={14} className="text-[#54817c]" /> Reports <ArrowRight size={13} className="ml-auto opacity-60" /></Link>
+              )}
+            </nav>
+            <p className="mx-5 border-t border-[#edf1f1] py-3 text-[11px] leading-relaxed text-[#84919d] dark:border-border dark:text-muted-foreground">Open the live workspace pages for registers, courses and absence requests.</p>
+          </section>
+        </div>
+      </div>
 
-                      {/* Time grid */}
-                      <div className="relative flex-1 bg-white" style={{ minHeight: 72 }}>
-                        {/* Hour grid lines */}
-                        {HOUR_LABELS.map(lbl => (
-                          <div
-                            key={lbl}
-                            className="absolute top-0 bottom-0 border-l border-slate-100"
-                            style={{ left: gridLeft(lbl) }}
-                          />
-                        ))}
-
-                        {/* Break band */}
-                        <div
-                          className="absolute top-0 bottom-0 bg-slate-50 border-x border-slate-200 flex items-center justify-center"
-                          style={{ left: gridLeft("10:30"), width: gridWidth("10:30","10:50") }}
-                        >
-                          <span className="text-[9px] text-slate-400 font-medium [writing-mode:vertical-lr]">Break</span>
-                        </div>
-
-                        {/* Lunch band */}
-                        <div
-                          className="absolute top-0 bottom-0 bg-slate-50 border-x border-slate-200 flex items-center justify-center"
-                          style={{ left: gridLeft("12:50"), width: gridWidth("12:50","13:30") }}
-                        >
-                          <span className="text-[9px] text-slate-400 font-medium [writing-mode:vertical-lr]">Lunch</span>
-                        </div>
-
-                        {/* Lesson blocks */}
-                        {daySlots.map(slot => (
-                          <div
-                            key={slot.id}
-                            title={`${slot.description}${slot.groupLabel ? ` — ${slot.groupLabel}` : ""}${slot.room ? ` | ${slot.room}` : ""}`}
-                            className={`absolute top-1 bottom-1 rounded border text-[9px] leading-tight px-1 py-0.5 overflow-hidden cursor-default ${slotColor(slot)}`}
-                            style={{
-                              left: gridLeft(slot.startTime ?? undefined),
-                              width: gridWidth(slot.startTime ?? undefined, slot.endTime ?? undefined),
-                            }}
-                          >
-                            <div className="font-bold truncate">{slot.description}</div>
-                            {slot.groupLabel && <div className="opacity-80 truncate">{slot.groupLabel}</div>}
-                            {slot.room && <div className="opacity-70 truncate">{slot.room}</div>}
-                            {slot.isHodShared && <div className="opacity-70 italic">All HoD</div>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+      <Dialog open={timetableOpen} onOpenChange={setTimetableOpen}>
+        <DialogContent className="flex max-h-[85dvh] max-w-3xl flex-col overflow-hidden border-[#dce6e7] bg-[#fefefd] p-0 dark:bg-card">
+          <div className="flex items-center justify-between gap-3 border-b border-[#e8eeee] px-5 py-4 dark:border-border">
+            <div>
+              <DialogHeader><DialogTitle className="text-lg font-bold text-[#1d3044] dark:text-foreground">My timetable</DialogTitle></DialogHeader>
+              <p className="mt-0.5 text-xs text-[#81909c]">{fullName || "Account"} · Personal sessions</p>
+            </div>
+            {!timetableLoading && !timetableError && slots.length > 0 && (
+              <button type="button" onClick={() => printTimetable(fullName, slots)} className="mr-8 inline-flex items-center gap-1.5 rounded-md border border-[#b8d8d2] px-3 py-1.5 text-xs font-semibold text-[#20786f] hover:bg-[#eaf6f2]" data-testid="button-print-timetable"><Printer size={14} /> Print</button>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── My Attendance Reports Dialog ── */}
-      <Dialog open={activeModal === "My Attendance Reports"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
-          <div className="bg-teal-800 text-white px-5 py-3">
-            <DialogHeader><DialogTitle className="text-white text-base font-bold">My Attendance Reports</DialogTitle></DialogHeader>
-            <p className="text-teal-200 text-xs mt-0.5">{EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; Academic Year 2024/25</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <p className="text-xs text-slate-500 mb-3">Attendance summary across all assigned courses for this academic year.</p>
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="bg-teal-800 text-white">
-                {["Course", "Sessions Taken", "Present", "Absent", "Late", "Avg Rate"].map(h => (
-                  <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {myCourses.length ? myCourses.map(c => {
-                  const present = Math.round(c.enrolledCount * 0.85);
-                  const absent = Math.round(c.enrolledCount * 0.10);
-                  const late = c.enrolledCount - present - absent;
-                  return (
-                    <tr key={c.id} className="hover:bg-slate-50">
-                      <td className="px-3 py-1.5 font-medium text-slate-800">{c.code} — {c.name}</td>
-                      <td className="px-3 py-1.5 text-center text-slate-600">{c.enrolledCount}</td>
-                      <td className="px-3 py-1.5 text-center text-green-700 font-semibold">{present}</td>
-                      <td className="px-3 py-1.5 text-center text-red-600 font-semibold">{absent}</td>
-                      <td className="px-3 py-1.5 text-center text-amber-700 font-semibold">{late}</td>
-                      <td className="px-3 py-1.5 text-center font-bold text-green-700">85%</td>
-                    </tr>
-                  );
-                }) : <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">No attendance data.</td></tr>}
-              </tbody>
-            </table>
+          <div className="overflow-auto p-5">
+            {timetableLoading ? <div className="space-y-3" aria-label="Loading timetable">{[0, 1, 2].map(index => <div key={index} className="h-10 animate-pulse rounded bg-[#eaf1f2] dark:bg-muted" />)}</div>
+              : timetableError ? <div className="py-8 text-center text-sm"><p>Timetable could not be loaded.</p><button type="button" onClick={() => refetchTimetable()} className="mt-2 font-semibold text-[#227e76] hover:underline" data-testid="button-retry-timetable">Try again</button></div>
+                : slots.length === 0 ? <p className="py-10 text-center text-sm text-[#83919e]" data-testid="status-no-timetable">No personal timetable found for your account.</p>
+                  : <div className="space-y-4">{days.map(day => {
+                    const daySlots = slots.filter(slot => slot.day === day);
+                    return <div key={day} className="border-b border-[#edf1f1] pb-3 last:border-0 dark:border-border">
+                      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-[#5a7180]">{day}</h3>
+                      {daySlots.length ? daySlots.map(slot => <div key={slot.id} className="mb-1 flex flex-col gap-1 rounded-lg bg-[#f1f8f6] px-3 py-2 text-xs sm:flex-row sm:items-center sm:gap-4 dark:bg-muted" data-testid={`row-timetable-${slot.id}`}>
+                        <span className="shrink-0 font-semibold text-[#287c75]">{slot.startTime ?? "Time not recorded"}{slot.endTime ? `–${slot.endTime}` : ""}</span>
+                        <span className="font-medium text-[#263c4d] dark:text-foreground">{slot.description}</span>
+                        {(slot.groupLabel || slot.room) && <span className="text-[#728391] sm:ml-auto">{[slot.groupLabel, slot.room].filter(Boolean).join(" · ")}</span>}
+                      </div>) : <p className="text-xs text-[#9aa7b0]">No sessions recorded</p>}
+                    </div>;
+                  })}</div>}
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* ── Register History Dialog ── */}
-      <Dialog open={activeModal === "Register History"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
-          <div className="bg-teal-800 text-white px-5 py-3">
-            <DialogHeader><DialogTitle className="text-white text-base font-bold">Register History</DialogTitle></DialogHeader>
-            <p className="text-teal-200 text-xs mt-0.5">Recent registers submitted by {EMPLOYMENT.title} {fullName}</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="bg-teal-800 text-white">
-                {["Date", "Course", "Session", "Submitted", "Status"].map(h => (
-                  <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {myCourses.slice(0, 3).flatMap((c, ci) =>
-                  [0, 1, 2].map(offset => {
-                    const d = new Date(); d.setDate(d.getDate() - (ci * 7 + offset * 2));
-                    return (
-                      <tr key={`${c.id}-${offset}`} className="hover:bg-slate-50">
-                        <td className="px-3 py-1.5 text-slate-600">{d.toLocaleDateString("en-GB")}</td>
-                        <td className="px-3 py-1.5 text-slate-800 font-medium">{c.code}</td>
-                        <td className="px-3 py-1.5 text-slate-600">{offset % 2 === 0 ? "AM" : "PM"}</td>
-                        <td className="px-3 py-1.5 text-slate-600">{d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</td>
-                        <td className="px-3 py-1.5"><span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border text-green-700 bg-green-50 border-green-200">Submitted</span></td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── My Schedules Dialog ── */}
-      <Dialog open={activeModal === "My Schedules"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
-          <div className="bg-teal-800 text-white px-5 py-3">
-            <DialogHeader><DialogTitle className="text-white text-base font-bold">My Schedules</DialogTitle></DialogHeader>
-            <p className="text-teal-200 text-xs mt-0.5">{EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; Academic Year 2024/25</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="bg-teal-800 text-white">
-                {["Course", "Day", "Start", "End", "Room", "Week Pattern"].map(h => (
-                  <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {myCourses.length ? myCourses.map((c, i) => (
-                  <tr key={c.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-1.5 font-medium text-slate-800">{c.code} — {c.name}</td>
-                    <td className="px-3 py-1.5 text-slate-700">{TT_DAYS[i % TT_DAYS.length]}</td>
-                    <td className="px-3 py-1.5 text-slate-600 font-mono">{TT_PERIODS[i % TT_PERIODS.length].split("–")[0]}</td>
-                    <td className="px-3 py-1.5 text-slate-600 font-mono">{TT_PERIODS[i % TT_PERIODS.length].split("–")[1]}</td>
-                    <td className="px-3 py-1.5 text-slate-600">{c.room ?? "—"}</td>
-                    <td className="px-3 py-1.5 text-slate-500">1–49, 51–52</td>
-                  </tr>
-                )) : <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">No schedules found.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Planned Absences Dialog ── */}
-      <Dialog open={activeModal === "Planned Absences"} onOpenChange={o => { if (!o) setActiveModal(null); }}>
-        <DialogContent className="max-w-xl max-h-[80vh] flex flex-col overflow-hidden p-0">
-          <div className="bg-teal-800 text-white px-5 py-3">
-            <DialogHeader><DialogTitle className="text-white text-base font-bold">Planned Absences</DialogTitle></DialogHeader>
-            <p className="text-teal-200 text-xs mt-0.5">{EMPLOYMENT.title} {fullName} &nbsp;|&nbsp; Academic Year 2024/25</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-slate-500">Your submitted planned absence requests.</p>
-              <button
-                className="text-xs text-teal-700 border border-teal-200 rounded px-2 py-1 hover:bg-teal-50"
-                onClick={() => {
-                  setActiveModal(null);
-                  navigate("/planned-absence?create=1");
-                }}
-              >
-                + Request Absence
-              </button>
-            </div>
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="bg-teal-800 text-white">
-                {["Learner", "Start Date", "End Date", "Reason", "Status"].map(h => (
-                  <th key={h} className="text-left px-3 py-1.5 font-semibold">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {absencesLoading ? (
-                  <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">Loading requests…</td></tr>
-                ) : absencesError ? (
-                  <tr><td colSpan={5} className="px-3 py-6 text-center text-red-600">Requests could not be loaded. Close and try again.</td></tr>
-                ) : plannedAbsences.length === 0 ? (
-                  <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">No planned absence requests submitted.</td></tr>
-                ) : plannedAbsences.map(a => (
-                  <tr key={a.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-1.5 text-slate-800 font-medium">{a.learnerName}</td>
-                    <td className="px-3 py-1.5 text-slate-700">{formatAbsenceDate(a.fromDate)}</td>
-                    <td className="px-3 py-1.5 text-slate-700">{formatAbsenceDate(a.toDate)}</td>
-                    <td className="px-3 py-1.5 text-slate-800">{a.reason}</td>
-                    <td className="px-3 py-1.5">
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border text-amber-700 bg-amber-50 border-amber-200">Pending</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
-
     </div>
   );
 }
