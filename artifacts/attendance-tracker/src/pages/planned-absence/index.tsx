@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  getListPlannedAbsencesQueryKey,
   useCreatePlannedAbsence,
   useListPlannedAbsences,
   useListStudents,
@@ -15,6 +14,7 @@ import {
   plannedAbsenceErrorMessage,
   validatePlannedAbsenceDraft,
 } from "@/lib/planned-absence";
+import { plannedAbsenceQuery } from "./query";
 import {
   Select,
   SelectContent,
@@ -106,7 +106,10 @@ export default function PlannedAbsence() {
 }
 
 function ViewAbsences() {
-  const { data: absences = [], isLoading, isError, refetch } = useListPlannedAbsences();
+  const { user } = useAuth();
+  const { data: absences = [], isLoading, isError, refetch } = useListPlannedAbsences({
+    query: plannedAbsenceQuery(user?.id),
+  });
   const [learner, setLearner] = useState("");
   const [personCode, setPersonCode] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -162,7 +165,7 @@ function ViewAbsences() {
         Requests are saved as <strong>pending</strong>. No approval or register change is implied.
       </div>
 
-      {isLoading ? (
+      {!user?.id || isLoading ? (
         <div className="px-6 py-16 text-center text-sm text-gray-400">Loading saved requests…</div>
       ) : isError ? (
         <div className="px-6 py-16 text-center">
@@ -331,7 +334,10 @@ function CreateAbsence({ onCreated }: { onCreated: () => void }) {
           ...(notes.trim() ? { notes: notes.trim() } : {}),
         },
       });
-      await queryClient.invalidateQueries({ queryKey: getListPlannedAbsencesQueryKey() });
+      await queryClient.invalidateQueries({
+        queryKey: plannedAbsenceQuery(user?.id).queryKey,
+        exact: true,
+      });
       setSubmitted(created);
     } catch (error) {
       setSubmitError(plannedAbsenceErrorMessage(error));
