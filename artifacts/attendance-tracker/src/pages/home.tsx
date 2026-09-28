@@ -236,7 +236,7 @@ function LearnerSearchResults({ results }: { results: StudentRow[] }) {
 }
 
 function CourseSearchTab() {
-  const { data: allCourses } = useListCourses();
+  const { data: allCourses, isLoading, isError } = useListCourses();
   const [courseCode, setCourseCode] = useState("");
   const [description, setDescription] = useState("");
   const [startDateOp, setStartDateOp] = useState("=");
@@ -248,6 +248,7 @@ function CourseSearchTab() {
   const [results, setResults] = useState<typeof allCourses>([]);
 
   function handleSearch() {
+    if (!allCourses) return;
     const filtered = (allCourses ?? []).filter(c => {
       if (courseCode && !c.code.toLowerCase().includes(courseCode.toLowerCase())) return false;
       if (description && !c.name.toLowerCase().includes(description.toLowerCase())) return false;
@@ -316,10 +317,12 @@ function CourseSearchTab() {
           </div>
         </div>
         <div className="flex justify-end pt-3">
-          <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+          <Button onClick={handleSearch} disabled={isLoading || isError} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
         </div>
+        {isLoading && <p role="status" className="text-sm text-slate-600">Loading courses…</p>}
+        {isError && <p role="alert" className="text-sm text-red-700">Course records are unavailable.</p>}
         {searched && (
           <div className="mt-4">
             <CourseSearchResults results={results ?? []} />
@@ -419,7 +422,7 @@ function RegisterSearchResults({ results }: { results: RegisterRow[] }) {
 }
 
 function RegisterSearchTab() {
-  const { data: allCourses } = useListCourses();
+  const { data: allCourses, isLoading, isError } = useListCourses();
   const [registerKey, setRegisterKey] = useState("");
   const [registerKeyOp, setRegisterKeyOp] = useState("=");
   const [description, setDescription] = useState("");
@@ -434,6 +437,7 @@ function RegisterSearchTab() {
   const [results, setResults] = useState<typeof allCourses>([]);
 
   function handleSearch() {
+    if (!allCourses) return;
     const filtered = (allCourses ?? []).filter(c => {
       if (description && !c.name.toLowerCase().includes(description.toLowerCase())) return false;
       if (staffSurname && !(c.staffName ?? "").toLowerCase().includes(staffSurname.toLowerCase())) return false;
@@ -518,10 +522,12 @@ function RegisterSearchTab() {
           </div>
         </div>
         <div className="flex justify-end pt-3">
-          <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+          <Button onClick={handleSearch} disabled={isLoading || isError} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
         </div>
+        {isLoading && <p role="status" className="text-sm text-slate-600">Loading registers…</p>}
+        {isError && <p role="alert" className="text-sm text-red-700">Register records are unavailable.</p>}
         {searched && (
           <div className="mt-4">
             <RegisterSearchResults results={results ?? []} />
@@ -633,7 +639,7 @@ function ExamSearchResults({ results }: { results: ExamRow[] }) {
 }
 
 function ExamSearchTab() {
-  const { data: allCourses } = useListCourses();
+  const { data: allCourses, isLoading, isError } = useListCourses();
   const [examCode, setExamCode] = useState("");
   const [name, setName] = useState("");
   const [type, setType] = useState("");
@@ -649,6 +655,7 @@ function ExamSearchTab() {
   const [results, setResults] = useState<typeof allCourses>([]);
 
   function handleSearch() {
+    if (!allCourses) return;
     const filtered = (allCourses ?? []).filter(c => {
       if (name && !c.name.toLowerCase().includes(name.toLowerCase())) return false;
       return true;
@@ -748,10 +755,12 @@ function ExamSearchTab() {
           </div>
         </div>
         <div className="flex justify-end pt-3">
-          <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+          <Button onClick={handleSearch} disabled={isLoading || isError} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
         </div>
+        {isLoading && <p role="status" className="text-sm text-slate-600">Loading exams…</p>}
+        {isError && <p role="alert" className="text-sm text-red-700">Exam records are unavailable.</p>}
         {searched && (
           <div className="mt-4">
             <ExamSearchResults results={results ?? []} />
@@ -1018,7 +1027,7 @@ function RoomSearchResults({ results }: { results: RoomRow[] }) {
 }
 
 function RoomSearchTab() {
-  const { data: courses } = useListCourses();
+  const { data: courses, isLoading, isError } = useListCourses();
   const [roomCode, setRoomCode] = useState("");
   const [roomDesc, setRoomDesc] = useState("");
   const [locationCode, setLocationCode] = useState("");
@@ -1041,6 +1050,7 @@ function RoomSearchTab() {
     }));
 
   function handleSearch() {
+    if (!courses) return;
     const filtered = allRooms.filter(r => {
       if (roomCode && !r.code.toLowerCase().includes(roomCode.toLowerCase())) return false;
       if (roomDesc && !r.description.toLowerCase().includes(roomDesc.toLowerCase())) return false;
@@ -1127,10 +1137,12 @@ function RoomSearchTab() {
         </div>
 
         <div className="flex justify-end pt-1">
-          <Button onClick={handleSearch} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
+          <Button onClick={handleSearch} disabled={isLoading || isError} className="gap-2 bg-sky-600 hover:bg-sky-700 text-white px-6 h-8 text-sm">
             <Search className="w-3.5 h-3.5" /> Search
           </Button>
         </div>
+        {isLoading && <p role="status" className="text-sm text-slate-600">Loading rooms…</p>}
+        {isError && <p role="alert" className="text-sm text-red-700">Room records are unavailable.</p>}
         {searched && (
           <div className="mt-4">
             <RoomSearchResults results={results} />
@@ -1403,15 +1415,16 @@ function StaffSearchTab() {
   );
 }
 
-function StatsCard({ title, value, unit = "", colorClass = "bg-white text-slate-800 border-slate-200" }: { title: string, value?: string | number, unit?: string, colorClass?: string }) {
+function StatsCard({ title, value, unit = "", caption, colorClass = "bg-white text-slate-800 border-slate-200", isLoading = false }: { title: string, value?: string | number, unit?: string, caption: string, colorClass?: string, isLoading?: boolean }) {
   return (
-    <Card className={`rounded-xl shadow-sm overflow-hidden border ${colorClass}`}>
-      <CardContent className="p-4 flex flex-col items-center justify-center text-center h-24">
-        <p className="text-xs font-semibold uppercase tracking-wider opacity-80 mb-1">{title}</p>
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold">{value !== undefined ? value : <Skeleton className="h-8 w-16" />}</span>
-          {unit && <span className="text-sm font-medium opacity-80">{unit}</span>}
+    <Card className={`min-w-0 rounded-xl shadow-sm border ${colorClass}`}>
+      <CardContent className="flex min-h-28 flex-col items-start justify-between p-4">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] opacity-85">{title}</p>
+        <div className="flex items-baseline gap-0.5">
+          <span className="text-2xl font-bold tabular-nums">{isLoading ? <Skeleton className="h-7 w-14" /> : value ?? "—"}</span>
+          {!isLoading && value !== undefined && unit && <span className="text-base font-semibold">{unit}</span>}
         </div>
+        <p className="text-xs opacity-80">{!isLoading && value === undefined ? "Unavailable" : caption}</p>
       </CardContent>
     </Card>
   );
@@ -1465,10 +1478,11 @@ function DashboardPager({
 }
 
 export default function Home() {
-  const { data: summary } = useGetDashboardSummary();
+  const { data: summary, isLoading: isSummaryLoading } = useGetDashboardSummary();
   const { data: schedule, isLoading: isScheduleLoading } = useGetTodaySchedule();
   const { data: targets, isLoading: isTargetsLoading } = useListTargets({ overdue: true });
   const { data: courses, isLoading: isCoursesLoading } = useListCourses();
+  const [, navigate] = useLocation();
   const [schedulePage, setSchedulePage] = useState(0);
   const [targetsPage, setTargetsPage] = useState(0);
   const [coursesPage, setCoursesPage] = useState(0);
@@ -1504,7 +1518,7 @@ export default function Home() {
   const [orgContacts, setOrgContacts] = useState("");
   const [searchEnabled, setSearchEnabled] = useState(false);
 
-  const { data: searchResults, isLoading: isSearchLoading } = useListStudents(
+  const { data: searchResults, isLoading: isSearchLoading, isError: isSearchError } = useListStudents(
     { personCode, forename, surname, gender },
     { query: { enabled: searchEnabled } as any }
   );
@@ -1514,57 +1528,75 @@ export default function Home() {
   }
 
   return (
-    <>
+    <div className="dashboard-home mx-auto max-w-[1600px] space-y-5">
+      <header className="border-b border-slate-200 pb-4">
+        <p className="mb-1 text-xs font-medium text-slate-500">Home / Attendance</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Attendance Dashboard</h1>
+        <p className="mt-1 text-sm text-slate-600">Your registers, learners and courses at a glance.</p>
+      </header>
       {/* Stats Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <StatsCard 
           title="Attendance" 
           value={summary ? Math.round(summary.attendancePercent) : undefined} 
           unit="%" 
-          colorClass="bg-emerald-600 text-white border-emerald-700" 
+          caption="Overall attendance"
+          isLoading={isSummaryLoading}
+          colorClass="bg-emerald-700 text-white border-emerald-800"
         />
         <StatsCard 
           title="Punctuality" 
           value={summary ? Math.round(summary.punctualityPercent) : undefined} 
           unit="%" 
-          colorClass="bg-teal-600 text-white border-teal-700" 
+          caption="Overall punctuality"
+          isLoading={isSummaryLoading}
+          colorClass="bg-teal-700 text-white border-teal-800"
         />
         <StatsCard 
           title="Registers" 
           value={summary?.registersCount} 
+          caption="Available registers"
+          isLoading={isSummaryLoading}
         />
         <StatsCard 
           title="At Risk" 
           value={summary?.atRiskCount} 
+          caption="Learners flagged"
+          isLoading={isSummaryLoading}
           colorClass="bg-red-50 text-red-700 border-red-200" 
         />
         <StatsCard 
           title="SMART Targets" 
           value={summary?.smartTargetsCount} 
+          caption="SMART targets"
+          isLoading={isSummaryLoading}
         />
         <StatsCard 
           title="ILPs" 
           value={summary?.ilpsCount} 
+          caption="Learner plans"
+          isLoading={isSummaryLoading}
         />
       </div>
 
       {/* Tabbed Search Panel */}
-      <Card className="shadow-sm">
+      <Card className="dashboard-search overflow-hidden rounded-xl border-slate-200 shadow-sm">
         <Tabs defaultValue="learner" className="w-full">
-          <CardHeader className="p-0 border-b">
-            <TabsList className="w-full justify-start rounded-none bg-slate-100/50 p-0 h-auto">
+          <CardHeader className="flex flex-col gap-2 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:px-5">
+            <CardTitle className="flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-900"><Search className="h-4 w-4 text-blue-700" />Search records</CardTitle>
+            <TabsList aria-label="Search record type" className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 lg:w-auto">
               {['Learner', 'Course', 'Register', 'Exam', 'Room', 'Staff'].map(tab => (
                 <TabsTrigger 
                   key={tab} 
                   value={tab.toLowerCase()}
-                  className="px-6 py-3 data-[state=active]:bg-white data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shadow-none"
+                  className="shrink-0 rounded-md px-3 py-2 text-xs font-semibold text-slate-600 shadow-none data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800"
                 >
                   {tab}
                 </TabsTrigger>
               ))}
             </TabsList>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="min-w-0 overflow-x-auto p-4 lg:p-5">
             <TabsContent value="learner" className="mt-0 outline-none">
               <div className="space-y-0">
                 {/* 2-column label+field layout matching reference */}
@@ -1586,6 +1618,7 @@ export default function Home() {
                           </SelectContent>
                         </Select>
                         <Input
+                          aria-label="Person Code"
                           value={personCode}
                           onChange={e => { setPersonCode(e.target.value); setSearchEnabled(false); }}
                           className="flex-1 h-8 text-sm"
@@ -1595,18 +1628,18 @@ export default function Home() {
                     {/* Surname */}
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Surname</span>
-                      <Input value={surname} onChange={e => { setSurname(e.target.value); setSearchEnabled(false); }} className="flex-1 h-8 text-sm" />
+                      <Input aria-label="Surname" value={surname} onChange={e => { setSurname(e.target.value); setSearchEnabled(false); }} className="flex-1 h-8 text-sm" />
                     </div>
                     {/* Middle Names */}
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Middle Names</span>
-                      <Input value={middleNames} onChange={e => setMiddleNames(e.target.value)} className="flex-1 h-8 text-sm" />
+                      <Input aria-label="Middle Names" value={middleNames} onChange={e => setMiddleNames(e.target.value)} className="flex-1 h-8 text-sm" />
                     </div>
                     {/* Gender */}
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Gender</span>
                       <Select value={gender} onValueChange={v => { setGender(v); setSearchEnabled(false); }}>
-                        <SelectTrigger className="flex-1 h-8 text-sm">
+                        <SelectTrigger aria-label="Gender" className="flex-1 h-8 text-sm">
                           <SelectValue placeholder="" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1621,7 +1654,7 @@ export default function Home() {
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Confirmed Learners</span>
                       <Select value={confirmedLearners} onValueChange={setConfirmedLearners}>
-                        <SelectTrigger className="flex-1 h-8 text-sm">
+                        <SelectTrigger aria-label="Confirmed Learners" className="flex-1 h-8 text-sm">
                           <SelectValue placeholder="" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1637,18 +1670,18 @@ export default function Home() {
                     {/* Forename */}
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Forename</span>
-                      <Input value={forename} onChange={e => { setForename(e.target.value); setSearchEnabled(false); }} className="flex-1 h-8 text-sm" />
+                      <Input aria-label="Forename" value={forename} onChange={e => { setForename(e.target.value); setSearchEnabled(false); }} className="flex-1 h-8 text-sm" />
                     </div>
                     {/* Post Code */}
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Post Code</span>
-                      <Input value={postCode} onChange={e => setPostCode(e.target.value)} className="flex-1 h-8 text-sm" />
+                      <Input aria-label="Post Code" value={postCode} onChange={e => setPostCode(e.target.value)} className="flex-1 h-8 text-sm" />
                     </div>
                     {/* Title */}
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Title</span>
                       <Select value={title} onValueChange={setTitle}>
-                        <SelectTrigger className="flex-1 h-8 text-sm">
+                        <SelectTrigger aria-label="Title" className="flex-1 h-8 text-sm">
                           <SelectValue placeholder="" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1676,6 +1709,7 @@ export default function Home() {
                           </SelectContent>
                         </Select>
                         <Input
+                          aria-label="Date of Birth"
                           type="date"
                           value={dateOfBirth}
                           onChange={e => setDateOfBirth(e.target.value)}
@@ -1687,7 +1721,7 @@ export default function Home() {
                     <div className="flex items-center gap-2">
                       <span className="w-36 shrink-0 text-sm text-slate-700">Organisation Contacts</span>
                       <Select value={orgContacts} onValueChange={setOrgContacts}>
-                        <SelectTrigger className="flex-1 h-8 text-sm">
+                        <SelectTrigger aria-label="Organisation Contacts" className="flex-1 h-8 text-sm">
                           <SelectValue placeholder="" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1709,7 +1743,7 @@ export default function Home() {
                 </div>
 
                 {/* Search Results */}
-                {searchEnabled && (
+                 {searchEnabled && (
                   <div className="mt-4">
                     {isSearchLoading ? (
                       <div className="space-y-2 border rounded">
@@ -1720,6 +1754,8 @@ export default function Home() {
                           <Skeleton className="h-8 w-full" />
                         </div>
                       </div>
+                    ) : isSearchError ? (
+                      <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">Learner records are unavailable. Please try your search again.</p>
                     ) : (
                       <LearnerSearchResults results={searchResults ?? []} />
                     )}
@@ -1737,13 +1773,14 @@ export default function Home() {
       </Card>
 
       {/* Bottom Panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         
         {/* Today's Schedule */}
-        <Card className="col-span-1 shadow-sm">
-          <CardHeader className="py-4 border-b bg-slate-50/50 flex flex-row items-center gap-2">
+        <Card className="col-span-1 min-w-0 overflow-hidden rounded-xl border-slate-200 shadow-sm">
+          <CardHeader className="flex flex-row items-center gap-2 border-b bg-white px-4 py-3">
             <Calendar className="w-5 h-5 text-primary" />
             <CardTitle className="text-base">Today's Schedule</CardTitle>
+            {!isScheduleLoading && schedule && <span className="ml-auto text-xs text-slate-500">{schedule.length} sessions</span>}
           </CardHeader>
           <CardContent className="p-0">
             {isScheduleLoading ? (
@@ -1755,10 +1792,10 @@ export default function Home() {
               <>
                 <ul className="divide-y">
                   {scheduleRows.map(entry => (
-                    <li key={entry.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
-                      <div>
+                     <li key={entry.id} className="flex flex-wrap items-center justify-between gap-2 p-4 transition-colors hover:bg-slate-50">
+                       <div className="min-w-0">
                         <p className="font-semibold text-sm">{entry.courseName}</p>
-                        <p className="text-xs text-muted-foreground">{entry.room} • {entry.staffName}</p>
+                         <p className="text-xs text-muted-foreground">{[entry.room, entry.staffName].filter(Boolean).join(" • ")}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium">{entry.startTime} - {entry.endTime}</p>
@@ -1776,17 +1813,19 @@ export default function Home() {
                   onPageChange={setSchedulePage}
                 />
               </>
-            ) : (
+             ) : schedule ? (
               <div className="p-8 text-center text-sm text-muted-foreground">No classes scheduled for today.</div>
+             ) : (
+               <div role="alert" className="p-8 text-center text-sm text-red-700">Today's schedule is unavailable.</div>
             )}
           </CardContent>
         </Card>
 
         {/* Overdue Targets */}
-        <Card className="col-span-1 shadow-sm border-red-200">
-          <CardHeader className="py-4 border-b border-red-100 bg-red-50/30 flex flex-row items-center gap-2">
+        <Card className="col-span-1 min-w-0 overflow-hidden rounded-xl border-slate-200 shadow-sm">
+          <CardHeader className="flex flex-row items-center gap-2 border-b bg-white px-4 py-3">
             <AlertTriangle className="w-5 h-5 text-red-500" />
-            <CardTitle className="text-base text-red-800">Overdue SMART Targets</CardTitle>
+             <CardTitle className="text-base">Overdue SMART Targets</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
              {isTargetsLoading ? (
@@ -1816,17 +1855,20 @@ export default function Home() {
                    onPageChange={setTargetsPage}
                  />
                </>
-             ) : (
-               <div className="p-8 text-center text-sm text-muted-foreground">No overdue targets.</div>
+              ) : targets ? (
+                <div className="flex flex-col items-center gap-2 p-8 text-center text-sm text-slate-600"><CheckCircle className="h-8 w-8 text-emerald-600" /><strong className="text-slate-900">You're all caught up</strong>No overdue targets right now.</div>
+              ) : (
+                <div role="alert" className="p-8 text-center text-sm text-red-700">SMART targets are unavailable.</div>
              )}
           </CardContent>
         </Card>
 
         {/* My Courses */}
-        <Card className="col-span-1 shadow-sm">
-          <CardHeader className="py-4 border-b bg-slate-50/50 flex flex-row items-center gap-2">
+        <Card className="col-span-1 min-w-0 overflow-hidden rounded-xl border-slate-200 shadow-sm">
+          <CardHeader className="flex flex-row items-center gap-2 border-b bg-white px-4 py-3">
             <BookOpen className="w-5 h-5 text-primary" />
             <CardTitle className="text-base">My Courses</CardTitle>
+            {!isCoursesLoading && courses && <span className="ml-auto text-xs text-slate-500">{courses.length} courses</span>}
           </CardHeader>
           <CardContent className="p-0">
              {isCoursesLoading ? (
@@ -1838,9 +1880,9 @@ export default function Home() {
                <>
                  <ul className="divide-y">
                    {courseRows.map(course => (
-                     <li key={course.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
-                       <div>
-                         <p className="font-semibold text-sm">{course.code}</p>
+                      <li key={course.id} className="flex flex-wrap items-center justify-between gap-2 p-4 transition-colors hover:bg-slate-50">
+                        <div className="min-w-0">
+                          <button type="button" onClick={() => navigate(`/courses/${course.id}`)} className="text-left text-sm font-semibold text-blue-800 hover:underline focus-visible:underline">{course.code}</button>
                          <p className="text-xs text-muted-foreground">{course.name}</p>
                        </div>
                        <Badge variant="outline">{course.enrolledCount} learners</Badge>
@@ -1854,13 +1896,15 @@ export default function Home() {
                    onPageChange={setCoursesPage}
                  />
                </>
-             ) : (
+              ) : courses ? (
                <div className="p-8 text-center text-sm text-muted-foreground">No courses assigned.</div>
+              ) : (
+                <div role="alert" className="p-8 text-center text-sm text-red-700">Courses are unavailable.</div>
              )}
           </CardContent>
         </Card>
 
       </div>
-    </>
+    </div>
   );
 }

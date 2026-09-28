@@ -69,7 +69,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     heading: "Staff Portal",
     items: [
-      { icon: Home, label: "My Homepage", href: "/" },
+      { icon: Home, label: "Dashboard", href: "/" },
       { icon: UserCircle, label: "My Details", href: "/my-details" },
       { icon: BookOpen, label: "My Courses", href: "/courses" },
       { icon: ClipboardList, label: "eRegisters", href: "/attendance" },
@@ -281,10 +281,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     .filter((section) => section.items.length > 0);
 
   const renderNavigation = (closeOnNavigate = false) => (
-    <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-3">
+    <nav aria-label="Main navigation" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
       {visibleSections.map((section) => (
         <div key={section.heading}>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 px-2 mb-1">
+          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/65">
             {section.heading}
           </p>
           <ul className="space-y-0.5">
@@ -295,12 +295,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <Link
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] transition-colors",
+                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors",
                         isActive(item.href)
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          ? "bg-blue-600 font-semibold text-white"
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                         item.color,
                       )}
+                      aria-current={isActive(item.href) ? "page" : undefined}
                     >
                       <item.icon className="w-4 h-4 flex-shrink-0" />
                       <span className="truncate">{item.label}</span>
@@ -310,12 +311,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] transition-colors",
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors",
                       isActive(item.href)
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        ? "bg-blue-600 font-semibold text-white"
                         : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                       item.color,
                     )}
+                    aria-current={isActive(item.href) ? "page" : undefined}
                   >
                     <item.icon className="w-4 h-4 flex-shrink-0" />
                     <span className="truncate">{item.label}</span>
@@ -332,11 +334,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 md:flex-row">
       {/* Sidebar */}
-      <aside className="hidden w-64 bg-sidebar text-sidebar-foreground flex-shrink-0 flex-col h-screen sticky top-0 overflow-y-auto md:flex">
-        <div className="p-4 border-b border-sidebar-border">
+        <aside className="sticky top-0 hidden h-screen w-64 flex-shrink-0 flex-col overflow-y-auto bg-sidebar text-sidebar-foreground md:flex">
+        <div className="border-b border-sidebar-border p-5">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center font-bold text-white">AT</div>
-            <span className="font-semibold text-lg tracking-tight">Attendance</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 font-bold text-white">AT</div>
+            <span className="leading-tight"><strong className="block text-sm tracking-tight">Attendance</strong><span className="block text-[10px] font-semibold uppercase tracking-widest text-blue-200">Learning hub</span></span>
           </div>
         </div>
 
@@ -421,7 +423,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 overflow-auto p-6">{children}</main>
+      <main className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">{children}</main>
     </div>
   );
 }

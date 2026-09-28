@@ -155,3 +155,34 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* Keep the homepage's dense search forms usable below the two-column width. */
+@media (max-width: 1100px) {
+  .dashboard-search .grid.grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-search .grid.grid-cols-2 > div > .flex.items-center {
+    flex-wrap: wrap;
+  }
+
+  .dashboard-search .grid.grid-cols-2 > div > .flex.items-center > span:first-child {
+    width: 100%;
+  }
+
+  .dashboard-search .grid.grid-cols-2 > div > .flex.items-center > :last-child {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .dashboard-search .grid.grid-cols-2 > div > .flex.items-center > .flex {
+    display: flex;
+  }
+
+  .dashboard-search table {
+    min-width: 640px;
+  }
+}
