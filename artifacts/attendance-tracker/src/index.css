@@ -156,6 +156,34 @@
   }
 }
 
+/* Legacy pages use fixed light neutral utilities; map those surfaces to the
+   existing dark tokens so the preference applies beyond the shared shell. */
+@layer utilities {
+  .dark .bg-white, .dark .bg-slate-50, .dark .bg-gray-50,
+  .dark .bg-slate-100, .dark .bg-gray-100 {
+    background-color: hsl(var(--card));
+  }
+  .dark .text-slate-900, .dark .text-gray-900,
+  .dark .text-slate-800, .dark .text-gray-800,
+  .dark .text-slate-700, .dark .text-gray-700 {
+    color: hsl(var(--foreground));
+  }
+  .dark .text-slate-600, .dark .text-gray-600,
+  .dark .text-slate-500, .dark .text-gray-500,
+  .dark .text-slate-400, .dark .text-gray-400 {
+    color: hsl(var(--muted-foreground));
+  }
+  .dark .border-slate-100, .dark .border-gray-100,
+  .dark .border-slate-200, .dark .border-gray-200,
+  .dark .border-slate-300, .dark .border-gray-300 {
+    border-color: hsl(var(--border));
+  }
+  .dark input:not([type="checkbox"]):not([type="radio"]),
+  .dark textarea, .dark select {
+    color-scheme: dark;
+  }
+}
+
 /* Keep the homepage's dense search forms usable below the two-column width. */
 @media (max-width: 1100px) {
   .dashboard-search .grid.grid-cols-2 {

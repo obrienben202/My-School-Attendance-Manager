@@ -35,6 +35,7 @@ import {
   Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TopBar } from "@/components/top-bar";
 import {
   Sheet,
   SheetClose,
@@ -159,6 +160,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    window.localStorage.getItem("attendance-theme") === "dark" ? "dark" : "light",
+  );
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = Number(window.localStorage.getItem("attendance-sidebar-width"));
+    return saved >= 208 && saved <= 360 ? saved : 256;
+  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    window.localStorage.getItem("attendance-sidebar-collapsed") === "true",
+  );
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    window.localStorage.setItem("attendance-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    window.localStorage.setItem("attendance-sidebar-width", String(sidebarWidth));
+    window.localStorage.setItem("attendance-sidebar-collapsed", String(sidebarCollapsed));
+  }, [sidebarWidth, sidebarCollapsed]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -258,20 +279,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     return location === hrefPath || location.startsWith(hrefPath + "/");
   };
 
-  const ROLE_LABELS: Record<Role, string> = {
-    admin: "Admin",
-    hod: "Head of Dept",
-    staff: "Staff",
-    office: "Office Staff",
-  };
-
-  const ROLE_COLORS: Record<Role, string> = {
-    admin: "bg-red-500/20 text-red-300",
-    hod: "bg-purple-500/20 text-purple-300",
-    staff: "bg-blue-500/20 text-blue-300",
-    office: "bg-green-500/20 text-green-300",
-  };
-
   const visibleSections = SIDEBAR_SECTIONS
     .filter((section) => !section.roles || section.roles.includes(role))
     .map((section) => ({
@@ -284,7 +291,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <nav aria-label="Main navigation" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
       {visibleSections.map((section) => (
         <div key={section.heading}>
-          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/65">
+          <p className={cn("mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/65", sidebarCollapsed && !closeOnNavigate && "sr-only")}>
             {section.heading}
           </p>
           <ul className="space-y-0.5">
@@ -294,8 +301,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <SheetClose asChild>
                     <Link
                       href={item.href}
+                       title={sidebarCollapsed ? item.label : undefined}
+                       aria-label={sidebarCollapsed ? item.label : undefined}
                       className={cn(
                         "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors",
+                         sidebarCollapsed && "justify-center px-2",
                         isActive(item.href)
                           ? "bg-blue-600 font-semibold text-white"
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -304,7 +314,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       aria-current={isActive(item.href) ? "page" : undefined}
                     >
                       <item.icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{item.label}</span>
+                       <span className={cn("truncate", sidebarCollapsed && "sr-only")}>{item.label}</span>
                     </Link>
                   </SheetClose>
                 ) : (
@@ -332,65 +342,63 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 md:flex-row">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-        <aside className="sticky top-0 hidden h-screen w-64 flex-shrink-0 flex-col overflow-y-auto bg-sidebar text-sidebar-foreground md:flex">
-        <div className="border-b border-sidebar-border p-5">
+      <div className="sticky top-0 hidden h-screen flex-shrink-0 md:flex" style={{ width: sidebarCollapsed ? 68 : sidebarWidth }}>
+        <aside className="flex min-w-0 flex-1 flex-col bg-sidebar text-sidebar-foreground">
+        <div className={cn("border-b border-sidebar-border p-5", sidebarCollapsed && "px-4")}>
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 font-bold text-white">AT</div>
-            <span className="leading-tight"><strong className="block text-sm tracking-tight">Attendance</strong><span className="block text-[10px] font-semibold uppercase tracking-widest text-blue-200">Learning hub</span></span>
+            {!sidebarCollapsed && <span className="leading-tight"><strong className="block text-sm tracking-tight">Attendance</strong><span className="block text-[10px] font-semibold uppercase tracking-widest text-blue-200">Learning hub</span></span>}
           </div>
         </div>
 
         {renderNavigation()}
+        </aside>
+        {!sidebarCollapsed && (
+          <div
+            role="separator"
+            aria-label="Resize sidebar"
+            aria-orientation="vertical"
+            aria-valuemin={208}
+            aria-valuemax={360}
+            aria-valuenow={sidebarWidth}
+            tabIndex={0}
+            title="Drag to resize sidebar, or use arrow keys"
+            data-testid="handle-resize-sidebar"
+            className="w-1.5 cursor-col-resize bg-sidebar-border transition-colors hover:bg-blue-500 focus:bg-blue-500 focus:outline-none"
+            onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+            onPointerMove={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                setSidebarWidth(Math.max(208, Math.min(360, event.clientX)));
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                event.preventDefault();
+                setSidebarWidth((current) => Math.max(208, Math.min(360, current + (event.key === "ArrowRight" ? 16 : -16))));
+              }
+            }}
+          />
+        )}
+      </div>
 
-        <div className="p-4 border-t border-sidebar-border">
-          {user && (
-            <div className="flex items-center gap-2 mb-3">
-              {(user as { profileImageUrl?: string }).profileImageUrl ? (
-                <img
-                  src={(user as { profileImageUrl?: string }).profileImageUrl}
-                  alt=""
-                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {((user as { firstName?: string }).firstName?.[0] ?? "") +
-                    ((user as { lastName?: string }).lastName?.[0] ?? "")}
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-sidebar-foreground truncate">
-                  {(user as { firstName?: string; lastName?: string }).firstName}{" "}
-                  {(user as { firstName?: string; lastName?: string }).lastName}
-                </p>
-                <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", ROLE_COLORS[role])}>
-                  {ROLE_LABELS[role]}
-                </span>
-              </div>
-            </div>
-          )}
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 text-xs text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors w-full px-1"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Sign out
-          </button>
-        </div>
-      </aside>
-
-      <div className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-500 font-bold text-white">AT</div>
-          <span className="font-semibold tracking-tight text-slate-800">Attendance</span>
-        </div>
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar
+          user={user}
+          role={role}
+          page={visibleSections.flatMap((section) => section.items).filter((item) => isActive(item.href)).sort((a, b) => b.href.length - a.href.length)[0]?.label ?? "Attendance"}
+          theme={theme}
+          onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")}
+          collapsed={sidebarCollapsed}
+          onToggleSidebar={() => setSidebarCollapsed((current) => !current)}
+          onLogout={logout}
+          mobileNavigation={<Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
             <button
               type="button"
               aria-label="Open navigation menu"
-              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded border border-slate-200 text-slate-700 transition-colors hover:bg-slate-50"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded border border-border text-foreground transition-colors hover:bg-muted"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -419,11 +427,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </SheetContent>
-        </Sheet>
-      </div>
+        </Sheet>}
+        />
 
       {/* Main content */}
-      <main className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">{children}</main>
+      </div>
     </div>
   );
 }
