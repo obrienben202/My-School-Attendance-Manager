@@ -8,6 +8,17 @@ import { PAGES } from "../../../../staff-guide/src/pages.mjs";
 const guide = new URL("../../../../staff-guide/", import.meta.url);
 const read = (file: string) => readFileSync(new URL(file, guide), "utf8");
 
+test("learner sign-in setup links only the supplied student login sheet, not a staff sheet", () => {
+  const html = read("learner-sign-in-setup.html");
+  const sheets = [...html.matchAll(/<a\b[^>]*href="(https:\/\/docs\.google\.com\/spreadsheets\/[^"]+)"[^>]*>/g)];
+  assert.equal(sheets.length, 1);
+  assert.equal(sheets[0][1], "https://docs.google.com/spreadsheets/d/14wc0iQA8DwPPYvydquv3en_60_6XNSGeBe0cvcMxY88/edit?usp=sharing");
+  assert.match(sheets[0][0], /target="_blank"/);
+  assert.match(sheets[0][0], /rel="noopener noreferrer"/);
+  assert.match(html, /Student login sheet/);
+  assert.match(html, /Staff already have their own logins/);
+});
+
 test("all original guide subjects have separate readable pages and working local links", () => {
   assert.equal(PAGES.length, 31);
   assert.equal(new Set(PAGES.map(p => p.slug)).size, PAGES.length);

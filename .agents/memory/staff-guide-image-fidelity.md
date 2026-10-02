@@ -21,6 +21,12 @@ Use generic illustrated examples, clearly labelled as such, rather than publishi
 
 **How to apply:** Check image contents independently of the guide's access controls; static image URLs can be read without signing in.
 
+The learner sign-in setup guide is for student accounts only. Do not include a staff login sheet link.
+
+**Why:** The user says staff already have their own logins and requested only the student login sheet in this guide.
+
+**How to apply:** Keep student onboarding separate from staff accounts when editing the learner setup instructions or illustrations.
+
 The staff Help button and Staff Help Guide link should open the standalone staff guide in a new tab, rather than the portal's illustrated React help pages.
 
 **Why:** The user explicitly requested the previous guide and new-tab behaviour.
