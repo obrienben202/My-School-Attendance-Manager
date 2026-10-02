@@ -20,10 +20,11 @@ export function CompletionMonitor({ reviews }: { reviews: TermlyIlpReviewSummary
     </div>
     <p className="text-sm">{outstanding.length} outstanding · {selected.filter(r => r.overdue).length} overdue · {selected.filter(r => r.status === "submitted").length} submitted · {selected.filter(r => r.status === "reviewed").length} reviewed</p>
     <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-      <thead><tr><th className="p-2">Learner</th><th className="p-2">Term</th><th className="p-2">Deadline</th><th className="p-2">Status</th><th className="p-2">Setup</th><th className="p-2">Support</th></tr></thead>
+      <thead><tr><th className="p-2">Learner</th><th className="p-2">Year group</th><th className="p-2">Term</th><th className="p-2">Deadline</th><th className="p-2">Status</th><th className="p-2">Setup</th><th className="p-2">Staff</th><th className="p-2">Support</th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.id} className="border-t">
-        <td className="p-2">{r.studentName}</td><td className="p-2">{r.academicYear} Term {r.term}</td><td className="p-2">{r.deadline}</td><td className="p-2"><StatusPill status={r.status} overdue={r.overdue} /></td>
+        <td className="p-2">{r.studentName}</td><td className="p-2">{r.yearGroup || "Not recorded"}</td><td className="p-2">{r.academicYear} Term {r.term}</td><td className="p-2">{r.deadline}</td><td className="p-2"><StatusPill status={r.status} overdue={r.overdue} /></td>
         <td className="p-2">{!r.accountLinked && <p>Awaiting account setup</p>}{!r.tutorAssigned && <p>Awaiting RG teacher</p>}{r.accountLinked && r.tutorAssigned && "Ready"}</td>
+        <td className="p-2"><Link className="inline-flex rounded-md border px-3 py-1 font-medium text-teal-800" href={`/termly-ilps/staff?reviewId=${r.id}`}>Staff comments</Link></td>
         <td className="p-2"><Link className="underline" href={`/termly-ilps/review/${r.id}`}>Open with support reason</Link></td>
       </tr>)}</tbody>
     </table>{rows.length === 0 && <p className="p-2 text-sm">No reviews match these filters.</p>}</div>

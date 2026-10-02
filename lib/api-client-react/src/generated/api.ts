@@ -98,6 +98,9 @@ import type {
   TermlyIlpFeed,
   TermlyIlpReview,
   TermlyIlpReviewCommand,
+  TermlyIlpStaffComment,
+  TermlyIlpStaffCommentInput,
+  TermlyIlpStaffFeed,
   UploadUrlRequest,
   UploadUrlResponse,
   UserDirectorySyncResult
@@ -5605,6 +5608,143 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getMaintainTermlyIlpsMutationOptions(options));
+    }
+
+export const getGetTermlyIlpStaffFeedUrl = () => {
+
+
+
+
+  return `/api/termly-ilps/staff`
+}
+
+export const getTermlyIlpStaffFeed = async ( options?: RequestInit): Promise<TermlyIlpStaffFeed> => {
+
+  return customFetch<TermlyIlpStaffFeed>(getGetTermlyIlpStaffFeedUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTermlyIlpStaffFeedQueryKey = () => {
+    return [
+    `/api/termly-ilps/staff`
+    ] as const;
+    }
+
+
+export const getGetTermlyIlpStaffFeedQueryOptions = <TData = Awaited<ReturnType<typeof getTermlyIlpStaffFeed>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpStaffFeed>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTermlyIlpStaffFeedQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTermlyIlpStaffFeed>>> = ({ signal }) => getTermlyIlpStaffFeed({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpStaffFeed>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTermlyIlpStaffFeedQueryResult = NonNullable<Awaited<ReturnType<typeof getTermlyIlpStaffFeed>>>
+export type GetTermlyIlpStaffFeedQueryError = ErrorType<void>
+
+
+
+export function useGetTermlyIlpStaffFeed<TData = Awaited<ReturnType<typeof getTermlyIlpStaffFeed>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpStaffFeed>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTermlyIlpStaffFeedQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAddTermlyIlpStaffCommentUrl = (id: number,) => {
+
+
+
+
+  return `/api/termly-ilps/reviews/${id}/staff-comments`
+}
+
+export const addTermlyIlpStaffComment = async (id: number,
+    termlyIlpStaffCommentInput: TermlyIlpStaffCommentInput, options?: RequestInit): Promise<TermlyIlpStaffComment> => {
+
+  return customFetch<TermlyIlpStaffComment>(getAddTermlyIlpStaffCommentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      termlyIlpStaffCommentInput,)
+  }
+);}
+
+
+
+
+export const getAddTermlyIlpStaffCommentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTermlyIlpStaffComment>>, TError,{id: number;data: BodyType<TermlyIlpStaffCommentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addTermlyIlpStaffComment>>, TError,{id: number;data: BodyType<TermlyIlpStaffCommentInput>}, TContext> => {
+
+const mutationKey = ['addTermlyIlpStaffComment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addTermlyIlpStaffComment>>, {id: number;data: BodyType<TermlyIlpStaffCommentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addTermlyIlpStaffComment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddTermlyIlpStaffCommentMutationResult = NonNullable<Awaited<ReturnType<typeof addTermlyIlpStaffComment>>>
+    export type AddTermlyIlpStaffCommentMutationBody = BodyType<TermlyIlpStaffCommentInput>
+    export type AddTermlyIlpStaffCommentMutationError = ErrorType<void>
+
+    export const useAddTermlyIlpStaffComment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTermlyIlpStaffComment>>, TError,{id: number;data: BodyType<TermlyIlpStaffCommentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addTermlyIlpStaffComment>>,
+        TError,
+        {id: number;data: BodyType<TermlyIlpStaffCommentInput>},
+        TContext
+      > => {
+      return useMutation(getAddTermlyIlpStaffCommentMutationOptions(options));
     }
 
 export const getGetTermlyIlpReviewUrl = (id: number,

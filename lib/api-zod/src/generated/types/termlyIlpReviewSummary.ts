@@ -11,6 +11,8 @@ export interface TermlyIlpReviewSummary {
   id: number;
   studentId: number;
   studentName: string;
+  /** @nullable */
+  yearGroup?: string | null;
   termId: number;
   templateId: number;
   status: TermlyIlpReviewSummaryStatus;

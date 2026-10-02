@@ -1903,6 +1903,42 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TermlyIlpCommandResult" }
+  /termly-ilps/staff:
+    get:
+      operationId: getTermlyIlpStaffFeed
+      tags: [ilps]
+      responses:
+        "200":
+          description: School staff review summaries and separate staff comments, without private learner answers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpStaffFeed" }
+        "403":
+          description: School staff access required
+  /termly-ilps/reviews/{id}/staff-comments:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    post:
+      operationId: addTermlyIlpStaffComment
+      tags: [ilps]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TermlyIlpStaffCommentInput" }
+      responses:
+        "200":
+          description: Persisted staff comment with server-verified author
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpStaffComment" }
+        "403":
+          description: School staff access required
+        "404":
+          description: Confirmed learner review not found
   /termly-ilps/reviews/{id}:
     parameters:
       - name: id
@@ -2041,6 +2077,7 @@ components:
         id: { type: integer }
         studentId: { type: integer }
         studentName: { type: string }
+        yearGroup: { type: ["string", "null"] }
         termId: { type: integer }
         templateId: { type: integer }
         status: { type: string, enum: [not_started, draft, submitted, reviewed, returned] }
@@ -2053,6 +2090,36 @@ components:
         accountLinked: { type: boolean }
         tutorAssigned: { type: boolean }
         overdue: { type: boolean }
+    TermlyIlpStaffComment:
+      type: object
+      required: [actorId, authorName, createdAt, text]
+      properties:
+        actorId: { type: string }
+        authorName: { type: string }
+        createdAt: { type: string }
+        text: { type: string }
+    TermlyIlpStaffCommentInput:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 5000 }
+    TermlyIlpStaffReview:
+      allOf:
+        - { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
+        - type: object
+          required: [comments]
+          properties:
+            comments:
+              type: array
+              items: { $ref: "#/components/schemas/TermlyIlpStaffComment" }
+    TermlyIlpStaffFeed:
+      type: object
+      required: [reviews]
+      properties:
+        reviews:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpStaffReview" }
     TermlyIlpReview:
       allOf:
         - { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
@@ -2111,6 +2178,7 @@ components:
               studentId: { type: integer }
               personCode: { type: string }
               studentName: { type: string }
+              yearGroup: { type: ["string", "null"] }
               learnerUserId: { type: [string, "null"] }
               tutorUserId: { type: [string, "null"] }
         users:

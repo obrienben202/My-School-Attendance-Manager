@@ -1634,6 +1634,7 @@ export const GetTermlyIlpFeedResponse = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
   "studentName": zod.string(),
+  "yearGroup": zod.string().nullish(),
   "termId": zod.number(),
   "templateId": zod.number(),
   "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
@@ -1692,6 +1693,7 @@ export const GetTermlyIlpAdminResponse = zod.object({
   "studentId": zod.number(),
   "personCode": zod.string(),
   "studentName": zod.string(),
+  "yearGroup": zod.string().nullish(),
   "learnerUserId": zod.string().nullable(),
   "tutorUserId": zod.string().nullable()
 })),
@@ -1705,6 +1707,7 @@ export const GetTermlyIlpAdminResponse = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
   "studentName": zod.string(),
+  "yearGroup": zod.string().nullish(),
   "termId": zod.number(),
   "templateId": zod.number(),
   "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
@@ -1767,6 +1770,55 @@ export const MaintainTermlyIlpsResponse = zod.object({
 })
 
 
+export const GetTermlyIlpStaffFeedResponse = zod.object({
+  "reviews": zod.array(zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "studentName": zod.string(),
+  "yearGroup": zod.string().nullish(),
+  "termId": zod.number(),
+  "templateId": zod.number(),
+  "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
+  "revision": zod.number(),
+  "academicYear": zod.string(),
+  "term": zod.number(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "deadline": zod.string(),
+  "accountLinked": zod.boolean(),
+  "tutorAssigned": zod.boolean(),
+  "overdue": zod.boolean()
+}).and(zod.object({
+  "comments": zod.array(zod.object({
+  "actorId": zod.string(),
+  "authorName": zod.string(),
+  "createdAt": zod.string(),
+  "text": zod.string()
+}))
+})))
+})
+
+
+export const AddTermlyIlpStaffCommentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const addTermlyIlpStaffCommentBodyTextMax = 5000;
+
+
+
+export const AddTermlyIlpStaffCommentBody = zod.object({
+  "text": zod.string().min(1).max(addTermlyIlpStaffCommentBodyTextMax)
+})
+
+export const AddTermlyIlpStaffCommentResponse = zod.object({
+  "actorId": zod.string(),
+  "authorName": zod.string(),
+  "createdAt": zod.string(),
+  "text": zod.string()
+})
+
+
 export const GetTermlyIlpReviewParams = zod.object({
   "id": zod.coerce.number()
 })
@@ -1780,6 +1832,7 @@ export const GetTermlyIlpReviewResponse = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
   "studentName": zod.string(),
+  "yearGroup": zod.string().nullish(),
   "termId": zod.number(),
   "templateId": zod.number(),
   "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
@@ -1851,6 +1904,7 @@ export const GetTermlyIlpReviewResponse = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
   "studentName": zod.string(),
+  "yearGroup": zod.string().nullish(),
   "termId": zod.number(),
   "templateId": zod.number(),
   "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
@@ -1922,6 +1976,7 @@ export const ActOnTermlyIlpReviewResponse = zod.object({
   "id": zod.number(),
   "studentId": zod.number(),
   "studentName": zod.string(),
+  "yearGroup": zod.string().nullish(),
   "termId": zod.number(),
   "templateId": zod.number(),
   "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),

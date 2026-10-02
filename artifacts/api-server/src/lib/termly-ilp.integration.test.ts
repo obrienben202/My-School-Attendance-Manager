@@ -69,7 +69,7 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
     const tutor = cookies.get("tutor")!;
     const other = cookies.get("other")!;
     for (let i = 1; i <= 2; i++) {
-      const [student] = await db.insert(studentsTable).values({ personCode: `${prefix}-person-${i}`, forename: "Synthetic", surname: `Fixture ${i}`, confirmedLearner: true }).returning();
+      const [student] = await db.insert(studentsTable).values({ personCode: `${prefix}-person-${i}`, forename: "Synthetic", surname: `Fixture ${i}`, yearGroup: `Year ${i + 6}`, confirmedLearner: true }).returning();
       studentIds.push(student.id);
       assert.equal((await request("/termly-ilps/admin", admin, "POST", { action: "assign", personCode: student.personCode, learnerUserId: uid(i === 1 ? "learner1" : "learner2"), tutorUserId: uid("tutor") })).status, 200);
     }
@@ -126,6 +126,35 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
     assert.equal(reviewed.status, "reviewed");
     assert.equal(reviewed.reviewDate, "2026-10-02");
     assert.equal(reviewed.history.length, 5);
+    // Any school staff member can append separate notes without gaining access
+    // to private learner work or overwriting the assigned teacher's review.
+    assert.equal((await request("/termly-ilps/staff", "")).status, 401);
+    assert.equal((await request("/termly-ilps/staff", learner)).status, 403);
+    assert.equal((await request(`/termly-ilps/reviews/${r1.id}/staff-comments`, learner, "POST", { text: "Not allowed" })).status, 403);
+    assert.equal((await request(`/termly-ilps/reviews/${r1.id}/staff-comments`, other, "POST", { text: " " })).status, 400);
+    assert.equal((await request(`/termly-ilps/reviews/${r1.id}/staff-comments`, other, "POST", { text: "x".repeat(5001) })).status, 400);
+    for (const name of ["admin", "hod", "tutor", "other", "office"]) {
+      const feed = await request("/termly-ilps/staff", cookies.get(name)!);
+      assert.equal(feed.status, 200, name);
+      const row = feed.data.reviews.find((r: { id: number }) => r.id === r1.id);
+      assert.equal(row.yearGroup, "Year 7");
+      for (const field of ["work", "teacherComment", "history", "reviewDate"]) assert.equal(field in row, false);
+    }
+    const note = await request(`/termly-ilps/reviews/${r1.id}/staff-comments`, other, "POST", { text: "  Staff observation  ", actorId: uid("admin"), authorName: "Forged author" });
+    assert.equal(note.status, 200);
+    assert.equal(note.data.actorId, uid("other"));
+    assert.equal(note.data.text, "Staff observation");
+    const parallelNotes = await Promise.all(["hod", "office"].map(name =>
+      request(`/termly-ilps/reviews/${r1.id}/staff-comments`, cookies.get(name)!, "POST", { text: `${name} observation` })));
+    assert.ok(parallelNotes.every(response => response.status === 200));
+    const staffRow = (await request("/termly-ilps/staff", other)).data.reviews.find((r: { id: number }) => r.id === r1.id);
+    assert.equal(staffRow.comments.length, 3);
+    assert.deepEqual(new Set(staffRow.comments.map((c: { text: string }) => c.text)), new Set(["Staff observation", "hod observation", "office observation"]));
+    assert.equal((await request(`/termly-ilps/reviews/${r1.id}`, cookies.get("office")!)).status, 403);
+    assert.deepEqual((await request(`/termly-ilps/reviews/${r1.id}`, learner)).data.review, reviewed);
+    const monitored = (await request("/termly-ilps/admin", admin)).data;
+    assert.equal(monitored.reviews.find((r: { id: number }) => r.id === r2.id).yearGroup, "Year 8");
+    assert.equal(monitored.learners.find((l: { studentId: number }) => l.studentId === studentIds[0]).yearGroup, "Year 7");
     // Logout invalidates the old cookie, sign back in through the real route.
     await request("/logout", learner, "POST");
     assert.equal((await request("/termly-ilps", learner)).status, 401);

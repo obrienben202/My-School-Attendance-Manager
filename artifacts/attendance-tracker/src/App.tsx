@@ -47,6 +47,7 @@ import IlpAssigned from "@/pages/ilp-admin/assigned";
 import IlpLearners from "@/pages/ilp-admin/learners";
 import IlpHeaders from "@/pages/ilp-admin/headers";
 import IlpGroups from "@/pages/ilp-admin/groups";
+import TermlyStaffComments from "@/pages/termly-staff-comments";
 import IlpReviews from "@/pages/ilp-admin/reviews";
 import IlpSections from "@/pages/ilp-admin/sections";
 import EprogressionsHub from "@/pages/eprogressions/index";
@@ -96,6 +97,7 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/learner-ilps"><Redirect to="/" replace /></Route>
+        <Route path="/termly-ilps/staff" component={TermlyStaffComments} />
         <Route path="/termly-ilps/review/:id">{role === "office" ? <NotFound /> : <TermlyReviewPage />}</Route>
         <Route path="/ilp-admin/termly">{role === "admin" ? <IlpAdminTermly /> : <NotFound />}</Route>
         <Route path="/" component={Home} />

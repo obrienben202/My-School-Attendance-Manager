@@ -106,6 +106,8 @@ export interface TermlyIlpReviewSummary {
   id: number;
   studentId: number;
   studentName: string;
+  /** @nullable */
+  yearGroup?: string | null;
   termId: number;
   templateId: number;
   status: TermlyIlpReviewSummaryStatus;
@@ -118,6 +120,29 @@ export interface TermlyIlpReviewSummary {
   accountLinked: boolean;
   tutorAssigned: boolean;
   overdue: boolean;
+}
+
+export interface TermlyIlpStaffComment {
+  actorId: string;
+  authorName: string;
+  createdAt: string;
+  text: string;
+}
+
+export interface TermlyIlpStaffCommentInput {
+  /**
+     * @minLength 1
+     * @maxLength 5000
+     */
+  text: string;
+}
+
+export type TermlyIlpStaffReview = TermlyIlpReviewSummary & {
+  comments: TermlyIlpStaffComment[];
+};
+
+export interface TermlyIlpStaffFeed {
+  reviews: TermlyIlpStaffReview[];
 }
 
 export type TermlyIlpReviewHistoryItem = {
@@ -153,6 +178,8 @@ export type TermlyIlpAdminLearnersItem = {
   studentId: number;
   personCode: string;
   studentName: string;
+  /** @nullable */
+  yearGroup?: string | null;
   /** @nullable */
   learnerUserId: string | null;
   /** @nullable */

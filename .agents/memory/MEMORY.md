@@ -6,3 +6,4 @@
 - [Browser route matching](browser-route-matching.md) — match nested API routes with a pathname regex, not a trailing glob star that stops at a slash.
 - [Self-profile source boundary](self-profile-source-boundary.md) — optional staff details come from the validated school directory by authenticated username, never by name.
 - [PDF question fidelity](pdf-question-fidelity.md) — compare complete discussion bullets, including follow-up clauses; instructional bullets are not extra prompts.
+- [Termly ILP staff comments](termly-ilp-staff-comments.md) — any signed-in school staff may add separate shared comments; this does not grant access to private learner answers.

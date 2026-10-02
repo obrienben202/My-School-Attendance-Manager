@@ -11,6 +11,8 @@ export type TermlyIlpAdminLearnersItem = {
   personCode: string;
   studentName: string;
   /** @nullable */
+  yearGroup?: string | null;
+  /** @nullable */
   learnerUserId: string | null;
   /** @nullable */
   tutorUserId: string | null;

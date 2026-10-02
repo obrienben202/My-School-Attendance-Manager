@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMaintainTermlyIlps } from "@workspace/api-client-react";
 import type { TermlyIlpCommandResult } from "@workspace/api-client-react";
@@ -10,6 +11,7 @@ import { TemplateEditor } from "@/components/termly/template-editor";
 import { PeoplePanel } from "@/components/termly/people-panel";
 import { CompletionMonitor } from "@/components/termly/completion-monitor";
 import { Confirm, Field, ghostBtn, inputCls, primaryBtn } from "@/components/termly/admin-ui";
+import { ILP_YEAR_GROUPS, matchesYearGroup } from "@/components/termly/year-groups";
 
 const TABS = ["Overview", "Templates", "Terms", "People", "Help"] as const;
 type Tab = (typeof TABS)[number];
@@ -20,6 +22,7 @@ export default function IlpAdminTermly() {
   const qc = useQueryClient();
   const mut = useMaintainTermlyIlps();
   const [tab, setTab] = useState<Tab>("Overview");
+  const [yearGroup, setYearGroup] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [form, setForm] = useState({ academicYear: "", term: "1", templateId: "", startDate: "", endDate: "", deadline: "" });
@@ -40,9 +43,12 @@ export default function IlpAdminTermly() {
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { not_started: 0, draft: 0, submitted: 0, reviewed: 0, returned: 0 };
-    q.data?.reviews.forEach((r) => { c[r.status] = (c[r.status] ?? 0) + 1; });
+    q.data?.reviews.filter(r => matchesYearGroup(r.yearGroup, yearGroup)).forEach((r) => { c[r.status] = (c[r.status] ?? 0) + 1; });
     return c;
-  }, [q.data]);
+  }, [q.data, yearGroup]);
+
+  const visibleReviews = q.data?.reviews.filter(r => matchesYearGroup(r.yearGroup, yearGroup)) ?? [];
+  const visibleLearners = q.data?.learners.filter(l => matchesYearGroup(l.yearGroup, yearGroup)) ?? [];
 
   if (role !== "admin") return <p className="p-6 text-sm text-slate-700" data-testid="text-admin-only">Only administrators can maintain termly ILPs.</p>;
 
@@ -57,6 +63,15 @@ export default function IlpAdminTermly() {
       <div className="min-w-0 flex-1 p-4 sm:p-6" data-testid="page-ilp-admin-termly">
         <h1 className="text-xl font-bold text-gray-900">Termly ILPs</h1>
         <p className="mt-0.5 text-sm text-gray-500">Maintain forms, open each term, link accounts and track completion.</p>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="text-sm font-semibold">Year group
+            <select className={`${inputCls} mt-1`} aria-label="Termly ILP year group" data-testid="filter-ilp-year-group" value={yearGroup} onChange={e => setYearGroup(e.target.value)}>
+              <option value="">All year groups</option>
+              {ILP_YEAR_GROUPS.map(year => <option key={year} value={year}>{year}</option>)}
+            </select>
+          </label>
+          <Link className={primaryBtn} data-testid="button-staff-comments" href={`/termly-ilps/staff${yearGroup ? `?yearGroup=${encodeURIComponent(yearGroup)}` : ""}`}>Staff comments</Link>
+        </div>
         <div role="tablist" className="my-4 flex flex-wrap gap-1 border-b border-slate-200">
           {TABS.map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} data-testid={`tab-${t.toLowerCase()}`} onClick={() => setTab(t)} className={`min-h-10 border-b-2 px-4 text-sm font-semibold ${tab === t ? "border-teal-700 text-teal-800" : "border-transparent text-slate-600 hover:text-slate-900"}`}>{t}</button>
@@ -80,14 +95,14 @@ export default function IlpAdminTermly() {
               ))}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3" data-testid="count-missing-accounts"><p className="text-2xl font-bold text-amber-900">{q.data.learners.filter((l) => !l.learnerUserId).length}</p><p className="text-xs text-amber-900">Learners with no linked account</p></div>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3" data-testid="count-missing-tutors"><p className="text-2xl font-bold text-amber-900">{q.data.learners.filter((l) => !l.tutorUserId).length}</p><p className="text-xs text-amber-900">Learners with no RG teacher</p></div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3" data-testid="count-missing-accounts"><p className="text-2xl font-bold text-amber-900">{visibleLearners.filter((l) => !l.learnerUserId).length}</p><p className="text-xs text-amber-900">Learners with no linked account</p></div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3" data-testid="count-missing-tutors"><p className="text-2xl font-bold text-amber-900">{visibleLearners.filter((l) => !l.tutorUserId).length}</p><p className="text-xs text-amber-900">Learners with no RG teacher</p></div>
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" className={ghostBtn} data-testid="button-reconcile" disabled={mut.isPending} onClick={() => run({ action: "reconcile" })}>Create missing reviews for new learners</button>
               {q.data.templates.length === 0 && <button type="button" className={primaryBtn} data-testid="button-seed" disabled={mut.isPending} onClick={() => run({ action: "seed" })}>Seed Terms 1-3</button>}
             </div>
-            <CompletionMonitor reviews={q.data.reviews} />
+            <CompletionMonitor reviews={visibleReviews} />
             <p className="text-sm font-semibold text-slate-800">Terms published</p>
             {q.data.terms.length === 0 ? <p className="text-sm text-slate-600" data-testid="empty-terms">No term has been published yet. Use the Terms tab.</p> : (
               <ul className="text-sm text-slate-700">{q.data.terms.map((t) => <li key={t.id}>{t.academicYear} Term {t.term}: {t.startDate} to {t.endDate}, target date {t.deadline}</li>)}</ul>
@@ -130,7 +145,7 @@ export default function IlpAdminTermly() {
           </div>
         )}
 
-        {q.data && tab === "People" && <PeoplePanel data={q.data} run={run as never} busy={mut.isPending} />}
+        {q.data && tab === "People" && <PeoplePanel data={{ ...q.data, learners: visibleLearners }} run={run as never} busy={mut.isPending} />}
 
         {tab === "Help" && (
           <div className="max-w-2xl space-y-3 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700" data-testid="panel-help">
@@ -141,6 +156,7 @@ export default function IlpAdminTermly() {
               <li>Templates tab: Clone as new draft version for next year, edit, Save template, then Publish version.</li>
               <li>Terms tab: enter year, term, template and dates, select Preview publication, then Publish term.</li>
               <li>Overview tab: watch the counts. ILP Tutor, Reviews is where RG teachers complete or return reviews.</li>
+              <li>Use Year group to narrow monitoring and People to Year 7–11. Staff comments lets any signed-in school staff member add a separate note without opening private learner answers or replacing the RG teacher review.</li>
               <li>Next year: Clone the template if wording changes, then publish Term 1 for the new academic year. Earlier reviews stay as they are.</li>
             </ol>
             <p>The full click-by-click version is in the staff guide.</p>

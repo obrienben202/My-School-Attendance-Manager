@@ -6,6 +6,8 @@ import {
   useGetTermlyIlpAdmin,
   useGetTermlyIlpFeed,
   useGetTermlyIlpReview,
+  getGetTermlyIlpStaffFeedQueryKey,
+  useGetTermlyIlpStaffFeed,
 } from "@workspace/api-client-react";
 
 const request = { cache: "no-store" as RequestCache, headers: { "Cache-Control": "no-store" } };
@@ -24,6 +26,11 @@ export function useTermlyFeed() {
 export function useTermlyAdmin() {
   const who = useIdentity();
   return useGetTermlyIlpAdmin({ request, query: { ...quiet, staleTime: 10000, refetchInterval: 30000, refetchOnWindowFocus: true, queryKey: [...getGetTermlyIlpAdminQueryKey(), who] } });
+}
+
+export function useTermlyStaffFeed() {
+  const who = useIdentity();
+  return useGetTermlyIlpStaffFeed({ request, query: { ...quiet, staleTime: 10000, refetchInterval: 30000, refetchOnWindowFocus: true, queryKey: [...getGetTermlyIlpStaffFeedQueryKey(), who] } });
 }
 
 export function useTermlyReview(id: number, supportReason?: string, enabled = true) {

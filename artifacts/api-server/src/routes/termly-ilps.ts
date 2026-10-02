@@ -8,9 +8,11 @@ import {
   MaintainTermlyIlpsBody, ActOnTermlyIlpReviewBody,
   GetTermlyIlpFeedResponse, GetTermlyIlpAdminResponse, GetTermlyIlpReviewResponse,
   ActOnTermlyIlpReviewResponse, MaintainTermlyIlpsResponse,
+  GetTermlyIlpStaffFeedResponse, AddTermlyIlpStaffCommentBody, AddTermlyIlpStaffCommentResponse,
 } from "@workspace/api-zod";
 import { PDF_ILP_TEMPLATES } from "../lib/ilp-pdf-templates";
 import { calendarDate, validAcademicYear, validateTemplate, validateWork, reviewActionAllowed, TUTOR_ROLES } from "../lib/termly-ilp-rules";
+import { SCHOOL_STAFF_ROLES, canAddStaffComment, staffCommentsFromHistory } from "../lib/termly-staff-comments";
 
 const router = Router();
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -22,7 +24,7 @@ router.use("/termly-ilps", (req, res, next) => {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("Vary", "Cookie");
   if (!req.isAuthenticated()) return res.status(401).json({ error: "Authentication required" });
-  if (!["learner", ...TUTOR_ROLES].includes(req.user.role)) return res.status(403).json({ error: "ILP review access denied" });
+  if (!["learner", ...SCHOOL_STAFF_ROLES].includes(req.user.role)) return res.status(403).json({ error: "ILP review access denied" });
   return next();
 });
 
@@ -42,7 +44,7 @@ async function reconcile(tx: Tx) {
 }
 async function reviewRows() {
   return db.select({
-    review: reviews, term: terms, student: { id: studentsTable.id, forename: studentsTable.forename, surname: studentsTable.surname, confirmed: studentsTable.confirmedLearner },
+    review: reviews, term: terms, student: { id: studentsTable.id, forename: studentsTable.forename, surname: studentsTable.surname, confirmed: studentsTable.confirmedLearner, yearGroup: studentsTable.yearGroup },
     assignment: assignments,
   }).from(reviews)
     .innerJoin(terms, eq(reviews.termId, terms.id))
@@ -53,7 +55,7 @@ async function reviewRows() {
 type JoinedReview = Awaited<ReturnType<typeof reviewRows>>[number];
 function summary(r: JoinedReview, roles: Map<string, string>) {
   return {
-    id: r.review.id, studentId: r.review.studentId, studentName: `${r.student.forename} ${r.student.surname}`,
+    id: r.review.id, studentId: r.review.studentId, studentName: `${r.student.forename} ${r.student.surname}`, yearGroup: r.student.yearGroup,
     termId: r.term.id, templateId: r.review.templateId, status: r.review.status, revision: r.review.revision,
     academicYear: r.term.academicYear, term: r.term.term, startDate: r.term.startDate, endDate: r.term.endDate, deadline: r.term.deadline,
     accountLinked: roles.get(r.assignment?.learnerUserId ?? "") === "learner",
@@ -62,7 +64,7 @@ function summary(r: JoinedReview, roles: Map<string, string>) {
   };
 }
 function fullReview(r: JoinedReview, roles: Map<string, string>) {
-  return { ...summary(r, roles), work: r.review.work, teacherComment: r.review.teacherComment, reviewDate: r.review.reviewDate, history: r.review.history, updatedAt: r.review.updatedAt.toISOString() };
+  return { ...summary(r, roles), work: r.review.work, teacherComment: r.review.teacherComment, reviewDate: r.review.reviewDate, history: r.review.history.filter(event => event.action !== "staff_comment"), updatedAt: r.review.updatedAt.toISOString() };
 }
 async function roleMap() {
   return new Map((await db.select({ id: usersTable.id, role: usersTable.role }).from(usersTable)).map(u => [u.id, u.role]));
@@ -77,6 +79,48 @@ function jsonValidated(res: import("express").Response, schema: { parse: (v: unk
   schema.parse(data);
   return res.json(data);
 }
+
+router.get("/termly-ilps/staff", async (req, res) => {
+  if (!canAddStaffComment(req.user!.role)) return res.status(403).json({ error: "School staff access required" });
+  const users = await db.select({ id: usersTable.id, role: usersTable.role, firstName: usersTable.firstName, lastName: usersTable.lastName, username: usersTable.username }).from(usersTable);
+  const roles = new Map(users.map(user => [user.id, user.role]));
+  const names = new Map(users.map(user => [user.id, [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || "Staff member"]));
+  return jsonValidated(res, GetTermlyIlpStaffFeedResponse, {
+    reviews: (await reviewRows()).filter(row => row.student.confirmed).map(row => ({
+      ...summary(row, roles),
+      comments: staffCommentsFromHistory(row.review.history, names),
+    })),
+  });
+});
+
+router.post("/termly-ilps/reviews/:id/staff-comments", async (req, res) => {
+  if (!canAddStaffComment(req.user!.role)) return res.status(403).json({ error: "School staff access required" });
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid review identity" });
+  const parsed = AddTermlyIlpStaffCommentBody.safeParse(req.body);
+  if (!parsed.success || !parsed.data.text.trim()) return res.status(400).json({ error: "Write a comment of 1–5000 characters" });
+  try {
+    const comment = await db.transaction(async tx => {
+      await maintenanceLock(tx);
+      const [review] = await tx.select().from(reviews).where(eq(reviews.id, id)).for("update");
+      if (!review) fail(404, "Review not found");
+      const [student] = await tx.select({ confirmed: studentsTable.confirmedLearner }).from(studentsTable).where(eq(studentsTable.id, review.studentId));
+      if (!student?.confirmed) fail(404, "Confirmed learner review not found");
+      const [actor] = await tx.select().from(usersTable).where(eq(usersTable.id, req.user!.id));
+      if (!actor || !canAddStaffComment(actor.role)) fail(403, "School staff access required");
+      const event = { action: "staff_comment", actorId: actor.id, at: new Date().toISOString(), comment: parsed.data.text.trim() };
+      // An append-only staff note does not change work, status, teacher comments,
+      // or the work revision. The row lock prevents lost concurrent appends.
+      await tx.update(reviews).set({ history: [...review.history, event] }).where(eq(reviews.id, id));
+      return { actorId: actor.id, authorName: [actor.firstName, actor.lastName].filter(Boolean).join(" ").trim() || actor.username || "Staff member", createdAt: event.at, text: event.comment };
+    });
+    AddTermlyIlpStaffCommentResponse.parse(comment);
+    return res.json(comment);
+  } catch (error) {
+    if (error instanceof IlpError) return res.status(error.status).json({ error: error.message });
+    throw error;
+  }
+});
 
 router.get("/termly-ilps", async (req, res) => {
   const user = req.user!;
@@ -104,7 +148,7 @@ router.get("/termly-ilps/admin", async (req, res) => {
     templates: await db.select().from(templates).orderBy(templates.term, templates.version),
     terms: await db.select().from(terms).orderBy(terms.academicYear, terms.term),
     learners: learners.map(({ student, assignment }) => ({
-      studentId: student.id, personCode: student.personCode, studentName: `${student.forename} ${student.surname}`,
+      studentId: student.id, personCode: student.personCode, studentName: `${student.forename} ${student.surname}`, yearGroup: student.yearGroup,
       learnerUserId: roles.get(assignment?.learnerUserId ?? "") === "learner" ? assignment!.learnerUserId : null,
       tutorUserId: TUTOR_ROLES.includes(roles.get(assignment?.tutorUserId ?? "") ?? "") ? assignment!.tutorUserId : null,
     })),
