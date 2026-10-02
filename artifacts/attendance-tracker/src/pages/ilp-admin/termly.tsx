@@ -21,10 +21,13 @@ export default function IlpAdminTermly() {
   const q = useTermlyAdmin();
   const qc = useQueryClient();
   const mut = useMaintainTermlyIlps();
-  const [tab, setTab] = useState<Tab>("Overview");
+  const [tab, setTab] = useState<Tab>(() => new URLSearchParams(window.location.search).get("tab") === "Templates" ? "Templates" : "Overview");
   const [yearGroup, setYearGroup] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("templateId"));
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  });
   const [form, setForm] = useState({ academicYear: "", term: "1", templateId: "", startDate: "", endDate: "", deadline: "" });
   const [preview, setPreview] = useState<TermlyIlpCommandResult | null>(null);
   const [confirmTerm, setConfirmTerm] = useState(false);

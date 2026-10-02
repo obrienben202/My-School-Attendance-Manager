@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "@workspace/replit-auth-web";
+import { Link } from "wouter";
+import { errorMessage, useTermlyAdmin } from "@/hooks/use-termly";
+import { termlyForms, templateEditorLink } from "@/components/termly/form-associations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,7 +23,6 @@ type Group = {
   name: string;
   filters: FilterDef[];
   learnerCount: number | null;
-  associatedIlps: number;
   createdAt: string | null;
   createdBy: string;
 };
@@ -33,7 +35,6 @@ const INITIAL_GROUPS: Group[] = [7, 8, 9, 10, 11].map(year => ({
   name: `Year ${year}`,
   filters: [{ field: "Year Group", operator: "equals", value: `Year ${year}` }],
   learnerCount: null,
-  associatedIlps: 0,
   createdAt: null,
   createdBy: "IT Admin",
 }));
@@ -42,6 +43,9 @@ const emptyFilter = (): FilterDef => ({ field: "Year Group", operator: "equals",
 
 export default function IlpGroups() {
   const { user } = useAuth();
+  const termly = useTermlyAdmin();
+  const forms = termlyForms(termly.data?.templates ?? []);
+  const associationsKnown = !!termly.data && !termly.isError;
   const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<Group | null>(null);
@@ -61,7 +65,7 @@ export default function IlpGroups() {
   const doCreate = () => {
     setGroups((prev) => [
       ...prev,
-      { id: Date.now(), name: form.name, filters: form.filters, learnerCount: null, associatedIlps: 0, createdAt: new Date().toISOString().split("T")[0], createdBy: [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || user?.username || "Not recorded" },
+      { id: Date.now(), name: form.name, filters: form.filters, learnerCount: null, createdAt: new Date().toISOString().split("T")[0], createdBy: [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || user?.username || "Not recorded" },
     ]);
     setShowCreate(false);
   };
@@ -72,6 +76,7 @@ export default function IlpGroups() {
   };
 
   const doDelete = () => {
+    if (!associationsKnown || forms.length > 0) return;
     setGroups((prev) => prev.filter((g) => g.id !== showDelete?.id));
     setShowDelete(null);
   };
@@ -149,9 +154,25 @@ export default function IlpGroups() {
                   </td>
                   <td className="px-4 py-2.5 text-xs font-medium">{g.learnerCount ?? "—"}</td>
                   <td className="px-4 py-2.5 text-xs">
-                    <span className={`px-2 py-0.5 rounded font-medium ${g.associatedIlps > 0 ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
-                      {g.associatedIlps}
-                    </span>
+                    {termly.isLoading ? <span>Loading forms…</span> : termly.isError ? (
+                      <div role="alert" className="text-red-700">
+                        <p>{errorMessage(termly.error)}</p>
+                        <button className="underline" onClick={() => termly.refetch()}>Retry</button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1" data-testid={`associated-ilps-${g.id}`}>
+                        <span className="inline-block rounded bg-blue-50 px-2 py-0.5 font-medium text-blue-700">{forms.length} termly form{forms.length === 1 ? "" : "s"}</span>
+                        <ul className="space-y-1">
+                          {forms.map(template => <li key={template.id}>
+                            <Link className="font-medium text-teal-700 underline" href={templateEditorLink(template.id)}>
+                              Term {template.term} ILP · v{template.version}
+                            </Link>
+                            <span className="ml-1 text-gray-500">({template.status})</span>
+                          </li>)}
+                        </ul>
+                        {forms.length === 0 && <Link className="block text-teal-700 underline" href="/ilp-admin/headers">Set up Term 1–3 forms</Link>}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-gray-400 text-xs">{g.createdAt ? new Date(g.createdAt).toLocaleDateString("en-GB") : "—"}</td>
                   <td className="px-4 py-2.5 text-gray-600 text-xs">{g.createdBy}</td>
@@ -163,11 +184,12 @@ export default function IlpGroups() {
                       <DropdownMenuContent align="end" className="text-sm">
                         <DropdownMenuItem onClick={() => openEdit(g)}><Pencil size={13} className="mr-2" /> Edit</DropdownMenuItem>
                         <DropdownMenuItem
-                          className={g.associatedIlps > 0 ? "opacity-40 cursor-not-allowed" : "text-red-600"}
-                          onClick={() => g.associatedIlps === 0 && setShowDelete(g)}
+                          disabled={!associationsKnown || forms.length > 0}
+                          className={forms.length > 0 ? "opacity-40 cursor-not-allowed" : "text-red-600"}
+                          onClick={() => associationsKnown && forms.length === 0 && setShowDelete(g)}
                         >
                           <Trash2 size={13} className="mr-2" />
-                          {g.associatedIlps > 0 ? "Cannot delete (in use)" : "Delete"}
+                          {forms.length > 0 ? "Cannot delete (in use)" : "Delete"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
