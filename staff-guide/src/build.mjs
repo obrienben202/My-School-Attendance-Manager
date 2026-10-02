@@ -3,6 +3,8 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { GROUPS, PAGES as RAW } from "./pages.mjs";
+import { ILLUSTRATIONS, renderIllustration } from "./illustrations.mjs";
+import { mkdirSync } from "node:fs";
 
 const out = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PAGES = [...RAW].sort((a, b) => GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group));
@@ -44,12 +46,20 @@ ${main}
 </html>
 `;
 
+mkdirSync(join(out, "images"), { recursive: true });
+for (const p of PAGES) {
+  if (!ILLUSTRATIONS[p.slug]) throw new Error("no illustration for " + p.slug);
+  writeFileSync(join(out, ILLUSTRATIONS[p.slug].image), renderIllustration(p.slug));
+}
+const figure = (slug) => { const f = ILLUSTRATIONS[slug]; return `<section class="figure-block" aria-labelledby="fig-h"><h2 id="fig-h">What to look for</h2><div class="fig-grid"><figure><a href="${f.image}" target="_blank" rel="noopener noreferrer" class="fig-link" aria-label="Open the larger illustration in a new tab"><img src="${f.image}" alt="${esc(f.alt)}" width="960" loading="lazy"></a><figcaption>${esc(f.caption)} <a href="${f.image}" target="_blank" rel="noopener noreferrer">Enlarge image (opens in a new tab)</a></figcaption></figure><ol class="look">${f.callouts.map((c) => `<li><strong>${c.title}.</strong> ${c.text}</li>`).join("")}</ol></div></section>`; };
+
 PAGES.forEach((p, i) => {
   const prev = PAGES[i - 1], next = PAGES[i + 1];
   const crumbs = `<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="index.html">Staff Guide</a></li><li>${p.group}</li><li aria-current="page">${p.title}</li></ol></nav>`;
   const main = `<article>
 <p class="eyebrow">${p.group}</p>
 <h1>${p.title}</h1>
+${figure(p.slug)}
 ${p.body}
 </article>
 <nav class="pager" aria-label="Previous and next topics">${prev ? `<a class="prev" href="${prev.slug}.html"><small>Previous</small>${prev.title}</a>` : "<span></span>"}${next ? `<a class="next" href="${next.slug}.html"><small>Next</small>${next.title}</a>` : "<span></span>"}</nav>

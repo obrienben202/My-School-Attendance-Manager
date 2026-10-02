@@ -9,6 +9,12 @@ Staff-guide images must show recognisable, current portal controls. Numbered cal
 
 **How to apply:** Compare the relevant current screen or source labels before creating or updating illustrations, especially attendance marking, administration tabs and save controls.
 
+Every separate standalone guide topic must include a relevant labelled image and explanations of what staff should look for. Preserve the images when splitting or restyling the guide.
+
+**Why:** The user repeated the need for pictures after the standalone guide was rebuilt without them.
+
+**How to apply:** Check every reader-facing topic, not just whether image assets exist elsewhere in the app. Images must be readable or enlargeable on phones as well as desktops.
+
 Use generic illustrated examples, clearly labelled as such, rather than publishing live learner, safeguarding or applicant records in static guide assets. Properly anonymised screenshots can also be used when they are verified safe.
 
 **Why:** Training assets must not expose private school records, and an illustration must not be mistaken for a live screenshot.

@@ -72,3 +72,12 @@ article .cards{margin:12px 0}
   .layout{display:block}main{padding:0;max-width:none}article{border:0;padding:0}.crumbs{font-size:10pt}
   a{color:inherit;text-decoration:none}.review-note{border:1px solid #999;background:#fff}
 }
+
+.figure-block{margin:0 0 24px}.figure-block h2{margin-top:0}
+.fig-grid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:20px;align-items:start}
+figure{margin:0}figure img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+figcaption{margin-top:8px;font-size:13px;color:var(--mute)}
+ol.look{margin:0;padding-left:0;list-style:none;counter-reset:l}ol.look li{counter-increment:l;position:relative;padding:0 0 12px 36px}
+ol.look li::before{content:counter(l);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:#c2410c;color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
+@media (max-width:860px){.fig-grid{grid-template-columns:1fr}}
+@media print{figure img{max-width:100%;break-inside:avoid}.fig-grid{grid-template-columns:1fr}figcaption a{display:none}}

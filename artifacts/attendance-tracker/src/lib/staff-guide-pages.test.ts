@@ -37,6 +37,30 @@ test("all original guide subjects have separate readable pages and working local
   }
 });
 
+test("every standalone guide topic includes its own local, accessible and enlargeable visual example", () => {
+  for (const page of PAGES) {
+    const html = read(`${page.slug}.html`);
+    const image = html.match(/<img\b[^>]*\bsrc="([^"]+)"[^>]*>/);
+    assert.ok(image, `${page.slug}: missing picture`);
+    const src = image[1];
+    assert.ok(src.startsWith("images/"), `${page.slug}: use guide-local images`);
+    const target = new URL(src, guide);
+    assert.ok(target.pathname.startsWith(new URL("images/", guide).pathname), page.slug);
+    assert.ok(existsSync(fileURLToPath(target)), `${page.slug}: missing image asset`);
+    assert.match(image[0], /\balt="[^"]{15,}"/, `${page.slug}: describe the illustration`);
+    assert.match(html, /Illustrated example/, `${page.slug}: distinguish the image from a live screenshot`);
+    assert.match(html, /no live learner data/i, `${page.slug}: identify example data`);
+    assert.match(html, /What to look for/i, `${page.slug}: explain the visual labels`);
+    const links = [...html.matchAll(/<a\b[^>]*>/g)].map(match => match[0]);
+    assert.ok(links.some(link => link.includes(`href="${src}"`) && link.includes('target="_blank"') && /noopener/.test(link)), `${page.slug}: allow opening a readable full-size image`);
+    if (src.endsWith(".svg")) {
+      const svg = read(src);
+      assert.match(svg, /<svg\b/, page.slug);
+      assert.doesNotMatch(svg, /<script\b|(?:href|src)=["']https?:\/\//, page.slug);
+    }
+  }
+});
+
 test("guide search finds specific topics, handles no matches and resets; menu and printing work", () => {
   const element = (attributes: Record<string, string> = {}) => ({
     hidden: false, value: "", textContent: "", focused: false,
