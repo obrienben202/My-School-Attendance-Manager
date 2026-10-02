@@ -8,11 +8,12 @@ import {
   UserRound, UsersRound,
 } from "lucide-react";
 import { Link } from "wouter";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { displayAccountEmail } from "@/lib/profile-display";
-import { myTimetableQuery, type PersonalSlot } from "./my-timetable-query";
+import { myTimetableQuery } from "./my-timetable-query";
+import WeeklyPersonalTimetable from "./weekly-personal-timetable";
+import { printTimetable } from "./my-timetable-print";
 
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const recorded = (value: string | null | undefined) => value?.trim() || "Not recorded";
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 const roleLabel = (role: string | undefined) => ({
@@ -50,22 +51,6 @@ function Facts({ items }: { items: { label: string; value?: string | null }[] })
       ))}
     </dl>
   );
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, character => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[character] ?? character));
-}
-
-function printTimetable(name: string, slots: PersonalSlot[]) {
-  const rows = slots.map(slot => `<tr><td>${escapeHtml(slot.day)}</td><td>${escapeHtml(slot.startTime ?? "Not recorded")}–${escapeHtml(slot.endTime ?? "Not recorded")}</td><td>${escapeHtml(slot.description)}</td><td>${escapeHtml(slot.groupLabel ?? "")}</td><td>${escapeHtml(slot.room ?? "")}</td></tr>`).join("");
-  const windowToPrint = window.open("", "_blank", "width=900,height=700");
-  if (!windowToPrint) return;
-  windowToPrint.document.write(`<!doctype html><html><head><title>My timetable</title><style>body{font:14px system-ui,sans-serif;color:#23394a;margin:32px}h1{font-size:22px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #dce6e7}th{background:#e9f5f2}</style></head><body><h1>My timetable</h1><p>${escapeHtml(name)}</p><table><thead><tr><th>Day</th><th>Time</th><th>Session</th><th>Group</th><th>Room</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
-  windowToPrint.document.close();
-  windowToPrint.focus();
-  windowToPrint.print();
 }
 
 export default function MyDetails() {
@@ -246,31 +231,21 @@ export default function MyDetails() {
       </div>
 
       <Dialog open={timetableOpen} onOpenChange={setTimetableOpen}>
-        <DialogContent className="flex max-h-[85dvh] max-w-3xl flex-col overflow-hidden border-[#dce6e7] bg-[#fefefd] p-0 dark:bg-card">
+        <DialogContent className="flex max-h-[85dvh] w-[calc(100vw-1.5rem)] max-w-[1200px] flex-col overflow-hidden border-[#dce6e7] bg-[#fefefd] p-0 dark:border-border dark:bg-card">
           <div className="flex items-center justify-between gap-3 border-b border-[#e8eeee] px-5 py-4 dark:border-border">
             <div>
               <DialogHeader><DialogTitle className="text-lg font-bold text-[#1d3044] dark:text-foreground">My timetable</DialogTitle></DialogHeader>
-              <p className="mt-0.5 text-xs text-[#81909c]">{fullName || "Account"} · Teaching sessions and activities</p>
+              <DialogDescription className="mt-0.5 text-xs text-[#81909c] dark:text-muted-foreground">{fullName || "Account"} · Teaching sessions and activities</DialogDescription>
             </div>
             {!timetableLoading && !timetableError && slots.length > 0 && (
-              <button type="button" onClick={() => printTimetable(fullName, slots)} className="mr-8 inline-flex items-center gap-1.5 rounded-md border border-[#b8d8d2] px-3 py-1.5 text-xs font-semibold text-[#20786f] hover:bg-[#eaf6f2]" data-testid="button-print-timetable"><Printer size={14} /> Print</button>
+              <button type="button" onClick={() => printTimetable(fullName, slots)} className="mr-8 inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#b8d8d2] px-3 py-1.5 text-xs font-semibold text-[#20786f] hover:bg-[#eaf6f2] dark:border-teal-700 dark:text-teal-300 dark:hover:bg-teal-950" data-testid="button-print-timetable"><Printer size={14} /> Print</button>
             )}
           </div>
-          <div className="overflow-auto p-5">
+          <div className="min-h-0 min-w-0 overflow-auto p-3 sm:p-5">
             {timetableLoading ? <div className="space-y-3" aria-label="Loading timetable">{[0, 1, 2].map(index => <div key={index} className="h-10 animate-pulse rounded bg-[#eaf1f2] dark:bg-muted" />)}</div>
               : timetableError ? <div className="py-8 text-center text-sm"><p>Timetable could not be loaded.</p><button type="button" onClick={() => refetchTimetable()} className="mt-2 font-semibold text-[#227e76] hover:underline" data-testid="button-retry-timetable">Try again</button></div>
-                : slots.length === 0 ? <p className="py-10 text-center text-sm text-[#83919e]" data-testid="status-no-timetable">No personal timetable found for your account.</p>
-                  : <div className="space-y-4">{[...days, ...(slots.some(slot => !days.includes(slot.day)) ? ["Unscheduled"] : [])].map(day => {
-                    const daySlots = slots.filter(slot => day === "Unscheduled" ? !days.includes(slot.day) : slot.day === day);
-                    return <div key={day} className="border-b border-[#edf1f1] pb-3 last:border-0 dark:border-border">
-                      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-[#5a7180]">{day}</h3>
-                      {daySlots.length ? daySlots.map(slot => <div key={slot.id} className="mb-1 flex flex-col gap-1 rounded-lg bg-[#f1f8f6] px-3 py-2 text-xs sm:flex-row sm:items-center sm:gap-4 dark:bg-muted" data-testid={`row-timetable-${slot.id}`}>
-                        <span className="shrink-0 font-semibold text-[#287c75]">{slot.startTime ?? "Time not recorded"}{slot.endTime ? `–${slot.endTime}` : ""}</span>
-                        <span className="font-medium text-[#263c4d] dark:text-foreground">{slot.description}</span>
-                        {(slot.groupLabel || slot.room || slot.weekPattern) && <span className="text-[#728391] sm:ml-auto">{[slot.groupLabel, slot.room, slot.weekPattern].filter(Boolean).join(" · ")}</span>}
-                      </div>) : <p className="text-xs text-[#9aa7b0]">No sessions recorded</p>}
-                    </div>;
-                  })}</div>}
+                : slots.length === 0 ? <p className="py-10 text-center text-sm text-[#83919e] dark:text-muted-foreground" data-testid="status-no-timetable">No personal timetable found for your account.</p>
+                  : <WeeklyPersonalTimetable slots={slots} />}
           </div>
         </DialogContent>
       </Dialog>
