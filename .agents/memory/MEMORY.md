@@ -9,3 +9,4 @@
 - [Termly ILP staff comments](termly-ilp-staff-comments.md) — any signed-in school staff may add separate shared comments; this does not grant access to private learner answers.
 - [Termly ILP form associations](termly-ilp-form-associations.md) — year groups list the three termly forms, not individual learner reviews; headers use canonical form metadata.
 - [Personal timetable fidelity](personal-timetable-fidelity.md) — the school grid is a presentation template, never authority to change recorded sessions.
+- [Sessions source scope](sessions-source-scope.md) — the daily Sessions tab is intentionally partial; course omissions are not deletions and Week A/B has no inferred calendar.

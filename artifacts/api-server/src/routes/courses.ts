@@ -140,7 +140,8 @@ router.get("/courses/:id/slots", async (req, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
   if (!await slotCourseAvailable(id, req)) return res.status(404).json({ error: "Course not found" });
-  const slots = await db.select().from(scheduleTable).where(eq(scheduleTable.courseId, id)).orderBy(scheduleTable.day, scheduleTable.startTime);
+  res.set("Cache-Control", "private, no-store");
+  const slots = await db.select().from(scheduleTable).where(and(eq(scheduleTable.courseId, id), eq(scheduleTable.isActive, true))).orderBy(scheduleTable.day, scheduleTable.startTime);
   return res.json(slots);
 });
 

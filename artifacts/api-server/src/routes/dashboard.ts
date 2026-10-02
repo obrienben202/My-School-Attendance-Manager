@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { studentsTable, attendanceTable, targetsTable, ilpsTable, scheduleTable } from "@workspace/db";
-import { eq, count, avg } from "drizzle-orm";
+import { and, eq, count, avg } from "drizzle-orm";
 
 const router = Router();
 
@@ -19,7 +19,7 @@ router.get("/dashboard/summary", async (_req, res) => {
   const [registersResult] = await db
     .select({ total: count() })
     .from(scheduleTable)
-    .where(eq(scheduleTable.registerMarked, false));
+    .where(and(eq(scheduleTable.registerMarked, false), eq(scheduleTable.isActive, true)));
 
   const [avgAttendance] = await db
     .select({ avg: avg(studentsTable.attendancePercent) })

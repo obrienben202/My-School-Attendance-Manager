@@ -15,6 +15,7 @@ export const scheduleTable = pgTable("schedule", {
   registerMarked: boolean("register_marked").notNull().default(false),
   source: text("source"),
   sourceKey: text("source_key"),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

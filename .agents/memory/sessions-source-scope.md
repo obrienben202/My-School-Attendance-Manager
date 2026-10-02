@@ -1,0 +1,10 @@
+---
+name: Sessions source scope
+description: Why missing courses in the daily Sessions source are not timetable deletions, and why alternating weeks have no inferred calendar.
+---
+
+The user maintains the Courses spreadsheet's session tab daily while populating it incrementally. A course absent from that tab, or a blank tab, is not an instruction to clear that course's timetable.
+
+**Why:** The source is intentionally partial, not a complete replacement for the existing school timetable.
+
+**How to apply:** Only a fully validated, nonempty snapshot can take over represented courses. Keep unrepresented course schedules and unrelated manual or personal activities. Week A/B labels must be retained, but the user has not supplied a school-week calendar or term dates; do not invent one or change daily register semantics.

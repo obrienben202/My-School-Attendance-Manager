@@ -152,7 +152,7 @@ export default function HodTimetable() {
     queryKey: ["hod-department-timetable"],
     queryFn: async () => {
       const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const r = await fetch(`${base}/api/hod/department-timetable`, { credentials: "include" });
+      const r = await fetch(`${base}/api/hod/department-timetable`, { credentials: "include", cache: "no-store" });
       if (!r.ok) return [];
       return r.json();
     },

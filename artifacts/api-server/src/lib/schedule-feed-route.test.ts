@@ -3,7 +3,7 @@ import test from "node:test";
 import type { AddressInfo } from "node:net";
 import express from "express";
 import { db, coursesTable, scheduleTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   GetTodayScheduleResponse,
   type AuthUser,
@@ -394,7 +394,7 @@ test("administrator feed reads the actual development schema on repeated request
     .select({ activeCount: sql<number>`count(*)::integer` })
     .from(scheduleTable)
     .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
-    .where(eq(coursesTable.isActive, true));
+    .where(and(eq(coursesTable.isActive, true), eq(scheduleTable.isActive, true)));
   assert.equal((first.body as unknown[]).length, activeCount);
 
   const occurrence = (first.body as Array<{ id: number; occurrenceDate: string }>)[0];

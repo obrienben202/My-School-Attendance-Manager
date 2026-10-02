@@ -176,7 +176,7 @@ export default function AdminSync() {
           {/* Mini summary badges from last run */}
           {status?.lastSummary && !status.running && (
             <div className="flex gap-2 flex-wrap justify-end">
-              {(["users", "courses", "students", "attendance", "kpis"] as const).map(key => {
+              {(["users", "courses", "sessions", "timetable", "students", "attendance", "kpis"] as const).map(key => {
                 const s = status.lastSummary![key];
                 if (!s) return null;
                 return (
@@ -190,6 +190,32 @@ export default function AdminSync() {
           )}
         </CardContent>
       </Card>
+
+      {status?.lastSummary?.sessions && (
+        <Card className={status.lastSummary.sessions.errors.length ? "border-red-500/30" : undefined}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Course Sessions</CardTitle>
+            <CardDescription>
+              “Sessions sheet” tab in the Courses spreadsheet. Only listed courses replace their imported teaching slots;
+              unlisted courses and manual activities stay unchanged. Retired slots retain register history.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p>{status.lastSummary.sessions.inserted} inserted · {status.lastSummary.sessions.updated} updated ·{" "}
+              {status.lastSummary.sessions.unchanged} unchanged · {status.lastSummary.sessions.retired} retired ·{" "}
+              {status.lastSummary.sessions.invalid} invalid · {status.lastSummary.sessions.duplicates} duplicate ·{" "}
+              {status.lastSummary.sessions.unmatched} unmatched</p>
+            {status.lastSummary.sessions.errors.length > 0 && (
+              <>
+                <p className="mt-2 font-medium text-red-500">Sessions were not refreshed. Fix the rows below or restore access, then force sync. Last saved schedules remain available.</p>
+                <ul className="mt-2 list-disc pl-5 space-y-1">
+                  {status.lastSummary.sessions.errors.map((error, index) => <li key={index}>{error}</li>)}
+                </ul>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {status?.lastSummary?.users && (
         <Card className={

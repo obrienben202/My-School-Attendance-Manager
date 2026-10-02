@@ -103,7 +103,7 @@ const databaseScheduleFeedRepository: ScheduleFeedRepository = {
     })
     .from(scheduleTable)
     .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
-    .where(eq(coursesTable.isActive, true))
+    .where(and(eq(coursesTable.isActive, true), eq(scheduleTable.isActive, true)))
     .orderBy(scheduleTable.startTime),
 
   listEnrollments: () => db

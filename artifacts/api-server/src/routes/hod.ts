@@ -13,6 +13,7 @@ function stripTitle(name: string): string {
 
 // GET /hod/department-timetable
 router.get("/hod/department-timetable", async (req, res) => {
+  res.set("Cache-Control", "private, no-store");
   if (!req.isAuthenticated()) return res.status(401).json({ error: "Not authenticated" });
 
   const u = req.user as {
@@ -51,7 +52,7 @@ router.get("/hod/department-timetable", async (req, res) => {
   let rawCourseRows;
   if (role === "admin") {
     rawCourseRows = await courseQuery
-      .where(eq(coursesTable.isActive, true))
+      .where(and(eq(coursesTable.isActive, true), eq(scheduleTable.isActive, true)))
       .orderBy(scheduleTable.day, scheduleTable.startTime);
   } else {
     const fullName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || u?.name || "";
@@ -59,8 +60,8 @@ router.get("/hod/department-timetable", async (req, res) => {
     if (myDept)   conditions.push(ilike(coursesTable.headOfDepartment, `%${myDept}%`));
     if (fullName) conditions.push(ilike(coursesTable.headOfDepartment, `%${fullName}%`));
     rawCourseRows = conditions.length
-      ? await courseQuery.where(and(eq(coursesTable.isActive, true), or(...conditions))).orderBy(scheduleTable.day, scheduleTable.startTime)
-      : await courseQuery.where(eq(coursesTable.isActive, true)).orderBy(scheduleTable.day, scheduleTable.startTime);
+      ? await courseQuery.where(and(eq(coursesTable.isActive, true), eq(scheduleTable.isActive, true), or(...conditions))).orderBy(scheduleTable.day, scheduleTable.startTime)
+      : await courseQuery.where(and(eq(coursesTable.isActive, true), eq(scheduleTable.isActive, true))).orderBy(scheduleTable.day, scheduleTable.startTime);
   }
 
   const courseSlots = rawCourseRows.map(r => ({
@@ -161,7 +162,7 @@ router.get("/staff/my-timetable", async (req, res) => {
       courseCode: coursesTable.code,
     }).from(scheduleTable)
       .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
-      .where(eq(coursesTable.isActive, true)),
+      .where(and(eq(coursesTable.isActive, true), eq(scheduleTable.isActive, true))),
     db.select().from(staffTimetableTable),
   ]);
 

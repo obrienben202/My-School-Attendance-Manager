@@ -39,3 +39,38 @@ test("switching accounts on one query client never shows the previous account's 
     client.clear();
   }
 });
+
+test("visible timetables poll, reopen fetches fresh data and requests bypass cached authenticated responses", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (_input, init) => {
+    assert.equal(init?.cache, "no-store");
+    assert.equal(init?.credentials, "include");
+    calls++;
+    return new Response(JSON.stringify([{ id: calls, description: `version ${calls}` }]));
+  };
+  try {
+    const open = myTimetableQuery("fixture", true);
+    assert.equal(open.refetchInterval, 60_000);
+    assert.equal(open.staleTime, 0);
+    assert.equal(open.refetchIntervalInBackground, false);
+    assert.equal(myTimetableQuery("fixture", false).refetchInterval, false);
+    const observer = new QueryObserver(client, open);
+    const unsubscribe = observer.subscribe(() => {});
+    try {
+      await client.getQueryCache().find({ queryKey: open.queryKey })?.promise;
+      assert.equal(calls, 1);
+      observer.setOptions(myTimetableQuery("fixture", false));
+      observer.setOptions(open);
+      await client.getQueryCache().find({ queryKey: open.queryKey })?.promise;
+      assert.equal(calls, 2);
+      assert.equal(observer.getCurrentResult().data?.[0].id, 2);
+      await observer.refetch(); // same path used by the visible poll
+      assert.equal(observer.getCurrentResult().data?.[0].id, 3);
+    } finally { unsubscribe(); }
+  } finally {
+    globalThis.fetch = originalFetch;
+    client.clear();
+  }
+});

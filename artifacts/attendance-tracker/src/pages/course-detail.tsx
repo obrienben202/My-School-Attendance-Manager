@@ -505,8 +505,8 @@ export default function CourseDetail() {
     queryKey: ["course-slots", id],
     queryFn: async () => {
       const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const r = await fetch(`${base}/api/courses/${id}/slots`, { credentials: "include" });
-      if (!r.ok) return [];
+      const r = await fetch(`${base}/api/courses/${id}/slots`, { credentials: "include", cache: "no-store" });
+      if (!r.ok) throw new Error("Could not load course timetable");
       return r.json();
     },
     enabled: !!id,

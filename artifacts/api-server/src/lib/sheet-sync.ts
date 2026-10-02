@@ -25,12 +25,15 @@ import {
   parseCourseSheetRows,
 } from "./course-sync";
 import {
-  findStaleImportedSlotIds,
   resolveMaintainedTimetable,
   TECHNOLOGY_STAFF_TIMETABLE,
-  TECHNOLOGY_TIMETABLE_SOURCE,
 } from "./timetable-sync";
 import { syncUsersFromDirectory } from "./user-directory";
+import { SESSION_SHEET_SOURCE, SESSION_SHEET_TAB } from "./session-sync";
+import { persistSessionSnapshot } from "./session-sync-store";
+import { refreshSessionSheet } from "./session-sync-stage";
+import { fetchSheet } from "./sheet-reader";
+import { persistMaintainedTimetable } from "./timetable-sync-store";
 
 const ATTENDANCE_SHEET_ID = "1eHSs1LPFM0cgMQQ4YWJQV2d20RSCm7-_xOCAWBfGLPQ";
 const COURSES_SHEET_ID    = "1C_FLnvrEZGpjHKpJ1bHOqt1JeYw07BgtlIDLvQ1aa9M";
@@ -68,17 +71,6 @@ export function getSyncState() {
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
-
-async function fetchSheet(connectors: ReplitConnectors, spreadsheetId: string, sheetName: string): Promise<string[][]> {
-  const range = encodeURIComponent(`'${sheetName}'!A1:Z2000`);
-  const resp = await connectors.proxy(
-    "google-sheet",
-    `/v4/spreadsheets/${spreadsheetId}/values/${range}`,
-    { method: "GET" }
-  );
-  const data = await resp.json() as { values?: string[][] };
-  return data.values ?? [];
-}
 
 function parsePercent(val: string): string {
   return String(parseFloat(val.replace("%", "").trim()) || 0);
@@ -213,58 +205,42 @@ export async function runSync(): Promise<SyncSummary> {
       };
     }
 
-    // 3. Maintained Technology staff timetable — reconcile source-owned course slots.
+    // 3. Validate the complete Sessions snapshot before any schedule writes.
     {
+      const entry = await refreshSessionSheet(
+        () => fetchSheet(connectors, COURSES_SHEET_ID, SESSION_SHEET_TAB, true),
+        () => db.select({
+          id: coursesTable.id, sourceId: coursesTable.sourceId, code: coursesTable.code,
+          room: coursesTable.room, staffName: coursesTable.staffName,
+        }).from(coursesTable).where(eq(coursesTable.isActive, true)),
+        persistSessionSnapshot,
+      );
+      summary["sessions"] = entry;
+      if (entry.errors.length) throw new Error(`Sessions refresh failed; existing schedules retained: ${entry.errors.join("; ")}`);
+    }
+
+    // Legacy source only maintains courses never taken over by Sessions.
+    {
+      const owned = await db.select({ courseId: scheduleTable.courseId }).from(scheduleTable)
+        .where(eq(scheduleTable.source, SESSION_SHEET_SOURCE));
+      const ownedIds = new Set(owned.map(s => s.courseId));
       const courses = await db.select({
         id: coursesTable.id,
         sourceId: coursesTable.sourceId,
         code: coursesTable.code,
         room: coursesTable.room,
       }).from(coursesTable).where(eq(coursesTable.isActive, true));
-      const resolved = resolveMaintainedTimetable(TECHNOLOGY_STAFF_TIMETABLE, courses);
+      const resolved = resolveMaintainedTimetable(
+        TECHNOLOGY_STAFF_TIMETABLE.filter(row => !courses.some(course =>
+          course.sourceId === row.courseSourceId && ownedIds.has(course.id))), courses);
       if (resolved.invalidDayErrors.length > 0) {
         throw new Error(`Maintained timetable weekday validation failed; existing imported slots were left unchanged: ${resolved.invalidDayErrors.join("; ")}`);
       }
-      if (resolved.slots.length === 0) {
+      if (resolved.slots.length === 0 && ownedIds.size === 0) {
         throw new Error("Maintained timetable matched no active courses; existing imported slots were left unchanged");
       }
 
-      let inserted = 0;
-      let updated = 0;
-      let retired = 0;
-
-      await db.transaction(async tx => {
-        const existing = await tx.select({
-          id: scheduleTable.id,
-          source: scheduleTable.source,
-          sourceKey: scheduleTable.sourceKey,
-        }).from(scheduleTable).where(eq(scheduleTable.source, TECHNOLOGY_TIMETABLE_SOURCE));
-        const existingByKey = new Map(
-          existing
-            .filter(slot => slot.sourceKey !== null)
-            .map(slot => [slot.sourceKey as string, slot]),
-        );
-
-        for (const slot of resolved.slots) {
-          const current = existingByKey.get(slot.sourceKey);
-          if (current) {
-            await tx.update(scheduleTable).set(slot).where(eq(scheduleTable.id, current.id));
-            updated++;
-          } else {
-            await tx.insert(scheduleTable).values(slot);
-            inserted++;
-          }
-        }
-
-        const staleIds = findStaleImportedSlotIds(
-          existing,
-          resolved.slots.map(slot => slot.sourceKey),
-        );
-        if (staleIds.length > 0) {
-          await tx.delete(scheduleTable).where(inArray(scheduleTable.id, staleIds));
-          retired = staleIds.length;
-        }
-      });
+      const { inserted, updated, retired } = await persistMaintainedTimetable(resolved.slots);
 
       summary["timetable"] = {
         inserted,

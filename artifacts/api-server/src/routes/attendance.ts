@@ -56,12 +56,32 @@ async function getScheduleAssignment(scheduleId: number) {
       scheduleStaffName: scheduleTable.staffName,
       courseStaffName: coursesTable.staffName,
       scheduleDay: scheduleTable.day,
+      isActive: scheduleTable.isActive,
     })
     .from(scheduleTable)
     .leftJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
     .where(eq(scheduleTable.id, scheduleId))
     .limit(1);
   return assignment;
+}
+
+async function canUseScheduleOccurrence(
+  schedule: NonNullable<Awaited<ReturnType<typeof getScheduleAssignment>>>, date: Date,
+) {
+  if (schedule.isActive && attendanceDateMatchesScheduleDay(date, schedule.scheduleDay)) return true;
+  // Sheet edits may move a lesson to another weekday. Its saved occurrences
+  // remain accessible by their original date, without allowing new registers
+  // on the wrong weekday or new occurrences for retired lessons.
+  const dateOnly = formatAttendanceDateOnly(date);
+  const [registers, marks, audit] = await Promise.all([
+    db.select({ id: attendanceRegistersTable.id }).from(attendanceRegistersTable)
+      .where(and(eq(attendanceRegistersTable.scheduleId, schedule.id), eq(attendanceRegistersTable.date, dateOnly))).limit(1),
+    db.select({ id: attendanceTable.id }).from(attendanceTable)
+      .where(and(eq(attendanceTable.scheduleId, schedule.id), eq(attendanceTable.date, dateOnly))).limit(1),
+    db.select({ id: attendanceRegisterAuditTable.id }).from(attendanceRegisterAuditTable)
+      .where(and(eq(attendanceRegisterAuditTable.scheduleId, schedule.id), eq(attendanceRegisterAuditTable.date, dateOnly))).limit(1),
+  ]);
+  return registers.length + marks.length + audit.length > 0;
 }
 
 async function getEnrolledStudentIds(courseId: number, studentIds: number[]) {
@@ -179,7 +199,7 @@ router.get("/attendance/register/roster", async (req, res) => {
     res.status(404).json({ error: "Schedule session not found" });
     return;
   }
-  if (!attendanceDateMatchesScheduleDay(parsed.data.date, schedule.scheduleDay)) {
+  if (!await canUseScheduleOccurrence(schedule, parsed.data.date)) {
     res.status(400).json({ error: "Attendance date does not match the schedule day" });
     return;
   }
@@ -213,7 +233,7 @@ router.post("/attendance", async (req, res) => {
   if (!schedule || schedule.courseId !== restAttendance.courseId) {
     return res.status(400).json({ error: "Schedule session does not belong to the selected course" });
   }
-  if (!attendanceDateMatchesScheduleDay(date, schedule.scheduleDay)) {
+  if (!await canUseScheduleOccurrence(schedule, date)) {
     return res.status(400).json({ error: "Attendance date does not match the schedule day" });
   }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
@@ -278,7 +298,7 @@ router.post("/attendance/register", async (req, res) => {
 
   const schedule = await getScheduleAssignment(scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
-  if (!attendanceDateMatchesScheduleDay(date, schedule.scheduleDay)) {
+  if (!await canUseScheduleOccurrence(schedule, date)) {
     return res.status(400).json({ error: "Attendance date does not match the schedule day" });
   }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
@@ -383,7 +403,7 @@ router.get("/attendance/register/audit", async (req, res) => {
 
   const schedule = await getScheduleAssignment(parsed.data.scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
-  if (!attendanceDateMatchesScheduleDay(parsed.data.date, schedule.scheduleDay)) {
+  if (!await canUseScheduleOccurrence(schedule, parsed.data.date)) {
     return res.status(400).json({ error: "Attendance date does not match the schedule day" });
   }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
@@ -436,7 +456,7 @@ router.get("/attendance/register/contacts", async (req, res) => {
 
   const schedule = await getScheduleAssignment(parsed.data.scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
-  if (!attendanceDateMatchesScheduleDay(parsed.data.date, schedule.scheduleDay)) {
+  if (!await canUseScheduleOccurrence(schedule, parsed.data.date)) {
     return res.status(400).json({ error: "Attendance date does not match the schedule day" });
   }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
@@ -466,7 +486,7 @@ router.get("/attendance/register/state", async (req, res) => {
 
   const schedule = await getScheduleAssignment(parsed.data.scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
-  if (!attendanceDateMatchesScheduleDay(parsed.data.date, schedule.scheduleDay)) {
+  if (!await canUseScheduleOccurrence(schedule, parsed.data.date)) {
     return res.status(400).json({ error: "Attendance date does not match the schedule day" });
   }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {
@@ -509,7 +529,7 @@ router.post("/attendance/register/reopen", async (req, res) => {
   const { scheduleId, date } = parsed.data;
   const schedule = await getScheduleAssignment(scheduleId);
   if (!schedule) return res.status(404).json({ error: "Schedule session not found" });
-  if (!attendanceDateMatchesScheduleDay(date, schedule.scheduleDay)) {
+  if (!await canUseScheduleOccurrence(schedule, date)) {
     return res.status(400).json({ error: "Attendance date does not match the schedule day" });
   }
   if (!canManageAttendanceSchedule(req.user!, schedule)) {

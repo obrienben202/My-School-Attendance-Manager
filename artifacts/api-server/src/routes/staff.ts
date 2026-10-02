@@ -182,7 +182,7 @@ async function scopedSchedule(source: StaffSource) {
     })
     .from(scheduleTable)
     .innerJoin(coursesTable, eq(scheduleTable.courseId, coursesTable.id))
-    .where(eq(coursesTable.isActive, true))
+    .where(and(eq(coursesTable.isActive, true), eq(scheduleTable.isActive, true)))
     .orderBy(scheduleTable.day, scheduleTable.startTime);
 
   return rows.filter(row => isStaffAssignedToSchedule(source.fullName, row));
