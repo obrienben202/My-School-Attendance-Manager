@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { ChevronDown, CircleHelp, Moon, PanelLeftClose, PanelLeftOpen, Sun, UserCircle, LogOut } from "lucide-react";
 import type { Role } from "@/hooks/use-role";
-import { getHelpPath } from "@/lib/staff-help";
 import { AttentionPopover } from "./attention-popover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -51,7 +50,6 @@ export function TopBar({
   onLogout: () => void;
   mobileNavigation: ReactNode;
 }) {
-  const [location] = useLocation();
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
   const displayName = fullName || user?.username || "My account";
   const initials = (fullName
@@ -90,9 +88,9 @@ export function TopBar({
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
         {role !== "learner" ? (
-          <Link href={getHelpPath(location, role)} aria-label="Help" title="Help" data-testid="button-help" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted">
+          <a href={`${import.meta.env.BASE_URL}staff-guide/index.html`} target="_blank" rel="noopener noreferrer" aria-label="Help (opens in a new tab)" title="Help (opens in a new tab)" data-testid="button-help" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-muted">
             <CircleHelp className="h-4 w-4" />
-          </Link>
+          </a>
         ) : (
         <Popover>
           <PopoverTrigger asChild>

@@ -51,6 +51,7 @@ type SidebarItem = {
   icon: React.ElementType;
   label: string;
   href: string;
+  newTab?: boolean;
   color?: string;
   roles?: Role[];
 };
@@ -72,12 +73,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
     heading: "",
     items: [
       { icon: Home, label: "Dashboard", href: "/" },
-    ],
-  },
-  {
-    heading: "",
-    items: [
-      { icon: CircleHelp, label: "Staff Help Guide", href: "/help", roles: ALL_ROLES },
+      { icon: CircleHelp, label: "Staff Help Guide", href: "/staff-guide/index.html", newTab: true, roles: ALL_ROLES },
     ],
   },
   {
@@ -334,6 +330,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <SheetClose asChild>
                     <Link
                       href={item.href}
+                      target={item.newTab ? "_blank" : undefined}
+                      rel={item.newTab ? "noopener noreferrer" : undefined}
                       className={cn(
                          "flex items-start gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-snug transition-colors",
                         isActive(item.href)
@@ -350,6 +348,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 ) : (
                   <Link
                     href={item.href}
+                    target={item.newTab ? "_blank" : undefined}
+                    rel={item.newTab ? "noopener noreferrer" : undefined}
                      title={sidebarCollapsed ? item.label : undefined}
                      aria-label={sidebarCollapsed ? item.label : undefined}
                     className={cn(

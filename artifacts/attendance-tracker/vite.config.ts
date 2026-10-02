@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import { readFileSync } from "node:fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT;
@@ -29,6 +30,30 @@ if (!basePath) {
 export default defineConfig({
   base: basePath,
   plugins: [
+    {
+      name: "original-staff-guide",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const guideUrl = `${basePath.replace(/\/?$/, "/")}staff-guide/index.html`;
+          if (req.url?.split("?")[0] !== guideUrl) return next();
+          try {
+            const html = readFileSync(path.resolve(import.meta.dirname, "../../staff-guide/index.html"), "utf8");
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.setHeader("Cache-Control", "no-store");
+            res.end(html);
+          } catch (error) {
+            next(error);
+          }
+        });
+      },
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: "staff-guide/index.html",
+          source: readFileSync(path.resolve(import.meta.dirname, "../../staff-guide/index.html"), "utf8"),
+        });
+      },
+    },
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),

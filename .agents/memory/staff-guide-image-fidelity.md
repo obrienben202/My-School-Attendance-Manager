@@ -14,3 +14,9 @@ Use generic illustrated examples, clearly labelled as such, rather than publishi
 **Why:** Training assets must not expose private school records, and an illustration must not be mistaken for a live screenshot.
 
 **How to apply:** Check image contents independently of the guide's access controls; static image URLs can be read without signing in.
+
+The staff Help button and Staff Help Guide link should open the original guide in a new tab, showing what staff had before the separate illustrated-topic pages.
+
+**Why:** The user explicitly requested the previous guide and new-tab behaviour.
+
+**How to apply:** Preserve the original guide's contents when changing how it is opened. Do not replace these entry points with the illustrated topic pages unless the user asks.
