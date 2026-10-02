@@ -12,7 +12,7 @@ export type CurrentUserRecord = {
 };
 
 export function userToAuthUser(user: CurrentUserRecord): AuthUser {
-  const validRoles: AuthUser["role"][] = ["admin", "hod", "staff", "office"];
+  const validRoles: AuthUser["role"][] = ["admin", "hod", "staff", "office", "learner"];
   if (!validRoles.includes(user.role as AuthUser["role"])) {
     throw new Error(`Stored user has unsupported role "${user.role}"`);
   }
@@ -33,5 +33,6 @@ export function resolveCurrentSessionUser(
   _sessionSnapshot: AuthUser,
   currentUser: CurrentUserRecord | null,
 ): AuthUser | null {
-  return currentUser ? userToAuthUser(currentUser) : null;
+  if (!currentUser || !["admin", "hod", "staff", "office", "learner"].includes(currentUser.role)) return null;
+  return userToAuthUser(currentUser);
 }

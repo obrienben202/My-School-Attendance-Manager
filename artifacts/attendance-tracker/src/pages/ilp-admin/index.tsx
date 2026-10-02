@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { ClipboardList, Users, FileText, Layers, Star, BookOpen, Layout } from "lucide-react";
+import { ClipboardList, Users, FileText, Layers, Star, BookOpen } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -31,18 +31,11 @@ const SECTIONS = [
     color: "bg-violet-50 border-violet-200 text-violet-700",
   },
   {
-    label: "Reviews",
+    label: "Termly ILPs",
     icon: Star,
-    href: "/ilp-admin/reviews",
-    description: "Create and manage ILP reviews with configurable questions and sections for structured learner reviews.",
+    href: "/ilp-admin/termly",
+    description: "Edit termly learner review forms, publish terms, link learner accounts, assign RG teachers and monitor completion.",
     color: "bg-amber-50 border-amber-200 text-amber-700",
-  },
-  {
-    label: "Sections",
-    icon: Layout,
-    href: "/ilp-admin/sections",
-    description: "Manage the sections within ILP reviews. Edit section titles and ordering across all review types.",
-    color: "bg-rose-50 border-rose-200 text-rose-700",
   },
 ];
 

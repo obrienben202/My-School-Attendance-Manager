@@ -118,8 +118,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       { icon: Users, label: "Manage Learner ILPs", href: "/ilp-admin/learners" },
       { icon: FileText, label: "Headers", href: "/ilp-admin/headers" },
       { icon: Layers, label: "Groups", href: "/ilp-admin/groups" },
-      { icon: Star, label: "Reviews", href: "/ilp-admin/reviews" },
-      { icon: ClipboardCheck, label: "Sections", href: "/ilp-admin/sections" },
+      { icon: Star, label: "Termly ILPs", href: "/ilp-admin/termly", roles: ADMIN_ONLY },
     ],
   },
   {
@@ -233,7 +232,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col items-center gap-3">
             <div className="w-14 h-14 bg-blue-500 rounded-xl flex items-center justify-center font-bold text-white text-2xl shadow-lg">AT</div>
             <div className="text-center">
-              <h1 className="text-xl font-bold text-white">Staff Portal</h1>
+              <h1 className="text-xl font-bold text-white">School Portal</h1>
               <p className="text-sm text-slate-400 mt-1">Sign in with your school username</p>
             </div>
           </div>
@@ -278,6 +277,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           </form>
         </div>
+      </div>
+    );
+  }
+
+  if (role === "learner") {
+    const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "Learner";
+    return (
+      <div className="min-h-[100dvh] bg-[#f4f7f6]">
+        <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-border bg-card px-4 sm:px-8" data-testid="learner-header">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#458980] text-[11px] font-bold text-white">AT</div>
+          <Link href="/learner-ilps" className="min-w-0 flex-1 truncate text-sm font-bold tracking-tight">My termly reviews</Link>
+          <span className="hidden truncate text-xs text-muted-foreground sm:block" data-testid="text-learner-name">{name}</span>
+          <button type="button" onClick={logout} data-testid="button-learner-logout" className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm hover:bg-muted">
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
+        </header>
+        <main className="p-4 sm:px-8">{children}</main>
       </div>
     );
   }

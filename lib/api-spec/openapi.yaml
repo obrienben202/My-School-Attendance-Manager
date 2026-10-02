@@ -1869,6 +1869,73 @@ paths:
         "404":
           description: Staff member not found
 
+  /termly-ilps:
+    get:
+      operationId: getTermlyIlpFeed
+      tags: [ilps]
+      responses:
+        "200":
+          description: Only the current learner or assigned tutor's reviews
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpFeed" }
+  /termly-ilps/admin:
+    get:
+      operationId: getTermlyIlpAdmin
+      tags: [ilps]
+      responses:
+        "200":
+          description: Administrator setup and completion monitoring without private answers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpAdmin" }
+    post:
+      operationId: maintainTermlyIlps
+      tags: [ilps]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TermlyIlpAdminCommand" }
+      responses:
+        "200":
+          description: Persisted maintenance result or publication preview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpCommandResult" }
+  /termly-ilps/reviews/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      operationId: getTermlyIlpReview
+      tags: [ilps]
+      parameters:
+        - name: supportReason
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Scoped review and earlier term summaries; admin support access is audited
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpDetail" }
+    post:
+      operationId: actOnTermlyIlpReview
+      tags: [ilps]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TermlyIlpReviewCommand" }
+      responses:
+        "200":
+          description: Successfully persisted review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpReview" }
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -1886,6 +1953,215 @@ components:
       schema:
         type: string
   schemas:
+    TermlyIlpTemplateContent:
+      type: object
+      required: [title, welcome, instructions, endGuidance, targetExamples, sections]
+      properties:
+        title: { type: string }
+        welcome: { type: string }
+        instructions: { type: string }
+        endGuidance: { type: string }
+        targetExamples:
+          type: object
+          required: [academic, personal, future]
+          properties:
+            academic: { type: string }
+            personal: { type: string }
+            future: { type: string }
+        sections:
+          type: array
+          items:
+            type: object
+            required: [id, title, instructions, questions]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              instructions: { type: string }
+              questions:
+                type: array
+                items:
+                  type: object
+                  required: [id, prompt, required]
+                  properties:
+                    id: { type: string }
+                    prompt: { type: string }
+                    required: { type: boolean }
+    TermlyIlpTemplate:
+      type: object
+      required: [id, term, version, revision, status, content]
+      properties:
+        id: { type: integer }
+        term: { type: integer }
+        version: { type: integer }
+        revision: { type: integer }
+        status: { type: string, enum: [draft, published] }
+        content: { $ref: "#/components/schemas/TermlyIlpTemplateContent" }
+    TermlyIlpTerm:
+      type: object
+      required: [id, academicYear, term, templateId, startDate, endDate, deadline]
+      properties:
+        id: { type: integer }
+        academicYear: { type: string }
+        term: { type: integer }
+        templateId: { type: integer }
+        startDate: { type: string }
+        endDate: { type: string }
+        deadline: { type: string }
+    TermlyIlpWork:
+      type: object
+      required: [answers, summary, targets, priorTargetUpdates]
+      properties:
+        answers:
+          type: object
+          additionalProperties: { type: string }
+        summary: { type: string }
+        targets:
+          type: array
+          items:
+            type: object
+            required: [category, description, steps, progress, completed]
+            properties:
+              category: { type: string, enum: [academic, personal, future] }
+              description: { type: string }
+              steps: { type: string }
+              progress: { type: string }
+              completed: { type: boolean }
+        priorTargetUpdates:
+          type: object
+          additionalProperties:
+            type: object
+            required: [progress, completed]
+            properties:
+              progress: { type: string }
+              completed: { type: boolean }
+    TermlyIlpReviewSummary:
+      type: object
+      required: [id, studentId, studentName, termId, templateId, status, revision, academicYear, term, startDate, endDate, deadline, accountLinked, tutorAssigned, overdue]
+      properties:
+        id: { type: integer }
+        studentId: { type: integer }
+        studentName: { type: string }
+        termId: { type: integer }
+        templateId: { type: integer }
+        status: { type: string, enum: [not_started, draft, submitted, reviewed, returned] }
+        revision: { type: integer }
+        academicYear: { type: string }
+        term: { type: integer }
+        startDate: { type: string }
+        endDate: { type: string }
+        deadline: { type: string }
+        accountLinked: { type: boolean }
+        tutorAssigned: { type: boolean }
+        overdue: { type: boolean }
+    TermlyIlpReview:
+      allOf:
+        - { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
+        - type: object
+          required: [work, teacherComment, reviewDate, history, updatedAt]
+          properties:
+            work: { $ref: "#/components/schemas/TermlyIlpWork" }
+            teacherComment: { type: string }
+            reviewDate: { type: [string, "null"] }
+            updatedAt: { type: string }
+            history:
+              type: array
+              items:
+                type: object
+                required: [action, actorId, at]
+                properties:
+                  action: { type: string }
+                  actorId: { type: string }
+                  at: { type: string }
+                  comment: { type: string }
+    TermlyIlpDetail:
+      type: object
+      required: [review, template, previousReviews, supportReadOnly]
+      properties:
+        review: { $ref: "#/components/schemas/TermlyIlpReview" }
+        template: { $ref: "#/components/schemas/TermlyIlpTemplate" }
+        supportReadOnly: { type: boolean }
+        previousReviews:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpReview" }
+    TermlyIlpFeed:
+      type: object
+      required: [linked, guidance, reviews]
+      properties:
+        linked: { type: boolean }
+        guidance: { type: string }
+        reviews:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
+    TermlyIlpAdmin:
+      type: object
+      required: [templates, terms, learners, users, reviews]
+      properties:
+        templates:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpTemplate" }
+        terms:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpTerm" }
+        learners:
+          type: array
+          items:
+            type: object
+            required: [studentId, personCode, studentName, learnerUserId, tutorUserId]
+            properties:
+              studentId: { type: integer }
+              personCode: { type: string }
+              studentName: { type: string }
+              learnerUserId: { type: [string, "null"] }
+              tutorUserId: { type: [string, "null"] }
+        users:
+          type: array
+          items:
+            type: object
+            required: [id, username, role, name]
+            properties:
+              id: { type: string }
+              username: { type: string }
+              role: { type: string }
+              name: { type: string }
+        reviews:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
+    TermlyIlpAdminCommand:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [seed, clone_template, save_template, publish_template, preview_term, publish_term, assign, reconcile] }
+        templateId: { type: integer }
+        revision: { type: integer }
+        content: { $ref: "#/components/schemas/TermlyIlpTemplateContent" }
+        academicYear: { type: string }
+        term: { type: integer }
+        startDate: { type: string }
+        endDate: { type: string }
+        deadline: { type: string }
+        personCode: { type: string }
+        learnerUserId: { type: [string, "null"] }
+        tutorUserId: { type: [string, "null"] }
+    TermlyIlpCommandResult:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        templateId: { type: integer }
+        totalLearners: { type: integer }
+        missingAccounts: { type: integer }
+        missingTutors: { type: integer }
+        existingReviews: { type: integer }
+        newReviews: { type: integer }
+    TermlyIlpReviewCommand:
+      type: object
+      required: [action, revision]
+      properties:
+        action: { type: string, enum: [save, submit, comment, complete, return] }
+        revision: { type: integer }
+        work: { $ref: "#/components/schemas/TermlyIlpWork" }
+        teacherComment: { type: string }
+        reviewDate: { type: [string, "null"] }
     ReportId:
       type: string
       enum:
@@ -1951,7 +2227,7 @@ components:
           type: [string, 'null']
         role:
           type: string
-          enum: [admin, hod, staff, office]
+          enum: [admin, hod, staff, office, learner]
         username:
           type: [string, 'null']
         department:
@@ -2936,7 +3212,7 @@ components:
         lastName: { type: ["string", "null"] }
         email: { type: ["string", "null"], format: email }
         department: { type: ["string", "null"] }
-        role: { type: string, enum: [admin, hod, staff, office] }
+        role: { type: string, enum: [admin, hod, staff, office, learner] }
         phone: { type: ["string", "null"] }
         address: { type: ["string", "null"] }
         postcode: { type: ["string", "null"] }

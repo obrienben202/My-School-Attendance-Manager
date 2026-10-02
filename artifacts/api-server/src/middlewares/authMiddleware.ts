@@ -60,6 +60,12 @@ export async function authMiddleware(
 
   // Sessions contain an intentionally stale snapshot for continuity, but
   // authorization always uses the current database row.
-  req.user = resolveCurrentSessionUser(session.user, currentUser)!;
+  const resolved = resolveCurrentSessionUser(session.user, currentUser);
+  if (!resolved) {
+    await clearSession(res, sid);
+    next();
+    return;
+  }
+  req.user = resolved;
   next();
 }

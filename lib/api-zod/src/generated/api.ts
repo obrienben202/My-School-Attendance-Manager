@@ -1330,7 +1330,7 @@ export const GetCurrentAuthUserResponse = zod.object({
   "firstName": zod.string().nullable(),
   "lastName": zod.string().nullable(),
   "profileImageUrl": zod.string().nullable(),
-  "role": zod.enum(['admin', 'hod', 'staff', 'office']),
+  "role": zod.enum(['admin', 'hod', 'staff', 'office', 'learner']),
   "username": zod.string().nullish(),
   "department": zod.string().nullish()
 }),zod.null()])
@@ -1454,7 +1454,7 @@ export const GetMyProfileResponse = zod.object({
   "lastName": zod.string().nullable(),
   "email": zod.string().email().nullable(),
   "department": zod.string().nullable(),
-  "role": zod.enum(['admin', 'hod', 'staff', 'office']),
+  "role": zod.enum(['admin', 'hod', 'staff', 'office', 'learner']),
   "phone": zod.string().nullable(),
   "address": zod.string().nullable(),
   "postcode": zod.string().nullable(),
@@ -1625,5 +1625,340 @@ export const GetStaffCorrespondenceResponse = zod.object({
   "records": zod.array(zod.unknown()),
   "message": zod.string()
 })
+
+
+export const GetTermlyIlpFeedResponse = zod.object({
+  "linked": zod.boolean(),
+  "guidance": zod.string(),
+  "reviews": zod.array(zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "studentName": zod.string(),
+  "termId": zod.number(),
+  "templateId": zod.number(),
+  "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
+  "revision": zod.number(),
+  "academicYear": zod.string(),
+  "term": zod.number(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "deadline": zod.string(),
+  "accountLinked": zod.boolean(),
+  "tutorAssigned": zod.boolean(),
+  "overdue": zod.boolean()
+}))
+})
+
+
+export const GetTermlyIlpAdminResponse = zod.object({
+  "templates": zod.array(zod.object({
+  "id": zod.number(),
+  "term": zod.number(),
+  "version": zod.number(),
+  "revision": zod.number(),
+  "status": zod.enum(['draft', 'published']),
+  "content": zod.object({
+  "title": zod.string(),
+  "welcome": zod.string(),
+  "instructions": zod.string(),
+  "endGuidance": zod.string(),
+  "targetExamples": zod.object({
+  "academic": zod.string(),
+  "personal": zod.string(),
+  "future": zod.string()
+}),
+  "sections": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "instructions": zod.string(),
+  "questions": zod.array(zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "required": zod.boolean()
+}))
+}))
+})
+})),
+  "terms": zod.array(zod.object({
+  "id": zod.number(),
+  "academicYear": zod.string(),
+  "term": zod.number(),
+  "templateId": zod.number(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "deadline": zod.string()
+})),
+  "learners": zod.array(zod.object({
+  "studentId": zod.number(),
+  "personCode": zod.string(),
+  "studentName": zod.string(),
+  "learnerUserId": zod.string().nullable(),
+  "tutorUserId": zod.string().nullable()
+})),
+  "users": zod.array(zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "role": zod.string(),
+  "name": zod.string()
+})),
+  "reviews": zod.array(zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "studentName": zod.string(),
+  "termId": zod.number(),
+  "templateId": zod.number(),
+  "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
+  "revision": zod.number(),
+  "academicYear": zod.string(),
+  "term": zod.number(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "deadline": zod.string(),
+  "accountLinked": zod.boolean(),
+  "tutorAssigned": zod.boolean(),
+  "overdue": zod.boolean()
+}))
+})
+
+
+export const MaintainTermlyIlpsBody = zod.object({
+  "action": zod.enum(['seed', 'clone_template', 'save_template', 'publish_template', 'preview_term', 'publish_term', 'assign', 'reconcile']),
+  "templateId": zod.number().optional(),
+  "revision": zod.number().optional(),
+  "content": zod.object({
+  "title": zod.string(),
+  "welcome": zod.string(),
+  "instructions": zod.string(),
+  "endGuidance": zod.string(),
+  "targetExamples": zod.object({
+  "academic": zod.string(),
+  "personal": zod.string(),
+  "future": zod.string()
+}),
+  "sections": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "instructions": zod.string(),
+  "questions": zod.array(zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "required": zod.boolean()
+}))
+}))
+}).optional(),
+  "academicYear": zod.string().optional(),
+  "term": zod.number().optional(),
+  "startDate": zod.string().optional(),
+  "endDate": zod.string().optional(),
+  "deadline": zod.string().optional(),
+  "personCode": zod.string().optional(),
+  "learnerUserId": zod.string().nullish(),
+  "tutorUserId": zod.string().nullish()
+})
+
+export const MaintainTermlyIlpsResponse = zod.object({
+  "message": zod.string(),
+  "templateId": zod.number().optional(),
+  "totalLearners": zod.number().optional(),
+  "missingAccounts": zod.number().optional(),
+  "missingTutors": zod.number().optional(),
+  "existingReviews": zod.number().optional(),
+  "newReviews": zod.number().optional()
+})
+
+
+export const GetTermlyIlpReviewParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetTermlyIlpReviewQueryParams = zod.object({
+  "supportReason": zod.coerce.string().optional()
+})
+
+export const GetTermlyIlpReviewResponse = zod.object({
+  "review": zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "studentName": zod.string(),
+  "termId": zod.number(),
+  "templateId": zod.number(),
+  "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
+  "revision": zod.number(),
+  "academicYear": zod.string(),
+  "term": zod.number(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "deadline": zod.string(),
+  "accountLinked": zod.boolean(),
+  "tutorAssigned": zod.boolean(),
+  "overdue": zod.boolean()
+}).and(zod.object({
+  "work": zod.object({
+  "answers": zod.record(zod.string(), zod.string()),
+  "summary": zod.string(),
+  "targets": zod.array(zod.object({
+  "category": zod.enum(['academic', 'personal', 'future']),
+  "description": zod.string(),
+  "steps": zod.string(),
+  "progress": zod.string(),
+  "completed": zod.boolean()
+})),
+  "priorTargetUpdates": zod.record(zod.string(), zod.object({
+  "progress": zod.string(),
+  "completed": zod.boolean()
+}))
+}),
+  "teacherComment": zod.string(),
+  "reviewDate": zod.string().nullable(),
+  "updatedAt": zod.string(),
+  "history": zod.array(zod.object({
+  "action": zod.string(),
+  "actorId": zod.string(),
+  "at": zod.string(),
+  "comment": zod.string().optional()
+}))
+})),
+  "template": zod.object({
+  "id": zod.number(),
+  "term": zod.number(),
+  "version": zod.number(),
+  "revision": zod.number(),
+  "status": zod.enum(['draft', 'published']),
+  "content": zod.object({
+  "title": zod.string(),
+  "welcome": zod.string(),
+  "instructions": zod.string(),
+  "endGuidance": zod.string(),
+  "targetExamples": zod.object({
+  "academic": zod.string(),
+  "personal": zod.string(),
+  "future": zod.string()
+}),
+  "sections": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "instructions": zod.string(),
+  "questions": zod.array(zod.object({
+  "id": zod.string(),
+  "prompt": zod.string(),
+  "required": zod.boolean()
+}))
+}))
+})
+}),
+  "supportReadOnly": zod.boolean(),
+  "previousReviews": zod.array(zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "studentName": zod.string(),
+  "termId": zod.number(),
+  "templateId": zod.number(),
+  "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
+  "revision": zod.number(),
+  "academicYear": zod.string(),
+  "term": zod.number(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "deadline": zod.string(),
+  "accountLinked": zod.boolean(),
+  "tutorAssigned": zod.boolean(),
+  "overdue": zod.boolean()
+}).and(zod.object({
+  "work": zod.object({
+  "answers": zod.record(zod.string(), zod.string()),
+  "summary": zod.string(),
+  "targets": zod.array(zod.object({
+  "category": zod.enum(['academic', 'personal', 'future']),
+  "description": zod.string(),
+  "steps": zod.string(),
+  "progress": zod.string(),
+  "completed": zod.boolean()
+})),
+  "priorTargetUpdates": zod.record(zod.string(), zod.object({
+  "progress": zod.string(),
+  "completed": zod.boolean()
+}))
+}),
+  "teacherComment": zod.string(),
+  "reviewDate": zod.string().nullable(),
+  "updatedAt": zod.string(),
+  "history": zod.array(zod.object({
+  "action": zod.string(),
+  "actorId": zod.string(),
+  "at": zod.string(),
+  "comment": zod.string().optional()
+}))
+})))
+})
+
+
+export const ActOnTermlyIlpReviewParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ActOnTermlyIlpReviewBody = zod.object({
+  "action": zod.enum(['save', 'submit', 'comment', 'complete', 'return']),
+  "revision": zod.number(),
+  "work": zod.object({
+  "answers": zod.record(zod.string(), zod.string()),
+  "summary": zod.string(),
+  "targets": zod.array(zod.object({
+  "category": zod.enum(['academic', 'personal', 'future']),
+  "description": zod.string(),
+  "steps": zod.string(),
+  "progress": zod.string(),
+  "completed": zod.boolean()
+})),
+  "priorTargetUpdates": zod.record(zod.string(), zod.object({
+  "progress": zod.string(),
+  "completed": zod.boolean()
+}))
+}).optional(),
+  "teacherComment": zod.string().optional(),
+  "reviewDate": zod.string().nullish()
+})
+
+export const ActOnTermlyIlpReviewResponse = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "studentName": zod.string(),
+  "termId": zod.number(),
+  "templateId": zod.number(),
+  "status": zod.enum(['not_started', 'draft', 'submitted', 'reviewed', 'returned']),
+  "revision": zod.number(),
+  "academicYear": zod.string(),
+  "term": zod.number(),
+  "startDate": zod.string(),
+  "endDate": zod.string(),
+  "deadline": zod.string(),
+  "accountLinked": zod.boolean(),
+  "tutorAssigned": zod.boolean(),
+  "overdue": zod.boolean()
+}).and(zod.object({
+  "work": zod.object({
+  "answers": zod.record(zod.string(), zod.string()),
+  "summary": zod.string(),
+  "targets": zod.array(zod.object({
+  "category": zod.enum(['academic', 'personal', 'future']),
+  "description": zod.string(),
+  "steps": zod.string(),
+  "progress": zod.string(),
+  "completed": zod.boolean()
+})),
+  "priorTargetUpdates": zod.record(zod.string(), zod.object({
+  "progress": zod.string(),
+  "completed": zod.boolean()
+}))
+}),
+  "teacherComment": zod.string(),
+  "reviewDate": zod.string().nullable(),
+  "updatedAt": zod.string(),
+  "history": zod.array(zod.object({
+  "action": zod.string(),
+  "actorId": zod.string(),
+  "at": zod.string(),
+  "comment": zod.string().optional()
+}))
+}))
 
 

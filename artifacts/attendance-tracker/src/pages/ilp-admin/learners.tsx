@@ -64,6 +64,7 @@ export default function ManageLearnerIlps() {
       <div className="flex-1 min-w-0 overflow-auto p-6">
         <div className="mb-5">
           <h1 className="text-xl font-bold text-gray-900">Manage Learner ILPs</h1>
+            <button className="mt-1 text-xs font-semibold text-teal-700 underline" data-testid="link-termly-maintenance" onClick={() => navigate("/ilp-admin/termly")}>Termly ILP maintenance: link accounts, assign RG teachers</button>
           <p className="text-sm text-gray-500 mt-0.5">Search for learners by name or use cohort filters to manage their ILPs.</p>
         </div>
 

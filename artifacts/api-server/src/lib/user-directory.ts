@@ -6,7 +6,7 @@ export const DIRECTORY_CSV_URL =
   process.env.USER_DIRECTORY_CSV_URL ??
   "https://docs.google.com/spreadsheets/d/1NNNADb5EBivGR_SZ8FHzvHr3dpzQZRMXLWgTg09oD24/export?format=csv";
 
-export const DIRECTORY_ROLES = ["admin", "hod", "staff", "office"] as const;
+export const DIRECTORY_ROLES = ["admin", "hod", "staff", "office", "learner"] as const;
 export type DirectoryRole = (typeof DIRECTORY_ROLES)[number];
 
 /**
@@ -14,6 +14,9 @@ export type DirectoryRole = (typeof DIRECTORY_ROLES)[number];
  * Keep aliases explicit: an unknown or blank value must never become staff.
  */
 const ROLE_ALIASES: Record<string, DirectoryRole> = {
+  learner: "learner",
+  student: "learner",
+  students: "learner",
   admin: "admin",
   administrator: "admin",
   administrators: "admin",

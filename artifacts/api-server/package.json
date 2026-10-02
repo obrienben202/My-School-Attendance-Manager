@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/lib/*.test.ts"
+    "test": "tsx --test src/lib/*.test.ts",
+    "test:termly-ilp": "RUN_ILP_INTEGRATION=1 tsx --test src/lib/termly-ilp*.test.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.22.0",

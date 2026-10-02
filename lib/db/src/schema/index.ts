@@ -6,6 +6,7 @@ export * from "./enrollments";
 export * from "./kpi-benchmarks";
 export * from "./targets";
 export * from "./ilps";
+export * from "./termly-ilps";
 export * from "./schedule";
 export * from "./auth";
 export * from "./assessments";

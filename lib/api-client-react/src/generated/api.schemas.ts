@@ -5,6 +5,236 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+export type TermlyIlpTemplateContentTargetExamples = {
+  academic: string;
+  personal: string;
+  future: string;
+};
+
+export type TermlyIlpTemplateContentSectionsItemQuestionsItem = {
+  id: string;
+  prompt: string;
+  required: boolean;
+};
+
+export type TermlyIlpTemplateContentSectionsItem = {
+  id: string;
+  title: string;
+  instructions: string;
+  questions: TermlyIlpTemplateContentSectionsItemQuestionsItem[];
+};
+
+export interface TermlyIlpTemplateContent {
+  title: string;
+  welcome: string;
+  instructions: string;
+  endGuidance: string;
+  targetExamples: TermlyIlpTemplateContentTargetExamples;
+  sections: TermlyIlpTemplateContentSectionsItem[];
+}
+
+export type TermlyIlpTemplateStatus = typeof TermlyIlpTemplateStatus[keyof typeof TermlyIlpTemplateStatus];
+
+
+export const TermlyIlpTemplateStatus = {
+  draft: 'draft',
+  published: 'published',
+} as const;
+
+export interface TermlyIlpTemplate {
+  id: number;
+  term: number;
+  version: number;
+  revision: number;
+  status: TermlyIlpTemplateStatus;
+  content: TermlyIlpTemplateContent;
+}
+
+export interface TermlyIlpTerm {
+  id: number;
+  academicYear: string;
+  term: number;
+  templateId: number;
+  startDate: string;
+  endDate: string;
+  deadline: string;
+}
+
+export type TermlyIlpWorkAnswers = {[key: string]: string};
+
+export type TermlyIlpWorkTargetsItemCategory = typeof TermlyIlpWorkTargetsItemCategory[keyof typeof TermlyIlpWorkTargetsItemCategory];
+
+
+export const TermlyIlpWorkTargetsItemCategory = {
+  academic: 'academic',
+  personal: 'personal',
+  future: 'future',
+} as const;
+
+export type TermlyIlpWorkTargetsItem = {
+  category: TermlyIlpWorkTargetsItemCategory;
+  description: string;
+  steps: string;
+  progress: string;
+  completed: boolean;
+};
+
+export type TermlyIlpWorkPriorTargetUpdates = {[key: string]: {
+  progress: string;
+  completed: boolean;
+}};
+
+export interface TermlyIlpWork {
+  answers: TermlyIlpWorkAnswers;
+  summary: string;
+  targets: TermlyIlpWorkTargetsItem[];
+  priorTargetUpdates: TermlyIlpWorkPriorTargetUpdates;
+}
+
+export type TermlyIlpReviewSummaryStatus = typeof TermlyIlpReviewSummaryStatus[keyof typeof TermlyIlpReviewSummaryStatus];
+
+
+export const TermlyIlpReviewSummaryStatus = {
+  not_started: 'not_started',
+  draft: 'draft',
+  submitted: 'submitted',
+  reviewed: 'reviewed',
+  returned: 'returned',
+} as const;
+
+export interface TermlyIlpReviewSummary {
+  id: number;
+  studentId: number;
+  studentName: string;
+  termId: number;
+  templateId: number;
+  status: TermlyIlpReviewSummaryStatus;
+  revision: number;
+  academicYear: string;
+  term: number;
+  startDate: string;
+  endDate: string;
+  deadline: string;
+  accountLinked: boolean;
+  tutorAssigned: boolean;
+  overdue: boolean;
+}
+
+export type TermlyIlpReviewHistoryItem = {
+  action: string;
+  actorId: string;
+  at: string;
+  comment?: string;
+};
+
+export type TermlyIlpReview = TermlyIlpReviewSummary & ({
+  work: TermlyIlpWork;
+  teacherComment: string;
+  /** @nullable */
+  reviewDate: string | null;
+  updatedAt: string;
+  history: TermlyIlpReviewHistoryItem[];
+});
+
+export interface TermlyIlpDetail {
+  review: TermlyIlpReview;
+  template: TermlyIlpTemplate;
+  supportReadOnly: boolean;
+  previousReviews: TermlyIlpReview[];
+}
+
+export interface TermlyIlpFeed {
+  linked: boolean;
+  guidance: string;
+  reviews: TermlyIlpReviewSummary[];
+}
+
+export type TermlyIlpAdminLearnersItem = {
+  studentId: number;
+  personCode: string;
+  studentName: string;
+  /** @nullable */
+  learnerUserId: string | null;
+  /** @nullable */
+  tutorUserId: string | null;
+};
+
+export type TermlyIlpAdminUsersItem = {
+  id: string;
+  username: string;
+  role: string;
+  name: string;
+};
+
+export interface TermlyIlpAdmin {
+  templates: TermlyIlpTemplate[];
+  terms: TermlyIlpTerm[];
+  learners: TermlyIlpAdminLearnersItem[];
+  users: TermlyIlpAdminUsersItem[];
+  reviews: TermlyIlpReviewSummary[];
+}
+
+export type TermlyIlpAdminCommandAction = typeof TermlyIlpAdminCommandAction[keyof typeof TermlyIlpAdminCommandAction];
+
+
+export const TermlyIlpAdminCommandAction = {
+  seed: 'seed',
+  clone_template: 'clone_template',
+  save_template: 'save_template',
+  publish_template: 'publish_template',
+  preview_term: 'preview_term',
+  publish_term: 'publish_term',
+  assign: 'assign',
+  reconcile: 'reconcile',
+} as const;
+
+export interface TermlyIlpAdminCommand {
+  action: TermlyIlpAdminCommandAction;
+  templateId?: number;
+  revision?: number;
+  content?: TermlyIlpTemplateContent;
+  academicYear?: string;
+  term?: number;
+  startDate?: string;
+  endDate?: string;
+  deadline?: string;
+  personCode?: string;
+  /** @nullable */
+  learnerUserId?: string | null;
+  /** @nullable */
+  tutorUserId?: string | null;
+}
+
+export interface TermlyIlpCommandResult {
+  message: string;
+  templateId?: number;
+  totalLearners?: number;
+  missingAccounts?: number;
+  missingTutors?: number;
+  existingReviews?: number;
+  newReviews?: number;
+}
+
+export type TermlyIlpReviewCommandAction = typeof TermlyIlpReviewCommandAction[keyof typeof TermlyIlpReviewCommandAction];
+
+
+export const TermlyIlpReviewCommandAction = {
+  save: 'save',
+  submit: 'submit',
+  comment: 'comment',
+  complete: 'complete',
+  return: 'return',
+} as const;
+
+export interface TermlyIlpReviewCommand {
+  action: TermlyIlpReviewCommandAction;
+  revision: number;
+  work?: TermlyIlpWork;
+  teacherComment?: string;
+  /** @nullable */
+  reviewDate?: string | null;
+}
+
 export type ReportId = typeof ReportId[keyof typeof ReportId];
 
 
@@ -54,6 +284,7 @@ export const AuthUserRole = {
   hod: 'hod',
   staff: 'staff',
   office: 'office',
+  learner: 'learner',
 } as const;
 
 export interface AuthUser {
@@ -764,6 +995,7 @@ export const MyProfileRole = {
   hod: 'hod',
   staff: 'staff',
   office: 'office',
+  learner: 'learner',
 } as const;
 
 export interface MyProfile {
@@ -1270,5 +1502,9 @@ export type LoginWithPassword200 = {
 
 export type Logout200 = {
   ok: boolean;
+};
+
+export type GetTermlyIlpReviewParams = {
+supportReason?: string;
 };
 

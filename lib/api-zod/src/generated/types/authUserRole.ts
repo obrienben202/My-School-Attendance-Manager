@@ -14,4 +14,5 @@ export const AuthUserRole = {
   hod: 'hod',
   staff: 'staff',
   office: 'office',
+  learner: 'learner',
 } as const;

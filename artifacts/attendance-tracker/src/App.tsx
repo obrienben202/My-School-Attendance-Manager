@@ -1,5 +1,11 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
+import { useAuth } from "@workspace/replit-auth-web";
+import { useRole } from "@/hooks/use-role";
+import LearnerIlps from "@/pages/learner-ilps";
+import TermlyReviewPage from "@/pages/termly-review";
+import IlpAdminTermly from "@/pages/ilp-admin/termly";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
@@ -60,10 +66,38 @@ import EnrolmentOverview from "@/pages/concierge/enrolment-overview";
 
 const queryClient = new QueryClient();
 
+function CacheGuard() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const last = useRef<string | undefined>(undefined);
+  const id = user ? String((user as { id?: string | number }).id ?? "") : "";
+  useEffect(() => {
+    if (last.current !== undefined && last.current !== id) qc.clear();
+    last.current = id;
+  }, [id, qc]);
+  return null;
+}
+
 function Router() {
+  const role = useRole();
+  const { user } = useAuth();
+  if (user && role === "learner") {
+    return (
+      <Layout>
+        <Switch>
+          <Route path="/learner-ilps" component={LearnerIlps} />
+          <Route path="/termly-ilps/review/:id" component={TermlyReviewPage} />
+          <Route><Redirect to="/learner-ilps" replace /></Route>
+        </Switch>
+      </Layout>
+    );
+  }
   return (
     <Layout>
       <Switch>
+        <Route path="/learner-ilps"><Redirect to="/" replace /></Route>
+        <Route path="/termly-ilps/review/:id">{role === "office" ? <NotFound /> : <TermlyReviewPage />}</Route>
+        <Route path="/ilp-admin/termly">{role === "admin" ? <IlpAdminTermly /> : <NotFound />}</Route>
         <Route path="/" component={Home} />
         <Route path="/students" component={Students} />
         <Route path="/students/:id" component={StudentDetail} />
@@ -94,10 +128,10 @@ function Router() {
         <Route path="/safeguarding" component={SafeguardingTutor} />
         <Route path="/safeguarding/admin" component={SafeguardingAdmin} />
         <Route path="/ilp-tutor" component={IlpTutorHub} />
-        <Route path="/ilp-tutor/reviews" component={IlpTutorReviews} />
+        <Route path="/ilp-tutor/reviews">{role === "office" ? <NotFound /> : <IlpTutorReviews />}</Route>
         <Route path="/ilp-tutor/learners" component={IlpTutorLearners} />
         <Route path="/ilp-tutor/ilps" component={IlpTutorIlps} />
-        <Route path="/ilp-tutor/review/:id" component={IlpTutorReviewDetail} />
+        <Route path="/ilp-tutor/review/:id">{role === "office" ? <NotFound /> : <IlpTutorReviewDetail />}</Route>
         <Route path="/ilp-admin" component={IlpAdminHub} />
         <Route path="/ilp-admin/assigned" component={IlpAssigned} />
         <Route path="/ilp-admin/learners" component={IlpLearners} />
@@ -129,6 +163,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <CacheGuard />
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>

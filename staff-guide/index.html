@@ -717,6 +717,67 @@
         centrally through the User Management section of the portal.
       </p>
 
+
+      <!-- 7. TERMLY ILP -->
+      <h2>7 &nbsp; Termly Learner ILP Reviews</h2>
+      <p>Learners complete a private termly review and submit it to their assigned RG teacher. Administrators run the set-up; RG teachers review.</p>
+
+      <h3>Set up learner sign-in (no public signup)</h3>
+      <ol>
+        <li>The school must first create an individual school account for each learner and add it to the school directory with role <strong>learner</strong> or <strong>student</strong>. Open <strong>User Management</strong> (<code>/admin/users</code>) and select <strong>Sync from Google Sheet</strong>.</li>
+        <li>Learners sign in with their school username and password. The external password service (GAS) verifies credentials; the validated school directory owns roles. There is no public signup. Do not use shared accounts.</li>
+        <li>A signed-in learner who is not yet linked sees <em>Your account is not linked to a learner record yet</em> and no data.</li>
+      </ol>
+
+      <h3>Link an account to a learner record</h3>
+      <ol>
+        <li>Go to <em>ILP Admin</em> &rarr; <strong>Termly ILPs</strong> &rarr; <strong>People</strong> tab.</li>
+        <li>Find the learner by name or exact <strong>Person code</strong> (use the search box). Verify both the account and exact code against the authoritative school roster before linking. A learner-supplied code or matching name alone is not proof of identity.</li>
+        <li>In <strong>Learner account</strong> choose the individually verified account and select <strong>Save</strong>. The server checks that the account has a directory-owned learner role, the code identifies one confirmed learner, and the account is not linked elsewhere. The confirmation banner appears only once the mapping is stored.</li>
+      </ol>
+
+      <h3>Assign an RG teacher</h3>
+      <ol>
+        <li>On the same <strong>People</strong> tab choose a name under <strong>RG teacher</strong> and select <strong>Save</strong>.</li>
+        <li>Tick <strong>Only show missing account or RG teacher</strong> to list exceptions.</li>
+      </ol>
+
+      <h3>Publish a term</h3>
+      <ol>
+        <li>Open the <strong>Terms</strong> tab. Enter <strong>Academic year</strong> (for example 2025-2026), choose <strong>Term</strong> and a published <strong>Template version</strong>, then set <strong>Start date</strong>, <strong>End date</strong> and <strong>Deadline</strong>.</li>
+        <li>Select <strong>Preview publication</strong> to see how many learners, new reviews, missing accounts and missing RG teachers.</li>
+        <li>Select <strong>Publish term</strong>, then <strong>Publish for all learners</strong> in the confirmation. Republishing never duplicates reviews or erases work. Learners joining later get a review when you select <strong>Create missing reviews for new learners</strong> on the <strong>Overview</strong> tab.</li>
+        <li>Learners can write from the start date. The end date is not a hard close; late work is still accepted and shown as overdue.</li>
+      </ol>
+
+      <h3>Edit a future template version</h3>
+      <ol>
+        <li>Open the <strong>Templates</strong> tab and choose the template. A published version is locked.</li>
+        <li>Select <strong>Clone as new draft version</strong>. Edit titles, welcome, instructions, end-of-term guidance, target examples, sections (arrow buttons reorder) and questions (<strong>Add question</strong>, <strong>Required</strong>, delete).</li>
+        <li>Select <strong>Preview draft</strong> to read it as a learner would, then <strong>Save template</strong> and <strong>Publish version</strong>. Reviews already in progress keep their original version.</li>
+      </ol>
+
+      <h3>Review submissions (RG teachers)</h3>
+      <ol>
+        <li>Go to <em>ILP Tutor</em> &rarr; <strong>Reviews</strong>. The list shows only learners assigned to you; use the status buttons such as <strong>Submitted</strong>.</li>
+        <li>Select <strong>Open</strong>. Write a <strong>Teacher comment</strong> and set the <strong>Review date</strong>, then <strong>Save comment</strong>, <strong>Complete review</strong> (comment and date required) or <strong>Return to learner</strong> (comment explaining the change required).</li>
+      </ol>
+
+      <h3>Start the next academic year</h3>
+      <ol>
+        <li>Clone and publish any template changes (above).</li>
+        <li>On the <strong>Terms</strong> tab publish Term 1 for the new academic year, then Term 2 and Term 3 as they approach. Earlier years remain available to learners as read-only history.</li>
+        <li>Check the <strong>Overview</strong> tab and <strong>People</strong> exceptions for learners missing an account or RG teacher.</li>
+      </ol>
+
+      <h3>Short guide for learners</h3>
+      <ol>
+        <li>Sign in and open <strong>My termly reviews</strong>, then the current term.</li>
+        <li>Answer the questions. Select <strong>Discuss with my RG teacher</strong> under any question you would rather talk through.</li>
+        <li>Select <strong>Save draft</strong> any time; you can sign out and return.</li>
+        <li>Complete the summary and your three targets, then select <strong>Submit to Tutor</strong>. If it is returned, edit and submit again.</li>
+      </ol>
+
       <!-- FOOTER -->
       <div class="footer">
         <span

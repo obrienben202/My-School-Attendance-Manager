@@ -109,6 +109,7 @@ export default function AssignedIlps() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Assigned ILPs</h1>
+            <button className="mt-1 text-xs font-semibold text-teal-700 underline" data-testid="link-termly-maintenance" onClick={() => navigate("/ilp-admin/termly")}>Termly ILP maintenance: link accounts, assign RG teachers</button>
             <p className="text-sm text-gray-500 mt-0.5">ILPs that have been assigned to learners.</p>
           </div>
           <Button onClick={() => setShowAssign(true)} className="gap-2 bg-teal-700 hover:bg-teal-800">

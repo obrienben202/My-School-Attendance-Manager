@@ -18,11 +18,21 @@ import plannedAbsencesRouter from "./planned-absences";
 import safeguardingRouter from "./safeguarding";
 import storageRouter from "./storage";
 import reportsRouter from "./reports";
+import termlyIlpsRouter from "./termly-ilps";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(termlyIlpsRouter);
+// All old product APIs are staff-only, including new routers added below.
+router.use((req, res, next) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: "Authentication required" });
+  if (!["admin", "hod", "staff", "office"].includes(req.user.role)) {
+    return res.status(403).json({ error: "This service is available to staff only" });
+  }
+  return next();
+});
 router.use(dashboardRouter);
 router.use(studentsRouter);
 router.use(coursesRouter);

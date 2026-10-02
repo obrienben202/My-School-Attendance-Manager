@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { ClipboardList, Users, FileText, Layers, Star, Layout, LayoutGrid } from "lucide-react";
+import { ClipboardList, Users, FileText, Layers, Star, LayoutGrid } from "lucide-react";
 
 const NAV_ITEMS = [
   { label: "ILP Admin", href: "/ilp-admin", icon: LayoutGrid },
@@ -7,8 +7,7 @@ const NAV_ITEMS = [
   { label: "Manage Learner ILPs", href: "/ilp-admin/learners", icon: Users },
   { label: "Headers", href: "/ilp-admin/headers", icon: FileText },
   { label: "Groups", href: "/ilp-admin/groups", icon: Layers },
-  { label: "Reviews", href: "/ilp-admin/reviews", icon: Star },
-  { label: "Sections", href: "/ilp-admin/sections", icon: Layout },
+  { label: "Termly ILPs", href: "/ilp-admin/termly", icon: Star },
 ];
 
 export function IlpAdminNav({ active }: { active: string }) {

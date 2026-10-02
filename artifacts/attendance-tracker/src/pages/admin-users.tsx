@@ -34,6 +34,7 @@ const ROLE_LABELS: Record<string, string> = {
   hod: "Head of Department",
   staff: "Staff",
   office: "Office Staff",
+  learner: "Learner",
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -41,6 +42,7 @@ const ROLE_COLORS: Record<string, string> = {
   hod: "bg-purple-100 text-purple-700 border-purple-200",
   staff: "bg-blue-100 text-blue-700 border-blue-200",
   office: "bg-green-100 text-green-700 border-green-200",
+  learner: "bg-teal-100 text-teal-700 border-teal-200",
 };
 
 export default function AdminUsers() {

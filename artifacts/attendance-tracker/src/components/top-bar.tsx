@@ -26,6 +26,7 @@ const ROLE_LABELS: Record<Role, string> = {
   hod: "Head of Dept",
   staff: "Staff",
   office: "Office Staff",
+  learner: "Learner",
 };
 
 export function TopBar({

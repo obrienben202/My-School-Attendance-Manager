@@ -49,6 +49,7 @@ import type {
   ErrorEnvelope,
   GetAttendanceRegisterStateParams,
   GetReportParams,
+  GetTermlyIlpReviewParams,
   HealthStatus,
   Ilp,
   IlpInput,
@@ -90,6 +91,13 @@ import type {
   Target,
   TargetInput,
   TargetUpdate,
+  TermlyIlpAdmin,
+  TermlyIlpAdminCommand,
+  TermlyIlpCommandResult,
+  TermlyIlpDetail,
+  TermlyIlpFeed,
+  TermlyIlpReview,
+  TermlyIlpReviewCommand,
   UploadUrlRequest,
   UploadUrlResponse,
   UserDirectorySyncResult
@@ -5391,4 +5399,360 @@ export function useGetStaffCorrespondence<TData = Awaited<ReturnType<typeof getS
 
 
 
+
+export const getGetTermlyIlpFeedUrl = () => {
+
+
+
+
+  return `/api/termly-ilps`
+}
+
+export const getTermlyIlpFeed = async ( options?: RequestInit): Promise<TermlyIlpFeed> => {
+
+  return customFetch<TermlyIlpFeed>(getGetTermlyIlpFeedUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTermlyIlpFeedQueryKey = () => {
+    return [
+    `/api/termly-ilps`
+    ] as const;
+    }
+
+
+export const getGetTermlyIlpFeedQueryOptions = <TData = Awaited<ReturnType<typeof getTermlyIlpFeed>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpFeed>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTermlyIlpFeedQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTermlyIlpFeed>>> = ({ signal }) => getTermlyIlpFeed({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpFeed>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTermlyIlpFeedQueryResult = NonNullable<Awaited<ReturnType<typeof getTermlyIlpFeed>>>
+export type GetTermlyIlpFeedQueryError = ErrorType<unknown>
+
+
+
+export function useGetTermlyIlpFeed<TData = Awaited<ReturnType<typeof getTermlyIlpFeed>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpFeed>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTermlyIlpFeedQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetTermlyIlpAdminUrl = () => {
+
+
+
+
+  return `/api/termly-ilps/admin`
+}
+
+export const getTermlyIlpAdmin = async ( options?: RequestInit): Promise<TermlyIlpAdmin> => {
+
+  return customFetch<TermlyIlpAdmin>(getGetTermlyIlpAdminUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTermlyIlpAdminQueryKey = () => {
+    return [
+    `/api/termly-ilps/admin`
+    ] as const;
+    }
+
+
+export const getGetTermlyIlpAdminQueryOptions = <TData = Awaited<ReturnType<typeof getTermlyIlpAdmin>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpAdmin>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTermlyIlpAdminQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTermlyIlpAdmin>>> = ({ signal }) => getTermlyIlpAdmin({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpAdmin>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTermlyIlpAdminQueryResult = NonNullable<Awaited<ReturnType<typeof getTermlyIlpAdmin>>>
+export type GetTermlyIlpAdminQueryError = ErrorType<unknown>
+
+
+
+export function useGetTermlyIlpAdmin<TData = Awaited<ReturnType<typeof getTermlyIlpAdmin>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpAdmin>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTermlyIlpAdminQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getMaintainTermlyIlpsUrl = () => {
+
+
+
+
+  return `/api/termly-ilps/admin`
+}
+
+export const maintainTermlyIlps = async (termlyIlpAdminCommand: TermlyIlpAdminCommand, options?: RequestInit): Promise<TermlyIlpCommandResult> => {
+
+  return customFetch<TermlyIlpCommandResult>(getMaintainTermlyIlpsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      termlyIlpAdminCommand,)
+  }
+);}
+
+
+
+
+export const getMaintainTermlyIlpsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof maintainTermlyIlps>>, TError,{data: BodyType<TermlyIlpAdminCommand>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof maintainTermlyIlps>>, TError,{data: BodyType<TermlyIlpAdminCommand>}, TContext> => {
+
+const mutationKey = ['maintainTermlyIlps'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof maintainTermlyIlps>>, {data: BodyType<TermlyIlpAdminCommand>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  maintainTermlyIlps(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MaintainTermlyIlpsMutationResult = NonNullable<Awaited<ReturnType<typeof maintainTermlyIlps>>>
+    export type MaintainTermlyIlpsMutationBody = BodyType<TermlyIlpAdminCommand>
+    export type MaintainTermlyIlpsMutationError = ErrorType<unknown>
+
+    export const useMaintainTermlyIlps = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof maintainTermlyIlps>>, TError,{data: BodyType<TermlyIlpAdminCommand>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof maintainTermlyIlps>>,
+        TError,
+        {data: BodyType<TermlyIlpAdminCommand>},
+        TContext
+      > => {
+      return useMutation(getMaintainTermlyIlpsMutationOptions(options));
+    }
+
+export const getGetTermlyIlpReviewUrl = (id: number,
+    params?: GetTermlyIlpReviewParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/termly-ilps/reviews/${id}?${stringifiedParams}` : `/api/termly-ilps/reviews/${id}`
+}
+
+export const getTermlyIlpReview = async (id: number,
+    params?: GetTermlyIlpReviewParams, options?: RequestInit): Promise<TermlyIlpDetail> => {
+
+  return customFetch<TermlyIlpDetail>(getGetTermlyIlpReviewUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTermlyIlpReviewQueryKey = (id: number,
+    params?: GetTermlyIlpReviewParams,) => {
+    return [
+    `/api/termly-ilps/reviews/${id}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetTermlyIlpReviewQueryOptions = <TData = Awaited<ReturnType<typeof getTermlyIlpReview>>, TError = ErrorType<unknown>>(id: number,
+    params?: GetTermlyIlpReviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpReview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTermlyIlpReviewQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTermlyIlpReview>>> = ({ signal }) => getTermlyIlpReview(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpReview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTermlyIlpReviewQueryResult = NonNullable<Awaited<ReturnType<typeof getTermlyIlpReview>>>
+export type GetTermlyIlpReviewQueryError = ErrorType<unknown>
+
+
+
+export function useGetTermlyIlpReview<TData = Awaited<ReturnType<typeof getTermlyIlpReview>>, TError = ErrorType<unknown>>(
+ id: number,
+    params?: GetTermlyIlpReviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTermlyIlpReview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTermlyIlpReviewQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getActOnTermlyIlpReviewUrl = (id: number,) => {
+
+
+
+
+  return `/api/termly-ilps/reviews/${id}`
+}
+
+export const actOnTermlyIlpReview = async (id: number,
+    termlyIlpReviewCommand: TermlyIlpReviewCommand, options?: RequestInit): Promise<TermlyIlpReview> => {
+
+  return customFetch<TermlyIlpReview>(getActOnTermlyIlpReviewUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      termlyIlpReviewCommand,)
+  }
+);}
+
+
+
+
+export const getActOnTermlyIlpReviewMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actOnTermlyIlpReview>>, TError,{id: number;data: BodyType<TermlyIlpReviewCommand>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof actOnTermlyIlpReview>>, TError,{id: number;data: BodyType<TermlyIlpReviewCommand>}, TContext> => {
+
+const mutationKey = ['actOnTermlyIlpReview'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof actOnTermlyIlpReview>>, {id: number;data: BodyType<TermlyIlpReviewCommand>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  actOnTermlyIlpReview(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActOnTermlyIlpReviewMutationResult = NonNullable<Awaited<ReturnType<typeof actOnTermlyIlpReview>>>
+    export type ActOnTermlyIlpReviewMutationBody = BodyType<TermlyIlpReviewCommand>
+    export type ActOnTermlyIlpReviewMutationError = ErrorType<unknown>
+
+    export const useActOnTermlyIlpReview = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actOnTermlyIlpReview>>, TError,{id: number;data: BodyType<TermlyIlpReviewCommand>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof actOnTermlyIlpReview>>,
+        TError,
+        {id: number;data: BodyType<TermlyIlpReviewCommand>},
+        TContext
+      > => {
+      return useMutation(getActOnTermlyIlpReviewMutationOptions(options));
+    }
 

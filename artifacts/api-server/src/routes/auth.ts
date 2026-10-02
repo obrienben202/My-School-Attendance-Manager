@@ -116,6 +116,10 @@ router.post("/login", async (req: Request, res: Response) => {
     let dbUser: typeof usersTable.$inferSelect;
 
     if (existing) {
+      if (!["admin", "hod", "staff", "office", "learner"].includes(existing.role)) {
+        res.status(403).json({ error: "Account role is not recognised. Ask an administrator to check the school directory." });
+        return;
+      }
       // Do not copy GAS role claims into the application account.
       const [updated] = await db
         .update(usersTable)
@@ -152,7 +156,7 @@ router.post("/login", async (req: Request, res: Response) => {
     .from(usersTable)
     .where(eq(usersTable.username, normalizedUsername));
 
-  if (localUser?.passwordHash) {
+  if (localUser?.passwordHash && ["admin", "hod", "staff", "office", "learner"].includes(localUser.role)) {
     const valid = await bcrypt.compare(password, localUser.passwordHash);
     if (valid) {
       const sid = await createSession({ user: userToAuthUser(localUser) });
