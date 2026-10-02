@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@workspace/replit-auth-web";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +22,7 @@ type Group = {
   learnerCount: number | null;
   associatedIlps: number;
   createdAt: string | null;
+  createdBy: string;
 };
 
 const FILTER_FIELDS = ["Year Group", "Course", "Attendance %", "Status", "Faculty", "Gender"];
@@ -33,11 +35,13 @@ const INITIAL_GROUPS: Group[] = [7, 8, 9, 10, 11].map(year => ({
   learnerCount: null,
   associatedIlps: 0,
   createdAt: null,
+  createdBy: "IT Admin",
 }));
 
 const emptyFilter = (): FilterDef => ({ field: "Year Group", operator: "equals", value: "" });
 
 export default function IlpGroups() {
+  const { user } = useAuth();
   const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<Group | null>(null);
@@ -57,7 +61,7 @@ export default function IlpGroups() {
   const doCreate = () => {
     setGroups((prev) => [
       ...prev,
-      { id: Date.now(), name: form.name, filters: form.filters, learnerCount: null, associatedIlps: 0, createdAt: new Date().toISOString().split("T")[0] },
+      { id: Date.now(), name: form.name, filters: form.filters, learnerCount: null, associatedIlps: 0, createdAt: new Date().toISOString().split("T")[0], createdBy: [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || user?.username || "Not recorded" },
     ]);
     setShowCreate(false);
   };
@@ -118,12 +122,13 @@ export default function IlpGroups() {
                 <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Learners</th>
                 <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Associated ILPs</th>
                 <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Created</th>
+                <th className="text-left font-semibold text-gray-600 px-4 py-2.5 text-xs">Created by</th>
                 <th className="px-4 py-2.5 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {groups.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-gray-400 text-sm">No groups created yet.</td></tr>
+                <tr><td colSpan={7} className="text-center py-10 text-gray-400 text-sm">No groups created yet.</td></tr>
               ) : groups.map((g) => (
                 <tr key={g.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2.5 font-medium text-gray-900 flex items-center gap-2">
@@ -149,6 +154,7 @@ export default function IlpGroups() {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-gray-400 text-xs">{g.createdAt ? new Date(g.createdAt).toLocaleDateString("en-GB") : "—"}</td>
+                  <td className="px-4 py-2.5 text-gray-600 text-xs">{g.createdBy}</td>
                   <td className="px-4 py-2.5">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
