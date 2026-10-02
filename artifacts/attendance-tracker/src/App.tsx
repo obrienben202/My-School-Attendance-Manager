@@ -57,6 +57,7 @@ import ConciergeIndex from "@/pages/concierge/index";
 import ConciergeApplicants from "@/pages/concierge/applicants";
 import ConciergeApplications from "@/pages/concierge/applications";
 import AdminUsers from "@/pages/admin-users";
+import StaffHelp from "@/pages/staff-help";
 import AdminSync from "@/pages/admin-sync";
 import HodTimetable from "@/pages/hod-timetable";
 import ApplicationDetail from "@/pages/concierge/application-detail";
@@ -100,6 +101,8 @@ function Router() {
         <Route path="/termly-ilps/staff" component={TermlyStaffComments} />
         <Route path="/termly-ilps/review/:id">{role === "office" ? <NotFound /> : <TermlyReviewPage />}</Route>
         <Route path="/ilp-admin/termly">{role === "admin" ? <IlpAdminTermly /> : <NotFound />}</Route>
+        <Route path="/help" component={StaffHelp} />
+        <Route path="/help/:topic" component={StaffHelp} />
         <Route path="/" component={Home} />
         <Route path="/students" component={Students} />
         <Route path="/students/:id" component={StudentDetail} />

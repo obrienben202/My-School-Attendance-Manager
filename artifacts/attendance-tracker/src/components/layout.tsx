@@ -33,6 +33,7 @@ import {
   Database,
   LayoutDashboard,
   Menu,
+  CircleHelp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TopBar } from "@/components/top-bar";
@@ -71,6 +72,12 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
     heading: "",
     items: [
       { icon: Home, label: "Dashboard", href: "/" },
+    ],
+  },
+  {
+    heading: "",
+    items: [
+      { icon: CircleHelp, label: "Staff Help Guide", href: "/help", roles: ALL_ROLES },
     ],
   },
   {
