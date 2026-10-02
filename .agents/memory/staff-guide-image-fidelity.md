@@ -1,6 +1,6 @@
 ---
 name: Staff guide image fidelity
-description: How to keep school training illustrations recognisable, accurate and privacy-safe.
+description: Staff guide structure, new-tab entry points and privacy-safe illustration fidelity.
 ---
 
 Staff-guide images must show recognisable, current portal controls. Numbered callouts must point to the element described, not generic fixed locations. Do not invent buttons that the real page does not offer.
@@ -15,8 +15,14 @@ Use generic illustrated examples, clearly labelled as such, rather than publishi
 
 **How to apply:** Check image contents independently of the guide's access controls; static image URLs can be read without signing in.
 
-The staff Help button and Staff Help Guide link should open the original guide in a new tab, showing what staff had before the separate illustrated-topic pages.
+The staff Help button and Staff Help Guide link should open the standalone staff guide in a new tab, rather than the portal's illustrated React help pages.
 
 **Why:** The user explicitly requested the previous guide and new-tab behaviour.
 
-**How to apply:** Preserve the original guide's contents when changing how it is opened. Do not replace these entry points with the illustrated topic pages unless the user asks.
+**How to apply:** Keep the guide separate from the staff member's working portal tab. Do not replace these entry points with the portal's illustrated help pages unless the user asks.
+
+The standalone guide should have a clear contents/search page and a separate page for each subject, including individual tips and termly ILP tasks. Do not show all instructions in one long page.
+
+**Why:** The user wants staff to find what they need without loading a page full of everything.
+
+**How to apply:** Preserve coverage of the original instructions when reorganising the guide; split by the task the reader is looking for, not just by broad section headings.
