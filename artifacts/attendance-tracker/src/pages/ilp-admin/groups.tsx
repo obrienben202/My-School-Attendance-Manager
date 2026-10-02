@@ -18,37 +18,27 @@ type Group = {
   id: number;
   name: string;
   filters: FilterDef[];
-  learnerCount: number;
+  learnerCount: number | null;
   associatedIlps: number;
-  createdAt: string;
+  createdAt: string | null;
 };
 
 const FILTER_FIELDS = ["Year Group", "Course", "Attendance %", "Status", "Faculty", "Gender"];
 const FILTER_OPS = ["equals", "contains", "is greater than", "is less than", "is not"];
 
-const MOCK_GROUPS: Group[] = [
-  {
-    id: 1, name: "Year 12 BTEC Learners", learnerCount: 28, associatedIlps: 5, createdAt: "2024-08-10",
-    filters: [{ field: "Year Group", operator: "equals", value: "Year 12" }, { field: "Course", operator: "contains", value: "BTEC" }],
-  },
-  {
-    id: 2, name: "At Risk Learners", learnerCount: 14, associatedIlps: 2, createdAt: "2024-09-01",
-    filters: [{ field: "Attendance %", operator: "is less than", value: "80" }],
-  },
-  {
-    id: 3, name: "GCSE Resit Group", learnerCount: 22, associatedIlps: 3, createdAt: "2024-09-05",
-    filters: [{ field: "Course", operator: "contains", value: "GCSE" }, { field: "Status", operator: "equals", value: "Active" }],
-  },
-  {
-    id: 4, name: "Unused Group 2023", learnerCount: 0, associatedIlps: 0, createdAt: "2023-09-01",
-    filters: [],
-  },
-];
+const INITIAL_GROUPS: Group[] = [7, 8, 9, 10, 11].map(year => ({
+  id: year,
+  name: `Year ${year}`,
+  filters: [{ field: "Year Group", operator: "equals", value: `Year ${year}` }],
+  learnerCount: null,
+  associatedIlps: 0,
+  createdAt: null,
+}));
 
 const emptyFilter = (): FilterDef => ({ field: "Year Group", operator: "equals", value: "" });
 
 export default function IlpGroups() {
-  const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
+  const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState<Group | null>(null);
   const [showDelete, setShowDelete] = useState<Group | null>(null);
@@ -67,7 +57,7 @@ export default function IlpGroups() {
   const doCreate = () => {
     setGroups((prev) => [
       ...prev,
-      { id: Date.now(), name: form.name, filters: form.filters, learnerCount: Math.floor(Math.random() * 30), associatedIlps: 0, createdAt: new Date().toISOString().split("T")[0] },
+      { id: Date.now(), name: form.name, filters: form.filters, learnerCount: null, associatedIlps: 0, createdAt: new Date().toISOString().split("T")[0] },
     ]);
     setShowCreate(false);
   };
@@ -152,13 +142,13 @@ export default function IlpGroups() {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-xs font-medium">{g.learnerCount}</td>
+                  <td className="px-4 py-2.5 text-xs font-medium">{g.learnerCount ?? "—"}</td>
                   <td className="px-4 py-2.5 text-xs">
                     <span className={`px-2 py-0.5 rounded font-medium ${g.associatedIlps > 0 ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
                       {g.associatedIlps}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-400 text-xs">{new Date(g.createdAt).toLocaleDateString("en-GB")}</td>
+                  <td className="px-4 py-2.5 text-gray-400 text-xs">{g.createdAt ? new Date(g.createdAt).toLocaleDateString("en-GB") : "—"}</td>
                   <td className="px-4 py-2.5">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -189,7 +179,7 @@ export default function IlpGroups() {
             <div className="space-y-4 py-2">
               <div>
                 <label className="text-xs font-semibold text-gray-600 block mb-1">Group Name *</label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Year 12 BTEC Learners" />
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Year 7" />
               </div>
               <FilterEditor />
             </div>
