@@ -2017,3 +2017,104 @@ export const ActOnTermlyIlpReviewResponse = zod.object({
 }))
 
 
+/**
+ * @summary List shared roster-backed groups (school staff only)
+ */
+export const listIlpGroupsResponseFiltersItemValueRegExp = new RegExp('^(Year )?(7|8|9|10|11)$');
+export const listIlpGroupsResponseLearnerCountMin = 0;
+
+
+
+export const ListIlpGroupsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "filters": zod.array(zod.object({
+  "field": zod.enum(['Year Group']),
+  "operator": zod.enum(['equals', 'is not']),
+  "value": zod.string().regex(listIlpGroupsResponseFiltersItemValueRegExp)
+})),
+  "learnerCount": zod.number().min(listIlpGroupsResponseLearnerCountMin),
+  "defaultYear": zod.number().nullable(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListIlpGroupsResponse = zod.array(ListIlpGroupsResponseItem)
+
+
+/**
+ * @summary Create a group (administrator only)
+ */
+export const createIlpGroupBodyNameMax = 120;
+
+export const createIlpGroupBodyFiltersItemValueRegExp = new RegExp('^(Year )?(7|8|9|10|11)$');
+export const createIlpGroupBodyFiltersMax = 20;
+
+
+
+export const CreateIlpGroupBody = zod.object({
+  "name": zod.string().min(1).max(createIlpGroupBodyNameMax),
+  "filters": zod.array(zod.object({
+  "field": zod.enum(['Year Group']),
+  "operator": zod.enum(['equals', 'is not']),
+  "value": zod.string().regex(createIlpGroupBodyFiltersItemValueRegExp)
+})).max(createIlpGroupBodyFiltersMax)
+})
+
+
+/**
+ * @summary Replace group name and filters; retain original creator (administrator only)
+ */
+
+
+
+export const UpdateIlpGroupParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const updateIlpGroupBodyNameMax = 120;
+
+export const updateIlpGroupBodyFiltersItemValueRegExp = new RegExp('^(Year )?(7|8|9|10|11)$');
+export const updateIlpGroupBodyFiltersMax = 20;
+
+
+
+export const UpdateIlpGroupBody = zod.object({
+  "name": zod.string().min(1).max(updateIlpGroupBodyNameMax),
+  "filters": zod.array(zod.object({
+  "field": zod.enum(['Year Group']),
+  "operator": zod.enum(['equals', 'is not']),
+  "value": zod.string().regex(updateIlpGroupBodyFiltersItemValueRegExp)
+})).max(updateIlpGroupBodyFiltersMax)
+})
+
+export const updateIlpGroupResponseFiltersItemValueRegExp = new RegExp('^(Year )?(7|8|9|10|11)$');
+export const updateIlpGroupResponseLearnerCountMin = 0;
+
+
+
+export const UpdateIlpGroupResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "filters": zod.array(zod.object({
+  "field": zod.enum(['Year Group']),
+  "operator": zod.enum(['equals', 'is not']),
+  "value": zod.string().regex(updateIlpGroupResponseFiltersItemValueRegExp)
+})),
+  "learnerCount": zod.number().min(updateIlpGroupResponseLearnerCountMin),
+  "defaultYear": zod.number().nullable(),
+  "createdBy": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete custom group only; defaults are protected, forms and reviews are not linked
+ */
+
+
+
+export const DeleteIlpGroupParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+

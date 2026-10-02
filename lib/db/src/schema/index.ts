@@ -1,3 +1,4 @@
+export * from "./ilp-groups";
 export * from "./students";
 export * from "./courses";
 export * from "./attendance";

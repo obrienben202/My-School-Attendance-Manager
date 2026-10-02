@@ -1972,6 +1972,71 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TermlyIlpReview" }
+  /termly-ilps/groups:
+    get:
+      operationId: listIlpGroups
+      summary: List shared roster-backed groups (school staff only)
+      responses:
+        "200":
+          description: Saved groups; form listings are not group dependencies
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/IlpGroup" }
+        "401": { description: Authentication required }
+        "403": { description: School staff required }
+    post:
+      operationId: createIlpGroup
+      summary: Create a group (administrator only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IlpGroupInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IlpGroup" }
+        "400": { description: Unsupported or invalid filters }
+        "401": { description: Authentication required }
+        "403": { description: Administrator required }
+  /termly-ilps/groups/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    put:
+      operationId: updateIlpGroup
+      summary: Replace group name and filters; retain original creator (administrator only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IlpGroupInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IlpGroup" }
+        "400": { description: Unsupported or invalid filters }
+        "401": { description: Authentication required }
+        "403": { description: Administrator required }
+        "404": { description: Group not found }
+    delete:
+      operationId: deleteIlpGroup
+      summary: Delete custom group only; defaults are protected, forms and reviews are not linked
+      responses:
+        "204": { description: Deleted }
+        "400": { description: Invalid group identifier }
+        "401": { description: Authentication required }
+        "403": { description: Administrator required }
+        "404": { description: Group not found }
+        "409": { description: Year 7–11 default groups cannot be deleted }
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -1989,6 +2054,37 @@ components:
       schema:
         type: string
   schemas:
+    IlpGroupFilter:
+      type: object
+      additionalProperties: false
+      required: [field, operator, value]
+      properties:
+        field: { type: string, enum: ["Year Group"] }
+        operator: { type: string, enum: ["equals", "is not"] }
+        value: { type: string, pattern: '^(Year )?(7|8|9|10|11)$' }
+    IlpGroupInput:
+      type: object
+      additionalProperties: false
+      required: [name, filters]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        filters:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/IlpGroupFilter" }
+    IlpGroup:
+      type: object
+      required: [id, name, filters, learnerCount, defaultYear, createdBy, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        filters:
+          type: array
+          items: { $ref: "#/components/schemas/IlpGroupFilter" }
+        learnerCount: { type: integer, minimum: 0 }
+        defaultYear: { type: ["integer", "null"] }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
     TermlyIlpTemplateContent:
       type: object
       required: [title, welcome, instructions, endGuidance, targetExamples, sections]

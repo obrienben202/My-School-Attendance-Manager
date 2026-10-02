@@ -52,6 +52,8 @@ import type {
   GetTermlyIlpReviewParams,
   HealthStatus,
   Ilp,
+  IlpGroup,
+  IlpGroupInput,
   IlpInput,
   IlpUpdate,
   ListAssessmentResultsParams,
@@ -5894,5 +5896,295 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getActOnTermlyIlpReviewMutationOptions(options));
+    }
+
+export const getListIlpGroupsUrl = () => {
+
+
+
+
+  return `/api/termly-ilps/groups`
+}
+
+/**
+ * @summary List shared roster-backed groups (school staff only)
+ */
+export const listIlpGroups = async ( options?: RequestInit): Promise<IlpGroup[]> => {
+
+  return customFetch<IlpGroup[]>(getListIlpGroupsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListIlpGroupsQueryKey = () => {
+    return [
+    `/api/termly-ilps/groups`
+    ] as const;
+    }
+
+
+export const getListIlpGroupsQueryOptions = <TData = Awaited<ReturnType<typeof listIlpGroups>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIlpGroups>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListIlpGroupsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listIlpGroups>>> = ({ signal }) => listIlpGroups({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listIlpGroups>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListIlpGroupsQueryResult = NonNullable<Awaited<ReturnType<typeof listIlpGroups>>>
+export type ListIlpGroupsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List shared roster-backed groups (school staff only)
+ */
+
+export function useListIlpGroups<TData = Awaited<ReturnType<typeof listIlpGroups>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIlpGroups>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListIlpGroupsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateIlpGroupUrl = () => {
+
+
+
+
+  return `/api/termly-ilps/groups`
+}
+
+/**
+ * @summary Create a group (administrator only)
+ */
+export const createIlpGroup = async (ilpGroupInput: IlpGroupInput, options?: RequestInit): Promise<IlpGroup> => {
+
+  return customFetch<IlpGroup>(getCreateIlpGroupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      ilpGroupInput,)
+  }
+);}
+
+
+
+
+export const getCreateIlpGroupMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createIlpGroup>>, TError,{data: BodyType<IlpGroupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createIlpGroup>>, TError,{data: BodyType<IlpGroupInput>}, TContext> => {
+
+const mutationKey = ['createIlpGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createIlpGroup>>, {data: BodyType<IlpGroupInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createIlpGroup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateIlpGroupMutationResult = NonNullable<Awaited<ReturnType<typeof createIlpGroup>>>
+    export type CreateIlpGroupMutationBody = BodyType<IlpGroupInput>
+    export type CreateIlpGroupMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a group (administrator only)
+ */
+export const useCreateIlpGroup = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createIlpGroup>>, TError,{data: BodyType<IlpGroupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createIlpGroup>>,
+        TError,
+        {data: BodyType<IlpGroupInput>},
+        TContext
+      > => {
+      return useMutation(getCreateIlpGroupMutationOptions(options));
+    }
+
+export const getUpdateIlpGroupUrl = (id: number,) => {
+
+
+
+
+  return `/api/termly-ilps/groups/${id}`
+}
+
+/**
+ * @summary Replace group name and filters; retain original creator (administrator only)
+ */
+export const updateIlpGroup = async (id: number,
+    ilpGroupInput: IlpGroupInput, options?: RequestInit): Promise<IlpGroup> => {
+
+  return customFetch<IlpGroup>(getUpdateIlpGroupUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      ilpGroupInput,)
+  }
+);}
+
+
+
+
+export const getUpdateIlpGroupMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupInput>}, TContext> => {
+
+const mutationKey = ['updateIlpGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIlpGroup>>, {id: number;data: BodyType<IlpGroupInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateIlpGroup(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateIlpGroupMutationResult = NonNullable<Awaited<ReturnType<typeof updateIlpGroup>>>
+    export type UpdateIlpGroupMutationBody = BodyType<IlpGroupInput>
+    export type UpdateIlpGroupMutationError = ErrorType<void>
+
+    /**
+ * @summary Replace group name and filters; retain original creator (administrator only)
+ */
+export const useUpdateIlpGroup = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateIlpGroup>>,
+        TError,
+        {id: number;data: BodyType<IlpGroupInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateIlpGroupMutationOptions(options));
+    }
+
+export const getDeleteIlpGroupUrl = (id: number,) => {
+
+
+
+
+  return `/api/termly-ilps/groups/${id}`
+}
+
+/**
+ * @summary Delete custom group only; defaults are protected, forms and reviews are not linked
+ */
+export const deleteIlpGroup = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteIlpGroupUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteIlpGroupMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteIlpGroup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteIlpGroup>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteIlpGroup(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteIlpGroupMutationResult = NonNullable<Awaited<ReturnType<typeof deleteIlpGroup>>>
+
+    export type DeleteIlpGroupMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete custom group only; defaults are protected, forms and reviews are not linked
+ */
+export const useDeleteIlpGroup = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteIlpGroup>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteIlpGroupMutationOptions(options));
     }
 

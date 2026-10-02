@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { db, studentsTable, usersTable, ilpTemplatesTable, ilpTermsTable, ilpReviewsTable, ilpSupportAuditTable, sessionsTable } from "@workspace/db";
+import { db, studentsTable, usersTable, ilpTemplatesTable, ilpTermsTable, ilpReviewsTable, ilpSupportAuditTable, sessionsTable, ilpGroupsTable } from "@workspace/db";
 import { eq, inArray, sql } from "drizzle-orm";
 import app from "../app";
 import { syncUsersFromDirectory } from "./user-directory";
@@ -40,12 +40,13 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
   let fixtureUsers: typeof usersTable.$inferSelect[] = [];
   const studentIds: number[] = [];
   const templateIds: number[] = [];
+  const groupIds: number[] = [];
   const year = "2998-2999";
   const nextYear = "2999-3000";
   async function request(path: string, cookie: string, method = "GET", body?: unknown) {
     const response = await fetch(base + path, { method, headers: { Cookie: cookie, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
     // Error payloads intentionally differ from successful generated contracts.
-    return { status: response.status, data: await response.json() as any, response };
+    return { status: response.status, data: response.status === 204 ? null : await response.json() as any, response };
   }
   try {
     const csv = "username,password,role,fullname\n" + fixtureNames.map(name => {
@@ -68,6 +69,56 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
     const second = cookies.get("learner2")!;
     const tutor = cookies.get("tutor")!;
     const other = cookies.get("other")!;
+    const groupsPath = "/termly-ilps/groups";
+    assert.equal((await request(groupsPath, "")).status, 401);
+    assert.equal((await request(groupsPath, learner)).status, 403);
+    const defaults = await request(groupsPath, admin);
+    assert.equal(defaults.status, 200);
+    assert.equal(defaults.response.headers.get("cache-control"), "private, no-store");
+    assert.deepEqual(defaults.data.filter((g: any) => g.defaultYear !== null).map((g: any) => g.defaultYear).sort((a: number, b: number) => a - b), [7, 8, 9, 10, 11]);
+    const originalDefault = defaults.data.find((g: any) => g.defaultYear === 7);
+    assert.equal((await request(`${groupsPath}/${originalDefault.id}`, admin, "DELETE")).status, 409);
+    const groupInput = { name: `${prefix}-group`, filters: [{ field: "Year Group", operator: "equals", value: "Year 7" }] };
+    for (const role of ["tutor", "hod", "office"]) {
+      const cookie = cookies.get(role)!;
+      assert.equal((await request(groupsPath, cookie)).status, 200);
+      assert.equal((await request(groupsPath, cookie, "POST", groupInput)).status, 403);
+      assert.equal((await request(`${groupsPath}/${originalDefault.id}`, cookie, "PUT", groupInput)).status, 403);
+      assert.equal((await request(`${groupsPath}/${originalDefault.id}`, cookie, "DELETE")).status, 403);
+    }
+    for (const field of ["Course", "Attendance %", "Status", "Faculty", "Gender"]) {
+      const rejected = await request(groupsPath, admin, "POST", { ...groupInput, filters: [{ field, operator: "equals", value: "Year 7" }] });
+      assert.equal(rejected.status, 400);
+      assert.match(rejected.data.error, /not supported/);
+    }
+    assert.equal((await request(groupsPath, admin, "POST", { ...groupInput, createdBy: "Forged" })).status, 400);
+    assert.equal((await request(groupsPath, admin, "POST", { ...groupInput, name: " " })).status, 400);
+    const created = await request(groupsPath, admin, "POST", groupInput);
+    assert.equal(created.status, 201);
+    groupIds.push(created.data.id);
+    assert.equal(created.data.createdBy, "Synthetic ILP fixture");
+    assert.ok(Number.isFinite(Date.parse(created.data.createdAt)));
+    const confirmedYears = await db.select({ year: studentsTable.yearGroup }).from(studentsTable).where(eq(studentsTable.confirmedLearner, true));
+    assert.equal(created.data.learnerCount, confirmedYears.filter(s => s.year?.trim().replace(/^Year\s+/i, "") === "7").length);
+    const [storedGroup] = await db.select().from(ilpGroupsTable).where(eq(ilpGroupsTable.id, created.data.id));
+    assert.equal(storedGroup.createdById, uid("admin"));
+    assert.equal((await request(groupsPath, other)).data.find((g: any) => g.id === created.data.id).name, groupInput.name);
+    const renamed = { ...groupInput, name: `${prefix}-renamed`, filters: [{ field: "Year Group", operator: "is not", value: "8" }] };
+    const edited = await request(`${groupsPath}/${created.data.id}`, admin, "PUT", renamed);
+    assert.equal(edited.status, 200);
+    assert.equal(edited.data.createdAt, created.data.createdAt);
+    assert.equal(edited.data.createdBy, created.data.createdBy);
+    const reloaded = (await request(groupsPath, cookies.get("hod")!)).data.find((g: any) => g.id === created.data.id);
+    assert.deepEqual(reloaded.filters, renamed.filters);
+    assert.equal(reloaded.name, renamed.name);
+    // Temporarily edit and always restore a default; initialization must not
+    // overwrite administrator changes on subsequent reads.
+    try {
+      assert.equal((await request(`${groupsPath}/${originalDefault.id}`, admin, "PUT", renamed)).status, 200);
+      assert.equal((await request(groupsPath, admin)).data.find((g: any) => g.id === originalDefault.id).name, renamed.name);
+    } finally {
+      await db.update(ilpGroupsTable).set({ name: originalDefault.name, filters: originalDefault.filters }).where(eq(ilpGroupsTable.id, originalDefault.id));
+    }
     for (let i = 1; i <= 2; i++) {
       const [student] = await db.insert(studentsTable).values({ personCode: `${prefix}-person-${i}`, forename: "Synthetic", surname: `Fixture ${i}`, yearGroup: `Year ${i + 6}`, confirmedLearner: true }).returning();
       studentIds.push(student.id);
@@ -82,6 +133,12 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
       templateIds.push(template.id);
       assert.equal((await request("/termly-ilps/admin", admin, "POST", { action: "publish_template", templateId: template.id, revision: 0 })).status, 200);
     }
+    // Displayed forms are not saved group dependencies, even when published.
+    const beforeTemplates = await db.select({ id: ilpTemplatesTable.id }).from(ilpTemplatesTable).where(inArray(ilpTemplatesTable.id, templateIds));
+    assert.equal((await request(`${groupsPath}/${created.data.id}`, admin, "DELETE")).status, 204);
+    assert.equal((await request(groupsPath, other)).data.some((g: any) => g.id === created.data.id), false);
+    assert.equal((await request(`${groupsPath}/${created.data.id}`, admin, "DELETE")).status, 404);
+    assert.deepEqual(await db.select({ id: ilpTemplatesTable.id }).from(ilpTemplatesTable).where(inArray(ilpTemplatesTable.id, templateIds)), beforeTemplates);
     const publication = { academicYear: year, term: 1, templateId: templateIds[0], startDate: "2020-01-01", endDate: "2020-12-31", deadline: "2020-04-01" };
     const preview = await request("/termly-ilps/admin", admin, "POST", { action: "preview_term", ...publication });
     assert.equal(preview.status, 200);
@@ -215,6 +272,7 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
     }
     if (studentIds.length) await db.delete(studentsTable).where(inArray(studentsTable.id, studentIds));
     if (templateIds.length) await db.delete(ilpTemplatesTable).where(inArray(ilpTemplatesTable.id, templateIds));
+    if (groupIds.length) await db.delete(ilpGroupsTable).where(inArray(ilpGroupsTable.id, groupIds));
     const ids = fixtureUsers.map(u => u.id);
     if (ids.length) {
       await db.delete(ilpSupportAuditTable).where(inArray(ilpSupportAuditTable.actorId, ids));

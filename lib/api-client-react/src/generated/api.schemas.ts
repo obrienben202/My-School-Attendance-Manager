@@ -5,6 +5,50 @@
  * High School Attendance Tracker API
  * OpenAPI spec version: 0.1.0
  */
+export type IlpGroupFilterField = typeof IlpGroupFilterField[keyof typeof IlpGroupFilterField];
+
+
+export const IlpGroupFilterField = {
+  Year_Group: 'Year Group',
+} as const;
+
+export type IlpGroupFilterOperator = typeof IlpGroupFilterOperator[keyof typeof IlpGroupFilterOperator];
+
+
+export const IlpGroupFilterOperator = {
+  equals: 'equals',
+  is_not: 'is not',
+} as const;
+
+export interface IlpGroupFilter {
+  field: IlpGroupFilterField;
+  operator: IlpGroupFilterOperator;
+  /** @pattern ^(Year )?(7|8|9|10|11)$ */
+  value: string;
+}
+
+export interface IlpGroupInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /** @maxItems 20 */
+  filters: IlpGroupFilter[];
+}
+
+export interface IlpGroup {
+  id: number;
+  name: string;
+  filters: IlpGroupFilter[];
+  /** @minimum 0 */
+  learnerCount: number;
+  /** @nullable */
+  defaultYear: number | null;
+  createdBy: string;
+  createdAt: string;
+}
+
 export type TermlyIlpTemplateContentTargetExamples = {
   academic: string;
   personal: string;

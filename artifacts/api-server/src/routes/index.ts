@@ -19,8 +19,10 @@ import safeguardingRouter from "./safeguarding";
 import storageRouter from "./storage";
 import reportsRouter from "./reports";
 import termlyIlpsRouter from "./termly-ilps";
+import ilpGroupsRouter from "./ilp-groups";
 
 const router: IRouter = Router();
+router.use(ilpGroupsRouter);
 
 router.use(healthRouter);
 router.use(authRouter);
