@@ -66,7 +66,7 @@ test("time/day edits preserve a sole identity, and do not guess at ambiguous edi
   assert.equal(plan.inserts.length, 2);
 });
 
-test("partial takeover retires only represented imported slots, never manual, other imports or unlisted courses", () => {
+test("authoritative takeover retires older manual and imported slots only for represented courses", () => {
   const old = existing();
   const plan = reconcileSessions([parsed()[0]], [
     { ...old[0], source: TECHNOLOGY_TIMETABLE_SOURCE, startTime: "08:30" },
@@ -75,9 +75,22 @@ test("partial takeover retires only represented imported slots, never manual, ot
     { ...old[0], id: 5, source: null, sourceKey: null },
     { ...old[0], id: 6, source: "unrelated" },
     { ...old[0], id: 7, isActive: false },
+    { ...old[1], id: 8, source: null, sourceKey: null },
+    { ...old[0], id: 9, courseId: 0, source: null, sourceKey: null },
   ]);
   assert.equal(plan.updates[0].id, 1);
-  assert.deepEqual(plan.retireIds, [4]);
+  assert.deepEqual(plan.retireIds, [4, 5, 6]);
+});
+
+test("existing sheet identity wins over a matching manual slot and retired rows are not reused", () => {
+  const slot = parsed()[0];
+  const sheet = existing()[0];
+  const manual = { ...sheet, id: 40, source: null, sourceKey: null };
+  const plan = reconcileSessions([slot], [manual, sheet]);
+  assert.equal(plan.updates[0].id, sheet.id);
+  assert.deepEqual(plan.retireIds, [manual.id]);
+  assert.deepEqual(plan.inserts, []);
+  assert.deepEqual(reconcileSessions([slot], [{ ...manual, isActive: false }]).inserts, [slot]);
 });
 
 test("all nonblank rows and exact headers validate before any schedule writes", async () => {

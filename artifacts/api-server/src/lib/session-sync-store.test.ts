@@ -83,24 +83,25 @@ test("isolated SQL: additive retirement, partial takeover, edits, rollback, pers
              (1,'Thursday','12:00','12:45',$1,'legacy-other','Legacy Teacher',null)`,
       [TECHNOLOGY_TIMETABLE_SOURCE]);
     await pool.query(`
-      insert into attendance (schedule_id,status,notes) values (1,'present','original mark'),(2,'late','original note');
+      insert into attendance (schedule_id,status,notes) values (1,'present','original mark'),(2,'late','original note'),(4,'present','manual-slot history');
       insert into attendance_registers (schedule_id,date,status,submitted_at)
-        values (1,'2026-09-28','submitted','2026-09-28T10:30:00Z'),(2,'2026-09-25','submitted','2026-09-25T14:30:00Z');
+        values (1,'2026-09-28','submitted','2026-09-28T10:30:00Z'),(2,'2026-09-25','submitted','2026-09-25T14:30:00Z'),(4,'2026-09-24','submitted','2026-09-24T16:00:00Z');
       insert into attendance_register_audit (schedule_id,action,details)
-        values (1,'submit','original audit'),(2,'submit','retired audit');
+        values (1,'submit','original audit'),(2,'submit','retired audit'),(4,'submit','manual-slot audit');
     `);
     const beforeHistory = await history();
     await pool.query(migration);
     await pool.query(migration);
     assert.ok((await schedules()).every(s => s.is_active));
-    const unchangedOthers = (await schedules()).filter(s => [3, 4, 5].includes(s.id));
+    const unchangedOthers = (await schedules()).filter(s => s.id === 3);
 
     const first = await persistSessionSnapshot(slots(), repository());
-    assert.deepEqual(first, { inserted: 1, updated: 1, unchanged: 0, retired: 2 });
+    assert.deepEqual(first, { inserted: 1, updated: 1, unchanged: 0, retired: 4 });
     assert.deepEqual(await history(), beforeHistory);
     assert.equal((await schedules()).find(s => s.id === 1).start_time, "09:00");
     assert.equal((await schedules()).find(s => s.id === 2).is_active, false);
-    assert.deepEqual((await schedules()).filter(s => [3, 4, 5].includes(s.id)), unchangedOthers);
+    assert.deepEqual((await schedules()).filter(s => s.id === 3), unchangedOthers);
+    assert.ok((await schedules()).filter(s => [4, 5].includes(s.id)).every(s => !s.is_active));
     const stable = await schedules();
     assert.deepEqual(await persistSessionSnapshot([...slots()].reverse(), repository()),
       { inserted: 0, updated: 0, unchanged: 2, retired: 0 });
@@ -152,6 +153,8 @@ test("isolated SQL: additive retirement, partial takeover, edits, rollback, pers
     // Retired identities serve saved occurrences, but never create new ones.
     assert.equal((await fetch(`${base}/state?scheduleId=2&date=2026-09-25`)).status, 200);
     assert.equal((await fetch(`${base}/state?scheduleId=2&date=2026-10-02`)).status, 400);
+    assert.equal((await fetch(`${base}/state?scheduleId=4&date=2026-09-24`)).status, 200);
+    assert.equal((await fetch(`${base}/state?scheduleId=4&date=2026-10-01`)).status, 400);
     role = "staff";
     assert.equal((await fetch(`${base}/state?scheduleId=1&date=2026-09-28`)).status, 200);
     assert.equal((await fetch(`${base}/state?scheduleId=2&date=2026-09-25`)).status, 403);

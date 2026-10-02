@@ -64,8 +64,14 @@ export function reconcileSessions(slots: SessionSlot[], existing: ExistingSessio
   const updates: { id: number; slot: SessionSlot }[] = [];
   const inserts: SessionSlot[] = [];
   const represented = new Set(slots.map(s => s.courseId));
-  const candidates = existing.filter(s => s.isActive && represented.has(s.courseId) &&
-    (s.source === SESSION_SHEET_SOURCE || s.source === TECHNOLOGY_TIMETABLE_SOURCE));
+  const representedActive = existing.filter(s => s.isActive && represented.has(s.courseId));
+  const isManaged = (s: ExistingSession) =>
+    s.source === SESSION_SHEET_SOURCE || s.source === TECHNOLOGY_TIMETABLE_SOURCE;
+  const candidates = representedActive.filter(isManaged);
+  // The user made Sessions authoritative for represented courses, including
+  // their old manual slots. Retire those rows without repurposing their
+  // register identities. Omitted courses and personal activities are untouched.
+  const superseded = representedActive.filter(s => !isManaged(s));
   const remaining = new Map(candidates.map(s => [s.id, s]));
   const desired = [...slots].sort((a, b) => a.sourceKey.localeCompare(b.sourceKey));
   const pending: SessionSlot[] = [];
@@ -93,5 +99,5 @@ export function reconcileSessions(slots: SessionSlot[], existing: ExistingSessio
     if (todo.length === 1 && old.length === 1) { use(todo[0], old[0]); todo = []; }
     inserts.push(...todo);
   }
-  return { updates, inserts, retireIds: [...remaining.keys()] };
+  return { updates, inserts, retireIds: [...remaining.keys(), ...superseded.map(s => s.id)] };
 }
