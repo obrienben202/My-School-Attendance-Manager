@@ -1,0 +1,3792 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: High School Attendance Tracker API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: Auth
+    description: Browser and mobile authentication endpoints.
+  - name: health
+    description: Health operations
+  - name: students
+    description: Student operations
+  - name: courses
+    description: Course operations
+  - name: attendance
+    description: Attendance register operations
+  - name: targets
+    description: SMART target operations
+  - name: ilps
+    description: Individual Learning Plans
+  - name: schedule
+    description: Schedule operations
+  - name: dashboard
+    description: Dashboard summary operations
+  - name: assessments
+    description: Assessment and marking operations
+  - name: concierge
+    description: Concierge applicant and application operations
+  - name: Storage
+    description: Object storage upload and serving endpoints.
+  - name: eprogressions
+    description: eProgression submission and pending queue
+  - name: staff
+    description: Staff records and staff-scoped read-only views
+  - name: planned-absences
+    description: Authenticated planned absence requests
+  - name: safeguarding
+    description: Protected safeguarding notes for authorised staff
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /reports/{reportId}:
+    get:
+      operationId: getReport
+      tags: [reports]
+      summary: Run a current report for authorised report users
+      description: Returns persisted report data only, including the source-data freshness timestamp when records match.
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ReportId"
+        - name: academicYear
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: course
+          in: query
+          schema: { type: string }
+        - name: surname
+          in: query
+          schema: { type: string }
+        - name: threshold
+          in: query
+          schema: { type: string }
+        - name: tutor
+          in: query
+          schema: { type: string }
+        - name: unit
+          in: query
+          schema: { type: string }
+        - name: overdueTo
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: completion
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current report result, including the applied filters and freshness timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportResponse"
+        "400":
+          description: Invalid report filters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Reports access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /students:
+    get:
+      operationId: listStudents
+      tags: [students]
+      summary: List students with optional search filters
+      parameters:
+        - name: personCode
+          in: query
+          schema:
+            type: string
+        - name: forename
+          in: query
+          schema:
+            type: string
+        - name: surname
+          in: query
+          schema:
+            type: string
+        - name: gender
+          in: query
+          schema:
+            type: string
+        - name: yearGroup
+          in: query
+          schema:
+            type: string
+        - name: atRisk
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+    post:
+      operationId: createStudent
+      tags: [students]
+      summary: Create a new student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+
+  /planned-absences:
+    get:
+      operationId: listPlannedAbsences
+      tags: [planned-absences]
+      summary: List the authenticated user's planned absence requests
+      responses:
+        "200":
+          description: Planned absence requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlannedAbsence"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+    post:
+      operationId: createPlannedAbsence
+      tags: [planned-absences]
+      summary: Create a planned absence request for a learner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlannedAbsenceInput"
+      responses:
+        "201":
+          description: Planned absence request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlannedAbsence"
+        "400":
+          description: Invalid request or date range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /safeguarding/notes:
+    get:
+      operationId: listSafeguardingNotes
+      tags: [safeguarding]
+      summary: List protected safeguarding notes
+      description: Lists protected safeguarding notes for authenticated admins, heads of department, and staff.
+      responses:
+        "200":
+          description: Protected safeguarding notes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSafeguardingNotesResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Safeguarding access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createSafeguardingNote
+      tags: [safeguarding]
+      summary: Create a protected safeguarding note
+      description: Creates a note attributed to the authenticated admin, head of department, or staff member.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafeguardingNoteInput"
+      responses:
+        "201":
+          description: Safeguarding note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafeguardingNote"
+        "400":
+          description: Invalid note or learner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Safeguarding access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /students/{id}:
+    get:
+      operationId: getStudent
+      tags: [students]
+      summary: Get a student by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateStudent
+      tags: [students]
+      summary: Update a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+    delete:
+      operationId: deleteStudent
+      tags: [students]
+      summary: Delete a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /students/at-risk:
+    get:
+      operationId: listAtRiskStudents
+      tags: [students]
+      summary: List students flagged as at risk
+      responses:
+        "200":
+          description: At risk students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+
+  /courses:
+    get:
+      operationId: listCourses
+      tags: [courses]
+      summary: List all courses
+      responses:
+        "200":
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+  /courses/{id}:
+    get:
+      operationId: getCourse
+      tags: [courses]
+      summary: Get a course by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Course
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        "404":
+          description: Not found
+
+  /attendance:
+    get:
+      operationId: listAttendanceRecords
+      tags: [attendance]
+      summary: List attendance records
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+        - name: courseId
+          in: query
+          schema:
+            type: integer
+        - name: scheduleId
+          in: query
+          schema:
+            type: integer
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [present, absent, late, authorised, excluded, distance_learning]
+      responses:
+        "200":
+          description: Attendance records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRecord"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Attendance access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      operationId: createAttendanceRecord
+      tags: [attendance]
+      summary: Mark attendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Invalid attendance data, including a date whose weekday does not match the selected schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register:
+    post:
+      operationId: submitAttendanceRegister
+      tags: [attendance]
+      summary: Save a draft or submit all marks for a lesson register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceRegisterInput"
+      responses:
+        "200":
+          description: Authoritative saved register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRegister"
+        "400":
+          description: Invalid register data, including a date whose weekday does not match the selected schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Submitted register is locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/roster:
+    get:
+      operationId: listAttendanceRegisterRoster
+      tags: [attendance]
+      summary: List learners enrolled on an authorised lesson register
+      parameters:
+        - name: scheduleId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Enrolled learners for the authorised lesson occurrence
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRegisterRosterStudent"
+        "400":
+          description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/audit:
+    get:
+      operationId: listAttendanceRegisterAudit
+      tags: [attendance]
+      summary: List persisted audit events for one register occurrence
+      parameters:
+        - name: scheduleId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Register audit history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRegisterAudit"
+        "400":
+          description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/contacts:
+    get:
+      operationId: listAttendanceRegisterContacts
+      tags: [attendance]
+      summary: List contact addresses for learners on an authorised register
+      parameters:
+        - name: scheduleId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Learner contact addresses for the register
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceRegisterContact"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/state:
+    get:
+      operationId: getAttendanceRegisterState
+      tags: [attendance]
+      summary: Get lifecycle state for one exact register occurrence
+      parameters:
+        - name: scheduleId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Exact occurrence lifecycle state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRegisterOccurrenceState"
+        "400":
+          description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/register/reopen:
+    post:
+      operationId: reopenAttendanceRegister
+      tags: [attendance]
+      summary: Explicitly reopen a submitted register as an editable draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceRegisterOccurrenceInput"
+      responses:
+        "200":
+          description: Reopened register state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRegisterLifecycle"
+        "400":
+          description: Invalid register occurrence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Not assigned to this register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Schedule session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Register is not currently submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /attendance/{id}:
+    patch:
+      operationId: updateAttendanceRecord
+      tags: [attendance]
+      summary: Update an attendance record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Invalid update or attempt to move attendance between lesson sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Attendance record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Submitted register is locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteAttendanceRecord
+      tags: [attendance]
+      summary: Delete an attendance record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Invalid attendance record identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Lesson register access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Attendance record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Submitted register is locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /targets:
+    get:
+      operationId: listTargets
+      tags: [targets]
+      summary: List SMART targets
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+        - name: overdue
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Targets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Target"
+    post:
+      operationId: createTarget
+      tags: [targets]
+      summary: Create a SMART target
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TargetInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+
+  /targets/{id}:
+    patch:
+      operationId: updateTarget
+      tags: [targets]
+      summary: Update a SMART target
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TargetUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+    delete:
+      operationId: deleteTarget
+      tags: [targets]
+      summary: Delete a target
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /ilps:
+    get:
+      operationId: listIlps
+      tags: [ilps]
+      summary: List Individual Learning Plans
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: ILPs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ilp"
+    post:
+      operationId: createIlp
+      tags: [ilps]
+      summary: Create an ILP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IlpInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ilp"
+
+  /ilps/{id}:
+    patch:
+      operationId: updateIlp
+      tags: [ilps]
+      summary: Update an ILP and its review or section state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IlpUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ilp"
+    delete:
+      operationId: deleteIlp
+      tags: [ilps]
+      summary: Delete an Individual Learning Plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /assessments:
+    get:
+      operationId: listAssessments
+      tags: [assessments]
+      summary: List assessments with optional filters
+      parameters:
+        - name: courseId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assessments list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assessment"
+    post:
+      operationId: createAssessment
+      tags: [assessments]
+      summary: Create an assessment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+
+  /assessments/{id}:
+    get:
+      operationId: getAssessment
+      tags: [assessments]
+      summary: Get assessment by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+    patch:
+      operationId: updateAssessment
+      tags: [assessments]
+      summary: Update an assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+    delete:
+      operationId: deleteAssessment
+      tags: [assessments]
+      summary: Delete an assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /assessment-results:
+    get:
+      operationId: listAssessmentResults
+      tags: [assessments]
+      summary: List assessment results
+      parameters:
+        - name: assessmentId
+          in: query
+          schema:
+            type: integer
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Results list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssessmentResult"
+    post:
+      operationId: createAssessmentResult
+      tags: [assessments]
+      summary: Create or upsert an assessment result
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentResultInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentResult"
+
+  /assessment-results/{id}:
+    patch:
+      operationId: updateAssessmentResult
+      tags: [assessments]
+      summary: Update an assessment result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentResultInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssessmentResult"
+
+  /eprogressions:
+    get:
+      operationId: listEprogressions
+      tags: [eprogressions]
+      summary: List eProgressions
+      description: Requires a signed-in admin, head of department, staff, or office user.
+      parameters:
+        - name: studentId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: courseId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of eProgressions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Eprogression"
+        "401":
+          description: Authentication required
+        "403":
+          description: Insufficient role
+    post:
+      operationId: createEprogression
+      tags: [eprogressions]
+      summary: Submit eProgression(s)
+      description: Requires a signed-in admin, head of department, staff, or office user. New submissions are always Pending.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EprogressionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Eprogression"
+        "401":
+          description: Authentication required
+        "403":
+          description: Insufficient role
+
+  /eprogressions/{id}:
+    patch:
+      operationId: updateEprogression
+      tags: [eprogressions]
+      summary: Update eProgression status (authorise/reject)
+      description: Only admins can authorise or reject a Pending eProgression. A completed decision cannot be reopened.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EprogressionUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Eprogression"
+        "401":
+          description: Authentication required
+        "403":
+          description: Admin access required
+        "404":
+          description: Pending eProgression not found
+    delete:
+      operationId: deleteEprogression
+      tags: [eprogressions]
+      summary: Delete an eProgression
+      description: Only admins can permanently delete an eProgression.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Authentication required
+        "403":
+          description: Admin access required
+
+  /concierge/applications:
+    get:
+      operationId: listConciergeApplications
+      tags: [concierge]
+      summary: List all concierge applications
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConciergeApplication"
+    post:
+      operationId: createConciergeApplication
+      tags: [concierge]
+      summary: Create a new concierge application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeApplicationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeApplication"
+
+  /concierge/applications/{id}:
+    get:
+      operationId: getConciergeApplication
+      tags: [concierge]
+      summary: Get a single concierge application
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeApplication"
+    patch:
+      operationId: updateConciergeApplication
+      tags: [concierge]
+      summary: Update a concierge application
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeApplicationInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeApplication"
+    delete:
+      operationId: deleteConciergeApplication
+      tags: [concierge]
+      summary: Delete a concierge application
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /concierge/enrolments:
+    get:
+      operationId: listConciergeEnrolments
+      tags: [concierge]
+      summary: List learner enrolments
+      responses:
+        "200":
+          description: Learner enrolments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConciergeEnrolment"
+    post:
+      operationId: createConciergeEnrolment
+      tags: [concierge]
+      summary: Complete a learner enrolment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeEnrolmentInput"
+      responses:
+        "201":
+          description: Completed learner enrolment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeEnrolment"
+        "400":
+          description: Invalid enrolment details
+        "401":
+          description: Authentication required
+        "403":
+          description: Concierge access required
+        "404":
+          description: Application, learner, or course not found
+
+  /concierge/enrolments/{id}:
+    get:
+      operationId: getConciergeEnrolment
+      tags: [concierge]
+      summary: Get a learner enrolment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Learner enrolment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeEnrolment"
+        "404":
+          description: Enrolment not found
+
+  /concierge/enrolments/{id}/photo:
+    post:
+      operationId: associateConciergeEnrolmentPhoto
+      tags: [concierge]
+      summary: Associate an uploaded learner photo with an enrolment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeEnrolmentPhotoInput"
+      responses:
+        "200":
+          description: Enrolment with saved photo reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeEnrolment"
+        "400":
+          description: Invalid photo reference
+        "401":
+          description: Authentication required
+        "404":
+          description: Enrolment or uploaded object not found
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      description: Returns a presigned URL for a direct image upload. The client sends metadata here, then uploads the file directly to storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Missing or invalid required fields
+        "401":
+          description: Authentication required
+        "500":
+          description: Failed to generate upload URL
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an uploaded object
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Object not found
+
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+  /login:
+    post:
+      tags: [Auth]
+      operationId: loginWithPassword
+      summary: Log in with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          description: Invalid credentials
+        '403':
+          description: Credentials were valid, but the account has not been synchronized from the school directory.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Clear the session and log out
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+  /admin/sync-users:
+    post:
+      tags: [Auth]
+      operationId: syncUsersFromSheet
+      summary: Reconcile users and roles from the school directory
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDirectorySyncResult'
+        '422':
+          description: Directory validation failed; no user changes were applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDirectorySyncResult'
+        '403':
+          description: Admin access required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: The school directory could not be fetched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /mobile-auth/token-exchange:
+    post:
+      tags: [Auth]
+      operationId: exchangeMobileAuthorizationCode
+      summary: Exchange a mobile OIDC code for a session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileTokenExchangeRequest'
+      responses:
+        '200':
+          description: Session created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Token did not contain usable claims.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Token exchange failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /mobile-auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutMobileSession
+      summary: Delete a mobile session token
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+      responses:
+        '200':
+          description: Logout processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+
+  /schedule/today:
+    get:
+      operationId: getTodaySchedule
+      tags: [schedule]
+      summary: Get today's schedule/registers
+      responses:
+        "200":
+          description: Today's schedule
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduleEntry"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /staff/me/profile:
+    get:
+      operationId: getMyProfile
+      tags: [staff]
+      summary: Get the signed-in user's verified contact and employment details
+      description: Identity comes from the authenticated account; optional details come from the validated school directory matched by the account username. A process-local per-account cache serves previously verified fields for up to 24 hours when the directory fetch fails; invalid directory data still fails closed. Never accepts a staff ID.
+      responses:
+        "200":
+          description: Own profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyProfile"
+        "401":
+          description: Authentication required
+        "502":
+          description: Directory unavailable or invalid
+
+  /staff:
+    get:
+      operationId: listStaff
+      tags: [staff]
+      summary: List staff records
+      responses:
+        "200":
+          description: Staff records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffSource"
+
+  /staff/{id}:
+    get:
+      operationId: getStaff
+      tags: [staff]
+      summary: Get a staff record and assigned courses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Staff record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRecord"
+        "404":
+          description: Staff member not found
+
+  /staff/{id}/timetable:
+    get:
+      operationId: getStaffTimetable
+      tags: [staff]
+      summary: Get a staff member's timetable
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Staff timetable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffTimetableResponse"
+        "401":
+          description: Authentication required
+        "404":
+          description: Staff member not found
+
+  /staff/{id}/register-history:
+    get:
+      operationId: getStaffRegisterHistory
+      tags: [staff]
+      summary: Get register history scoped to a staff member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Staff register history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRegisterHistoryResponse"
+        "401":
+          description: Authentication required
+        "404":
+          description: Staff member not found
+
+  /staff/{id}/room-bookings:
+    get:
+      operationId: getStaffRoomBookings
+      tags: [staff]
+      summary: Get room bookings for a staff member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Room bookings or explicit unavailable-source state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffUnavailableRecordsResponse"
+        "401":
+          description: Authentication required
+        "404":
+          description: Staff member not found
+
+  /staff/{id}/correspondence:
+    get:
+      operationId: getStaffCorrespondence
+      tags: [staff]
+      summary: Get correspondence for a staff member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Correspondence or explicit unavailable-source state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffUnavailableRecordsResponse"
+        "401":
+          description: Authentication required
+        "404":
+          description: Staff member not found
+
+  /termly-ilps:
+    get:
+      operationId: getTermlyIlpFeed
+      tags: [ilps]
+      responses:
+        "200":
+          description: Only the current learner or assigned tutor's reviews
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpFeed" }
+  /termly-ilps/admin:
+    get:
+      operationId: getTermlyIlpAdmin
+      tags: [ilps]
+      responses:
+        "200":
+          description: Administrator setup and completion monitoring without private answers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpAdmin" }
+    post:
+      operationId: maintainTermlyIlps
+      tags: [ilps]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TermlyIlpAdminCommand" }
+      responses:
+        "200":
+          description: Persisted maintenance result or publication preview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpCommandResult" }
+  /termly-ilps/staff:
+    get:
+      operationId: getTermlyIlpStaffFeed
+      tags: [ilps]
+      responses:
+        "200":
+          description: School staff review summaries and separate staff comments, without private learner answers
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpStaffFeed" }
+        "403":
+          description: School staff access required
+  /termly-ilps/reviews/{id}/staff-comments:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    post:
+      operationId: addTermlyIlpStaffComment
+      tags: [ilps]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TermlyIlpStaffCommentInput" }
+      responses:
+        "200":
+          description: Persisted staff comment with server-verified author
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpStaffComment" }
+        "403":
+          description: School staff access required
+        "404":
+          description: Confirmed learner review not found
+  /termly-ilps/reviews/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      operationId: getTermlyIlpReview
+      tags: [ilps]
+      parameters:
+        - name: supportReason
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Scoped review and earlier term summaries; admin support access is audited
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpDetail" }
+    post:
+      operationId: actOnTermlyIlpReview
+      tags: [ilps]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TermlyIlpReviewCommand" }
+      responses:
+        "200":
+          description: Successfully persisted review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TermlyIlpReview" }
+  /termly-ilps/groups:
+    get:
+      operationId: listIlpGroups
+      summary: List shared roster-backed groups (school staff only)
+      responses:
+        "200":
+          description: Saved groups; form listings are not group dependencies
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/IlpGroup" }
+        "401": { description: Authentication required }
+        "403": { description: School staff required }
+    post:
+      operationId: createIlpGroup
+      summary: Create a group (administrator only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IlpGroupInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IlpGroup" }
+        "400": { description: Unsupported or invalid filters }
+        "401": { description: Authentication required }
+        "403": { description: Administrator required }
+  /termly-ilps/groups/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    put:
+      operationId: updateIlpGroup
+      summary: Replace group name and filters; retain original creator (administrator only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IlpGroupInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IlpGroup" }
+        "400": { description: Unsupported or invalid filters }
+        "401": { description: Authentication required }
+        "403": { description: Administrator required }
+        "404": { description: Group not found }
+    delete:
+      operationId: deleteIlpGroup
+      summary: Delete custom group only; defaults are protected, forms and reviews are not linked
+      responses:
+        "204": { description: Deleted }
+        "400": { description: Invalid group identifier }
+        "401": { description: Authentication required }
+        "403": { description: Administrator required }
+        "404": { description: Group not found }
+        "409": { description: Year 7–11 default groups cannot be deleted }
+components:
+  parameters:
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      description: Opaque session token — Bearer <sid>.
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      description: Browser session cookie.
+      schema:
+        type: string
+  schemas:
+    IlpGroupFilter:
+      type: object
+      additionalProperties: false
+      required: [field, operator, value]
+      properties:
+        field: { type: string, enum: ["Year Group"] }
+        operator: { type: string, enum: ["equals", "is not"] }
+        value: { type: string, pattern: '^(Year )?(7|8|9|10|11)$' }
+    IlpGroupInput:
+      type: object
+      additionalProperties: false
+      required: [name, filters]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        filters:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/IlpGroupFilter" }
+    IlpGroup:
+      type: object
+      required: [id, name, filters, learnerCount, defaultYear, createdBy, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        filters:
+          type: array
+          items: { $ref: "#/components/schemas/IlpGroupFilter" }
+        learnerCount: { type: integer, minimum: 0 }
+        defaultYear: { type: ["integer", "null"] }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+    TermlyIlpTemplateContent:
+      type: object
+      required: [title, welcome, instructions, endGuidance, targetExamples, sections]
+      properties:
+        title: { type: string }
+        welcome: { type: string }
+        instructions: { type: string }
+        endGuidance: { type: string }
+        targetExamples:
+          type: object
+          required: [academic, personal, future]
+          properties:
+            academic: { type: string }
+            personal: { type: string }
+            future: { type: string }
+        sections:
+          type: array
+          items:
+            type: object
+            required: [id, title, instructions, questions]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              instructions: { type: string }
+              questions:
+                type: array
+                items:
+                  type: object
+                  required: [id, prompt, required]
+                  properties:
+                    id: { type: string }
+                    prompt: { type: string }
+                    required: { type: boolean }
+    TermlyIlpTemplate:
+      type: object
+      required: [id, term, version, revision, status, content]
+      properties:
+        id: { type: integer }
+        term: { type: integer }
+        version: { type: integer }
+        revision: { type: integer }
+        status: { type: string, enum: [draft, published] }
+        content: { $ref: "#/components/schemas/TermlyIlpTemplateContent" }
+    TermlyIlpTerm:
+      type: object
+      required: [id, academicYear, term, templateId, startDate, endDate, deadline]
+      properties:
+        id: { type: integer }
+        academicYear: { type: string }
+        term: { type: integer }
+        templateId: { type: integer }
+        startDate: { type: string }
+        endDate: { type: string }
+        deadline: { type: string }
+    TermlyIlpWork:
+      type: object
+      required: [answers, summary, targets, priorTargetUpdates]
+      properties:
+        answers:
+          type: object
+          additionalProperties: { type: string }
+        summary: { type: string }
+        targets:
+          type: array
+          items:
+            type: object
+            required: [category, description, steps, progress, completed]
+            properties:
+              category: { type: string, enum: [academic, personal, future] }
+              description: { type: string }
+              steps: { type: string }
+              progress: { type: string }
+              completed: { type: boolean }
+        priorTargetUpdates:
+          type: object
+          additionalProperties:
+            type: object
+            required: [progress, completed]
+            properties:
+              progress: { type: string }
+              completed: { type: boolean }
+    TermlyIlpReviewSummary:
+      type: object
+      required: [id, studentId, studentName, termId, templateId, status, revision, academicYear, term, startDate, endDate, deadline, accountLinked, tutorAssigned, overdue]
+      properties:
+        id: { type: integer }
+        studentId: { type: integer }
+        studentName: { type: string }
+        yearGroup: { type: ["string", "null"] }
+        termId: { type: integer }
+        templateId: { type: integer }
+        status: { type: string, enum: [not_started, draft, submitted, reviewed, returned] }
+        revision: { type: integer }
+        academicYear: { type: string }
+        term: { type: integer }
+        startDate: { type: string }
+        endDate: { type: string }
+        deadline: { type: string }
+        accountLinked: { type: boolean }
+        tutorAssigned: { type: boolean }
+        overdue: { type: boolean }
+    TermlyIlpStaffComment:
+      type: object
+      required: [actorId, authorName, createdAt, text]
+      properties:
+        actorId: { type: string }
+        authorName: { type: string }
+        createdAt: { type: string }
+        text: { type: string }
+    TermlyIlpStaffCommentInput:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 5000 }
+    TermlyIlpStaffReview:
+      allOf:
+        - { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
+        - type: object
+          required: [comments]
+          properties:
+            comments:
+              type: array
+              items: { $ref: "#/components/schemas/TermlyIlpStaffComment" }
+    TermlyIlpStaffFeed:
+      type: object
+      required: [reviews]
+      properties:
+        reviews:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpStaffReview" }
+    TermlyIlpReview:
+      allOf:
+        - { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
+        - type: object
+          required: [work, teacherComment, reviewDate, history, updatedAt]
+          properties:
+            work: { $ref: "#/components/schemas/TermlyIlpWork" }
+            teacherComment: { type: string }
+            reviewDate: { type: [string, "null"] }
+            updatedAt: { type: string }
+            history:
+              type: array
+              items:
+                type: object
+                required: [action, actorId, at]
+                properties:
+                  action: { type: string }
+                  actorId: { type: string }
+                  at: { type: string }
+                  comment: { type: string }
+    TermlyIlpDetail:
+      type: object
+      required: [review, template, previousReviews, supportReadOnly]
+      properties:
+        review: { $ref: "#/components/schemas/TermlyIlpReview" }
+        template: { $ref: "#/components/schemas/TermlyIlpTemplate" }
+        supportReadOnly: { type: boolean }
+        previousReviews:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpReview" }
+    TermlyIlpFeed:
+      type: object
+      required: [linked, guidance, reviews]
+      properties:
+        linked: { type: boolean }
+        guidance: { type: string }
+        reviews:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
+    TermlyIlpAdmin:
+      type: object
+      required: [templates, terms, learners, users, reviews]
+      properties:
+        templates:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpTemplate" }
+        terms:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpTerm" }
+        learners:
+          type: array
+          items:
+            type: object
+            required: [studentId, personCode, studentName, learnerUserId, tutorUserId]
+            properties:
+              studentId: { type: integer }
+              personCode: { type: string }
+              studentName: { type: string }
+              yearGroup: { type: ["string", "null"] }
+              learnerUserId: { type: [string, "null"] }
+              tutorUserId: { type: [string, "null"] }
+        users:
+          type: array
+          items:
+            type: object
+            required: [id, username, role, name]
+            properties:
+              id: { type: string }
+              username: { type: string }
+              role: { type: string }
+              name: { type: string }
+        reviews:
+          type: array
+          items: { $ref: "#/components/schemas/TermlyIlpReviewSummary" }
+    TermlyIlpAdminCommand:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [seed, clone_template, save_template, publish_template, preview_term, publish_term, assign, reconcile] }
+        templateId: { type: integer }
+        revision: { type: integer }
+        content: { $ref: "#/components/schemas/TermlyIlpTemplateContent" }
+        academicYear: { type: string }
+        term: { type: integer }
+        startDate: { type: string }
+        endDate: { type: string }
+        deadline: { type: string }
+        personCode: { type: string }
+        learnerUserId: { type: [string, "null"] }
+        tutorUserId: { type: [string, "null"] }
+    TermlyIlpCommandResult:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        templateId: { type: integer }
+        totalLearners: { type: integer }
+        missingAccounts: { type: integer }
+        missingTutors: { type: integer }
+        existingReviews: { type: integer }
+        newReviews: { type: integer }
+    TermlyIlpReviewCommand:
+      type: object
+      required: [action, revision]
+      properties:
+        action: { type: string, enum: [save, submit, comment, complete, return] }
+        revision: { type: integer }
+        work: { $ref: "#/components/schemas/TermlyIlpWork" }
+        teacherComment: { type: string }
+        reviewDate: { type: [string, "null"] }
+    ReportId:
+      type: string
+      enum:
+        - att-overall
+        - att-learner
+        - att-course
+        - att-punctuality
+        - att-register-progress
+        - asmt-grade-summary
+        - asmt-results
+        - asmt-unconfirmed
+        - ilp-progress
+        - ilp-reviews-due
+        - ilp-completion
+        - sg-at-risk
+        - sg-planned-absence
+        - mb-verification-status
+        - mb-grades-released
+    ReportColumn:
+      type: object
+      required: [key, label]
+      properties:
+        key: { type: string }
+        label: { type: string }
+    ReportResponse:
+      type: object
+      required: [reportId, title, description, columns, rows, appliedFilters, rowCount, generatedAt, asOf]
+      properties:
+        reportId:
+          $ref: "#/components/schemas/ReportId"
+        title: { type: string }
+        description: { type: string }
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportColumn"
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        appliedFilters:
+          type: object
+          additionalProperties: { type: string }
+        rowCount: { type: integer }
+        generatedAt: { type: string, format: date-time }
+        asOf: { type: [string, "null"], format: date-time }
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl, role]
+      properties:
+        id:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        firstName:
+          type: [string, 'null']
+        lastName:
+          type: [string, 'null']
+        profileImageUrl:
+          type: [string, 'null']
+        role:
+          type: string
+          enum: [admin, hod, staff, office, learner]
+        username:
+          type: [string, 'null']
+        department:
+          type: [string, 'null']
+    UserSyncSummary:
+      type: object
+      required: [inserted, updated, unchanged, skipped, retired, invalid, duplicates, unmatched, errors]
+      properties:
+        inserted: { type: integer }
+        updated: { type: integer }
+        unchanged: { type: integer }
+        skipped: { type: integer }
+        retired: { type: integer }
+        invalid: { type: integer }
+        duplicates: { type: integer }
+        unmatched: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+    UserDirectorySyncResult:
+      type: object
+      required: [synced, summary]
+      properties:
+        synced: { type: integer }
+        summary:
+          $ref: '#/components/schemas/UserSyncSummary'
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AuthUser'
+            - type: 'null'
+    MobileTokenExchangeRequest:
+      type: object
+      required: [code, code_verifier, redirect_uri, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+        code_verifier:
+          type: string
+          minLength: 1
+        redirect_uri:
+          type: string
+          minLength: 1
+          format: uri
+        state:
+          type: string
+          minLength: 1
+        nonce:
+          type: string
+          minLength: 1
+    MobileTokenExchangeSuccess:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    LogoutSuccess:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          const: true
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    SafeguardingNote:
+      type: object
+      required: [id, studentId, learnerName, personCode, author, content, status, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        studentId: { type: integer }
+        learnerName: { type: string }
+        personCode: { type: string }
+        author: { type: string }
+        content: { type: string }
+        status:
+          type: string
+          enum: [active, archived]
+        lastContactedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ListSafeguardingNotesResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/SafeguardingNote"
+    SafeguardingNoteInput:
+      type: object
+      required: [studentId, content]
+      properties:
+        studentId: { type: integer }
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        lastContactedAt:
+          type: ["string", "null"]
+          format: date-time
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    DashboardSummary:
+      type: object
+      properties:
+        attendancePercent:
+          type: number
+        punctualityPercent:
+          type: number
+        registersCount:
+          type: integer
+        atRiskCount:
+          type: integer
+        smartTargetsCount:
+          type: integer
+        ilpsCount:
+          type: integer
+      required:
+        - attendancePercent
+        - punctualityPercent
+        - registersCount
+        - atRiskCount
+        - smartTargetsCount
+        - ilpsCount
+
+    Student:
+      type: object
+      properties:
+        id:
+          type: integer
+        personCode:
+          type: string
+        forename:
+          type: string
+        surname:
+          type: string
+        middleNames:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+        dateOfBirth:
+          type: ["string", "null"]
+          format: date
+        postCode:
+          type: ["string", "null"]
+        yearGroup:
+          type: ["string", "null"]
+        attendancePercent:
+          type: number
+        punctualityPercent:
+          type: number
+        atRisk:
+          type: boolean
+        confirmedLearner:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - personCode
+        - forename
+        - surname
+        - attendancePercent
+        - punctualityPercent
+        - atRisk
+        - confirmedLearner
+        - createdAt
+
+    StudentInput:
+      type: object
+      properties:
+        personCode:
+          type: string
+        forename:
+          type: string
+        surname:
+          type: string
+        middleNames:
+          type: string
+        title:
+          type: string
+        gender:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        postCode:
+          type: string
+        yearGroup:
+          type: string
+        atRisk:
+          type: boolean
+        confirmedLearner:
+          type: boolean
+      required:
+        - personCode
+        - forename
+        - surname
+
+    StudentUpdate:
+      type: object
+      properties:
+        forename:
+          type: string
+        surname:
+          type: string
+        middleNames:
+          type: string
+        title:
+          type: string
+        gender:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        postCode:
+          type: string
+        yearGroup:
+          type: string
+        atRisk:
+          type: boolean
+        confirmedLearner:
+          type: boolean
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        room:
+          type: ["string", "null"]
+        staffName:
+          type: ["string", "null"]
+        headOfDepartment:
+          type: ["string", "null"]
+        yearGroup:
+          type: ["string", "null"]
+        enrolledCount:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - code
+        - name
+        - enrolledCount
+        - isActive
+        - createdAt
+
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        courseId:
+          type: integer
+        scheduleId:
+          type: ["integer", "null"]
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [present, absent, late, authorised, excluded, distance_learning]
+        minutesLate:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 60
+        notes:
+          type: ["string", "null"]
+        studentName:
+          type: ["string", "null"]
+        courseName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - studentId
+        - courseId
+        - scheduleId
+        - date
+        - status
+        - createdAt
+
+    AttendanceInput:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        courseId:
+          type: integer
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [present, absent, late, authorised, excluded, distance_learning]
+        minutesLate:
+          type: integer
+          minimum: 0
+          maximum: 60
+        notes:
+          type: string
+      required:
+        - studentId
+        - courseId
+        - scheduleId
+        - date
+        - status
+
+    AttendanceUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [present, absent, late, authorised, excluded, distance_learning]
+        minutesLate:
+          type: integer
+          minimum: 0
+          maximum: 60
+        notes:
+          type: string
+        scheduleId:
+          type: integer
+
+    AttendanceRegisterInput:
+      type: object
+      required: [scheduleId, date, status, marks]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [draft, submitted]
+        marks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttendanceRegisterMark"
+
+    AttendanceRegisterOccurrenceInput:
+      type: object
+      required: [scheduleId, date]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+
+    AttendanceRegisterMark:
+      type: object
+      required: [studentId, status]
+      properties:
+        studentId:
+          type: integer
+        status:
+          type: string
+          enum: [present, absent, late, authorised, excluded, distance_learning]
+        minutesLate:
+          type: integer
+          minimum: 0
+          maximum: 60
+        notes:
+          type: string
+
+    AttendanceRegister:
+      type: object
+      required: [scheduleId, date, status, updatedAt, marks]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [draft, submitted]
+        updatedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+        marks:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttendanceRecord"
+
+    AttendanceRegisterLifecycle:
+      type: object
+      required: [scheduleId, date, status, updatedAt]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [draft, submitted]
+        updatedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    AttendanceRegisterOccurrenceState:
+      type: object
+      required: [scheduleId, date, status]
+      properties:
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [open, draft, submitted]
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+        submittedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    AttendanceRegisterContact:
+      type: object
+      required: [studentId, contactEmail]
+      properties:
+        studentId:
+          type: integer
+        contactEmail:
+          type: ["string", "null"]
+
+    AttendanceRegisterRosterStudent:
+      type: object
+      required: [id, personCode, forename, surname, atRisk]
+      properties:
+        id:
+          type: integer
+        personCode:
+          type: string
+        forename:
+          type: string
+        surname:
+          type: string
+        atRisk:
+          type: boolean
+
+    AttendanceRegisterAudit:
+      type: object
+      required: [id, scheduleId, date, action, actorName, details, createdAt]
+      properties:
+        id:
+          type: integer
+        scheduleId:
+          type: integer
+        date:
+          type: string
+          format: date
+        action:
+          type: string
+          enum: [saved_draft, submitted, reopened]
+        actorName:
+          type: string
+        details:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    PlannedAbsence:
+      type: object
+      required:
+        - id
+        - studentId
+        - learnerName
+        - personCode
+        - fromDate
+        - toDate
+        - reason
+        - partDay
+        - status
+        - submittedBy
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        learnerName:
+          type: string
+        personCode:
+          type: string
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        reason:
+          type: string
+        partDay:
+          type: boolean
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending]
+        submittedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PlannedAbsenceInput:
+      type: object
+      required: [studentId, fromDate, toDate, reason]
+      properties:
+        studentId:
+          type: integer
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        reason:
+          type: string
+          minLength: 1
+        partDay:
+          type: boolean
+          default: false
+        startTime:
+          type: string
+        endTime:
+          type: string
+        notes:
+          type: string
+
+    Target:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date
+        completed:
+          type: boolean
+        overdue:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - studentId
+        - title
+        - completed
+        - overdue
+        - createdAt
+
+    TargetInput:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+      required:
+        - studentId
+        - title
+
+    TargetUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        completed:
+          type: boolean
+
+    Ilp:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: ["string", "null"]
+        title:
+          type: string
+        content:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, active, completed]
+        tutor:
+          type: ["string", "null"]
+        academicYear:
+          type: ["string", "null"]
+        lastReviewDate:
+          type: ["string", "null"]
+          format: date
+        nextReviewDue:
+          type: ["string", "null"]
+          format: date
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/IlpSectionState"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - studentId
+        - title
+        - status
+        - sections
+        - createdAt
+        - updatedAt
+
+    IlpInput:
+      type: object
+      properties:
+        studentId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed]
+        tutor:
+          type: ["string", "null"]
+        academicYear:
+          type: ["string", "null"]
+        lastReviewDate:
+          type: ["string", "null"]
+          format: date
+        nextReviewDue:
+          type: ["string", "null"]
+          format: date
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/IlpSectionState"
+      required:
+        - studentId
+        - title
+
+    IlpUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, active, completed]
+        tutor:
+          type: ["string", "null"]
+        academicYear:
+          type: ["string", "null"]
+        lastReviewDate:
+          type: ["string", "null"]
+          format: date
+        nextReviewDue:
+          type: ["string", "null"]
+          format: date
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/IlpSectionState"
+
+    IlpSectionState:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [completed, partial, not_started]
+
+    Assessment:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        code:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        dueDate:
+          type: ["string", "null"]
+        gradingScheme:
+          type: string
+        minPassMark:
+          type: ["string", "null"]
+        marksOutOf:
+          type: ["integer", "null"]
+        active:
+          type: integer
+        order:
+          type: integer
+        location:
+          type: ["string", "null"]
+        organisation:
+          type: ["string", "null"]
+        mandatory:
+          type: integer
+        allowAegrotats:
+          type: integer
+        tutor:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - courseId
+        - code
+        - description
+        - type
+        - gradingScheme
+        - active
+        - order
+        - mandatory
+        - allowAegrotats
+        - createdAt
+        - updatedAt
+
+    AssessmentInput:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        code:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        dueDate:
+          type: ["string", "null"]
+        gradingScheme:
+          type: string
+        minPassMark:
+          type: ["string", "null"]
+        marksOutOf:
+          type: ["integer", "null"]
+        active:
+          type: integer
+        order:
+          type: integer
+        location:
+          type: ["string", "null"]
+        organisation:
+          type: ["string", "null"]
+        mandatory:
+          type: integer
+        allowAegrotats:
+          type: integer
+        tutor:
+          type: ["string", "null"]
+      required:
+        - courseId
+        - code
+        - description
+
+    AssessmentResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        assessmentId:
+          type: integer
+        studentId:
+          type: integer
+        result:
+          type: ["string", "null"]
+        adjustedResult:
+          type: ["string", "null"]
+        attempt:
+          type: integer
+        reasonForZeroMark:
+          type: ["string", "null"]
+        mitigatingCircs:
+          type: ["string", "null"]
+        dateSubmitted:
+          type: ["string", "null"]
+        dateMarked:
+          type: ["string", "null"]
+        confirmed:
+          type: integer
+        status:
+          type: string
+        gradeReleasedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - assessmentId
+        - studentId
+        - attempt
+        - confirmed
+        - status
+        - createdAt
+        - updatedAt
+
+    AssessmentResultInput:
+      type: object
+      properties:
+        assessmentId:
+          type: integer
+        studentId:
+          type: integer
+        result:
+          type: ["string", "null"]
+        adjustedResult:
+          type: ["string", "null"]
+        attempt:
+          type: integer
+        reasonForZeroMark:
+          type: ["string", "null"]
+        mitigatingCircs:
+          type: ["string", "null"]
+        dateSubmitted:
+          type: ["string", "null"]
+        dateMarked:
+          type: ["string", "null"]
+        confirmed:
+          type: integer
+        status:
+          type: string
+      required:
+        - assessmentId
+        - studentId
+
+    ScheduleEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        courseCode:
+          type: string
+        courseName:
+          type: string
+        enrolledCount:
+          type: integer
+          minimum: 0
+        room:
+          type: ["string", "null"]
+        staffName:
+          type: ["string", "null"]
+        day:
+          type: ["string", "null"]
+        occurrenceDate:
+          type: string
+          format: date
+        registerMarked:
+          type: boolean
+        registerStatus:
+          type: string
+          enum: [open, draft, submitted]
+        registerUpdatedAt:
+          type: ["string", "null"]
+          format: date-time
+        registerSubmittedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - id
+        - courseId
+        - startTime
+        - endTime
+        - courseCode
+        - courseName
+        - enrolledCount
+        - occurrenceDate
+        - registerMarked
+        - registerStatus
+        - registerUpdatedAt
+        - registerSubmittedAt
+
+    MyProfile:
+      type: object
+      required: [firstName, lastName, email, department, role, phone, address, postcode, staffCode, jobTitle, organisation, startDate, directoryStatus, directoryVerifiedAt]
+      properties:
+        directoryStatus: { type: string, enum: [fresh, stale, missing], description: "Fresh means verified within five minutes; stale means a fetch failed and a previously verified result is shown; missing means no matching directory account." }
+        directoryVerifiedAt: { type: ["string", "null"], format: date-time, description: "Time the returned directory fields were last verified. Null when no matching account exists." }
+        firstName: { type: ["string", "null"] }
+        lastName: { type: ["string", "null"] }
+        email: { type: ["string", "null"], format: email }
+        department: { type: ["string", "null"] }
+        role: { type: string, enum: [admin, hod, staff, office, learner] }
+        phone: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        postcode: { type: ["string", "null"] }
+        staffCode: { type: ["string", "null"] }
+        jobTitle: { type: ["string", "null"] }
+        organisation: { type: ["string", "null"] }
+        startDate: { type: ["string", "null"], format: date }
+
+    StaffSource:
+      type: object
+      required: [id, fullName]
+      properties:
+        id: { type: string }
+        fullName: { type: string }
+        firstName: { type: ["string", "null"] }
+        lastName: { type: ["string", "null"] }
+        staffCode: { type: ["string", "null"] }
+        personCode: { type: ["string", "null"] }
+        title: { type: ["string", "null"] }
+        email: { type: ["string", "null"], format: email }
+        phone: { type: ["string", "null"] }
+        organisation: { type: ["string", "null"] }
+        position: { type: ["string", "null"] }
+        role: { type: ["string", "null"] }
+
+    StaffRecord:
+      allOf:
+        - $ref: "#/components/schemas/StaffSource"
+        - type: object
+          required: [courses]
+          properties:
+            courses:
+              type: array
+              items:
+                $ref: "#/components/schemas/StaffCourse"
+
+    StaffCourse:
+      type: object
+      required: [id, code, name, enrolledCount, isActive]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        room: { type: ["string", "null"] }
+        staffName: { type: ["string", "null"] }
+        yearGroup: { type: ["string", "null"] }
+        enrolledCount: { type: integer }
+        isActive: { type: boolean }
+
+    StaffTimetableResponse:
+      type: object
+      required: [staffId, staffName, records]
+      properties:
+        staffId: { type: string }
+        staffName: { type: string }
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffTimetableRecord"
+
+    StaffTimetableRecord:
+      type: object
+      required: [id, source, day, startTime, endTime]
+      properties:
+        id: { type: string }
+        source: { type: string, enum: [course, staff] }
+        courseId: { type: ["integer", "null"] }
+        courseCode: { type: ["string", "null"] }
+        courseName: { type: ["string", "null"] }
+        day: { type: ["string", "null"] }
+        startTime: { type: string }
+        endTime: { type: string }
+        room: { type: ["string", "null"] }
+        weekPattern: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        groupLabel: { type: ["string", "null"] }
+        registerMarked: { type: ["boolean", "null"] }
+
+    StaffRegisterHistoryResponse:
+      type: object
+      required: [staffId, staffName, sessions, records]
+      properties:
+        staffId: { type: string }
+        staffName: { type: string }
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffRegisterHistorySession"
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffRegisterHistoryRecord"
+
+    StaffRegisterHistorySession:
+      type: object
+      required: [id, scope, scheduleId, sessionDate, courseId, courseCode, courseName, startTime, endTime, attendanceRecords, present, absent, late, authorised]
+      properties:
+        id: { type: string }
+        scope: { type: string, enum: [exact-session] }
+        scheduleId: { type: integer }
+        sessionDate: { type: string, format: date }
+        courseId: { type: integer }
+        courseCode: { type: string }
+        courseName: { type: string }
+        day: { type: ["string", "null"] }
+        startTime: { type: string }
+        endTime: { type: string }
+        room: { type: ["string", "null"] }
+        weekPattern: { type: ["string", "null"] }
+        attendanceRecords: { type: integer }
+        present: { type: integer }
+        absent: { type: integer }
+        late: { type: integer }
+        authorised: { type: integer }
+
+    StaffRegisterHistoryRecord:
+      type: object
+      required: [id, scope, courseId, courseCode, courseName, scheduleCount, markedScheduleCount, attendanceRecords, present, absent, late, authorised]
+      properties:
+        id: { type: integer }
+        scope: { type: string, enum: [legacy-course-level] }
+        courseId: { type: integer }
+        courseCode: { type: string }
+        courseName: { type: string }
+        room: { type: ["string", "null"] }
+        scheduleCount: { type: integer }
+        markedScheduleCount: { type: integer }
+        attendanceRecords: { type: integer }
+        present: { type: integer }
+        absent: { type: integer }
+        late: { type: integer }
+        authorised: { type: integer }
+        lastAttendanceDate: { type: ["string", "null"], format: date }
+
+    StaffUnavailableRecordsResponse:
+      type: object
+      required: [staffId, staffName, sourceAvailable, records, message]
+      properties:
+        staffId: { type: string }
+        staffName: { type: string }
+        sourceAvailable: { type: boolean }
+        records:
+          type: array
+          items: {}
+        message: { type: string }
+
+    Eprogression:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        studentId:
+          type: ["integer", "null"]
+        courseId:
+          type: ["integer", "null"]
+        courseCode:
+          type: string
+        calOccCode:
+          type: ["string", "null"]
+        currentProgressCode:
+          type: ["string", "null"]
+        newProgressCode:
+          type: string
+        progressDate:
+          type: string
+        comments:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        status:
+          type: string
+        submittedBy:
+          type: ["string", "null"]
+        submittedAt:
+          type: string
+      required:
+        - id
+        - type
+        - courseCode
+        - newProgressCode
+        - progressDate
+        - status
+        - submittedAt
+
+    EprogressionInput:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [learner, course]
+        studentId:
+          type: ["integer", "null"]
+        courseId:
+          type: ["integer", "null"]
+        courseCode:
+          type: string
+        calOccCode:
+          type: ["string", "null"]
+        currentProgressCode:
+          type: ["string", "null"]
+        newProgressCode:
+          type: string
+          minLength: 1
+        progressDate:
+          type: string
+          format: date
+        comments:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [Pending]
+        submittedBy:
+          type: ["string", "null"]
+      required:
+        - courseCode
+        - newProgressCode
+        - progressDate
+
+    EprogressionUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [Authorised, Rejected]
+      required: [status]
+
+    ConciergeApplication:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: ["integer", "null"]
+        courseId:
+          type: ["integer", "null"]
+        forename:
+          type: ["string", "null"]
+        surname:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        status:
+          type: string
+        interviewDate:
+          type: ["string", "null"]
+        interviewNotes:
+          type: ["string", "null"]
+        interviewStatus:
+          type: ["string", "null"]
+        offerType:
+          type: ["string", "null"]
+        offerStatus:
+          type: ["string", "null"]
+        progressNotes:
+          type: ["string", "null"]
+        qualifications:
+          type: ["string", "null"]
+        requirements:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - status
+        - createdAt
+
+    ConciergeApplicationInput:
+      type: object
+      properties:
+        studentId:
+          type: ["integer", "null"]
+        courseId:
+          type: ["integer", "null"]
+        forename:
+          type: ["string", "null"]
+        surname:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        status:
+          type: string
+        interviewDate:
+          type: ["string", "null"]
+        interviewNotes:
+          type: ["string", "null"]
+        interviewStatus:
+          type: ["string", "null"]
+        offerType:
+          type: ["string", "null"]
+        offerStatus:
+          type: ["string", "null"]
+        progressNotes:
+          type: ["string", "null"]
+        qualifications:
+          type: ["string", "null"]
+        requirements:
+          type: ["string", "null"]
+      required:
+        - status
+
+    ConciergeEnrolment:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        courseId:
+          type: integer
+        forename:
+          type: string
+        surname:
+          type: string
+        email:
+          type: ["string", "null"]
+          format: email
+        courseCode:
+          type: string
+        course:
+          type: string
+        progressCode:
+          type: string
+        photoObjectPath:
+          type: ["string", "null"]
+        photoContentType:
+          type: ["string", "null"]
+        photoUpdatedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - studentId
+        - courseId
+        - forename
+        - surname
+        - courseCode
+        - course
+        - progressCode
+        - createdAt
+
+    ConciergeEnrolmentPhotoInput:
+      type: object
+      required: [objectPath, contentType]
+      properties:
+        objectPath:
+          type: string
+          pattern: "^/objects/"
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png]
+
+    ConciergeEnrolmentInput:
+      type: object
+      required: [courseId, forename, surname, email]
+      properties:
+        applicationId:
+          type: integer
+        studentId:
+          type: integer
+        courseId:
+          type: integer
+        forename:
+          type: string
+          minLength: 1
+        surname:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+        postCode:
+          type: string
+
+    UploadUrlRequest:
+      type: object
+      required: [enrolmentId, name, size, contentType]
+      properties:
+        enrolmentId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+          maximum: 5242880
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png]
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath, metadata]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"
