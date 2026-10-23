@@ -47,3 +47,11 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Local credentials and generated reports must never be newly committed.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+/generated-artifacts/
