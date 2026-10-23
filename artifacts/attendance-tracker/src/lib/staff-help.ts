@@ -31,7 +31,7 @@ export const HELP_TOPICS: HelpTopic[] = [
   ], [
     "Sign in with your individual school username and password. There is no public sign-up; ask the Admin Team about account or password problems.",
     "Use the sidebar to open your workspace. On a phone, use the menu at the top to reveal it.",
-    "Select the question-mark Help button for instructions about your current page, or Staff Help Guide to browse all available topics.",
+    "Select the question-mark Help button beside the notifications bell to open the Staff Help Guide in a new tab.",
     "Use the account menu to open My details. Sign out when finished, especially on a shared device.",
   ], ["Different roles see different navigation items. A guide is not permission to access a restricted screen.", "Illustrations use example information, never live learner records."]),
   topic("dashboard", "Dashboard", "Understand the overview and work that needs attention.", "Daily work", ALL, "/", [

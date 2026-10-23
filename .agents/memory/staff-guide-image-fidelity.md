@@ -27,11 +27,11 @@ The learner sign-in setup guide is for student accounts only. Do not include a s
 
 **How to apply:** Keep student onboarding separate from staff accounts when editing the learner setup instructions or illustrations.
 
-The staff Help button and Staff Help Guide link should open the standalone staff guide in a new tab, rather than the portal's illustrated React help pages.
+The top-bar Help button beside notifications should open the standalone staff guide in a new tab, rather than the portal's illustrated React help pages. Do not include a Staff Help Guide sidebar link.
 
-**Why:** The user explicitly requested the previous guide and new-tab behaviour.
+**Why:** The user explicitly requested the previous guide and new-tab behaviour, then requested removal of the duplicate sidebar link because the top-bar Help button already provides access.
 
-**How to apply:** Keep the guide separate from the staff member's working portal tab. Do not replace these entry points with the portal's illustrated help pages unless the user asks.
+**How to apply:** Keep the guide separate from the staff member's working portal tab. Preserve the top-bar button and do not reintroduce the duplicate sidebar entry.
 
 The standalone guide should have a clear contents/search page and a separate page for each subject, including individual tips and termly ILP tasks. Do not show all instructions in one long page.
 
