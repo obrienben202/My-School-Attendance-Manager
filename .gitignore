@@ -55,3 +55,14 @@ Thumbs.db
 *.pem
 *.p12
 /generated-artifacts/
+
+# School and agent working files stay on this machine, not in GitHub.
+/attached_assets/
+/screenshots/
+/.agents/
+/.canvas
+/.config/
+**/.auth/
+**/storage-state*.json
+**/auth-state*.json
+/staff-guide/src/original-index.html

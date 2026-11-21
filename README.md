@@ -154,11 +154,11 @@ staff-guide/            Standalone illustrated staff guide
 pnpm github:sync
 ```
 
-Use this command instead of a normal Push/Sync when this workspace's local history has diverged from GitHub. It creates a fast-forward source update on GitHub without merging or uploading private local commit history, switching branches, resetting files or force-pushing.
+Normal Commit/Push works after the approved local-history repair. You can also use this command for a safe source update. In the repaired workspace it commits pending shareable source changes and pushes the working branch normally, keeping local and GitHub history aligned. It does not switch branches, reset files, rewrite existing commits or force-push.
 
 The command uploads current application source, operational configuration and documentation, including uncommitted source files. It excludes new school uploads, screenshots, browser session files, environment secrets, agent files and generated output. Existing historical uploads and installation-specific storage settings are left untouched. It performs basic credential-pattern checks, but these are not a substitute for reviewing source for sensitive information.
 
-If someone edits source directly on GitHub, the command stops rather than overwrite that work. Ask the maintainer to reconcile the changes before retrying. The saved `github-ready` tag is not changed.
+If someone edits source directly on GitHub, pull and review those changes first; the command stops rather than overwrite them. For older, unrepaired workspaces, its source-snapshot mode avoids uploading private local history. The saved `github-ready` tag is not changed.
 
 After a task merge, the workspace setup script also runs this command after successful dependency installation and development migration. A failed sync is reported rather than silently leaving GitHub out of date. It does not publish the running app.
 

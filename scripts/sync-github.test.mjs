@@ -85,11 +85,30 @@ test("divergent branches sync safely, repeat cleanly, and reject conflicting Git
     assert.equal(git(origin, "rev-parse", "main"), stable);
     rmSync(path.join(local, "artifacts/app/src/key.ts"));
 
+    // Simulate the separately approved repair, only inside this synthetic repo.
+    git(local, "reset", "--mixed", "refs/remotes/origin/main");
+    put(local, ".replit", `${git(origin, "show", "main:.replit")}\n`);
+    git(local, "config", "githubSync.normalPush", "true");
+    put(local, "README.md", "A normal aligned source update\n");
+    syncGithub({ cwd: local });
+    assert.equal(git(local, "rev-parse", "HEAD"), git(origin, "rev-parse", "main"));
+    assert.ok(!git(local, "status", "--porcelain").includes("README.md"));
+    put(local, "artifacts/app/src/page.ts", "export const value = 3;\n");
+    git(local, "add", "artifacts/app/src/page.ts"); git(local, "commit", "-m", "Normal manual edit");
+    const manualHead = git(local, "rev-parse", "HEAD");
+    git(local, "push");
+    assert.equal(git(origin, "rev-parse", "main"), manualHead);
+    put(local, "README.md", "A source update after a manual push\n");
+    syncGithub({ cwd: local });
+    assert.equal(git(local, "rev-parse", "HEAD"), git(origin, "rev-parse", "main"));
+    assert.deepEqual(syncGithub({ cwd: local }).changed, []);
+    assert.equal(git(origin, "rev-parse", "refs/tags/github-ready"), savedTag);
+
     git(other, "pull", "--ff-only");
     put(other, "artifacts/app/src/page.ts", "export const value = 999;\n");
     git(other, "add", "."); git(other, "commit", "-m", "External GitHub source edit"); git(other, "push");
     const external = git(origin, "rev-parse", "main");
-    assert.throws(() => syncGithub({ cwd: local }), /GitHub also changed/);
+    assert.throws(() => syncGithub({ cwd: local }), /not aligned|GitHub also changed/);
     assert.equal(git(origin, "rev-parse", "main"), external);
   } finally {
     rmSync(root, { recursive: true, force: true });

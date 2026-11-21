@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT_FILES = new Set([
-  ".gitignore", ".npmrc", ".replit", "README.md", "SECURITY.md", "package.json",
+  ".gitignore", ".npmrc", ".replit", ".replitignore", "replit.md", "README.md", "SECURITY.md", "package.json",
   "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json", "tsconfig.base.json",
   "pyproject.toml", "uv.lock",
 ]);
@@ -48,13 +48,16 @@ function checkSource(filename, content) {
 }
 
 export function syncGithub({ cwd = process.cwd(), remote = "origin" } = {}) {
-  const git = (args, options = {}) => execFileSync("git", args, {
-    cwd, encoding: "utf8", maxBuffer: 20 * 1024 * 1024,
-    timeout: 30_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-    stdio: ["pipe", "pipe", "pipe"], ...options,
-  }).trimEnd();
-  const optional = args => {
-    try { return git(args); } catch { return null; }
+  const git = (args, { raw = false, ...options } = {}) => {
+    const result = execFileSync("git", args, {
+      cwd, encoding: "utf8", maxBuffer: 20 * 1024 * 1024,
+      timeout: 30_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      stdio: ["pipe", "pipe", "pipe"], ...options,
+    });
+    return raw ? result : result.trimEnd();
+  };
+  const optional = (args, options) => {
+    try { return git(args, options); } catch { return null; }
   };
   const split = text => text.split("\0").filter(Boolean);
   const advertised = git(["ls-remote", "--symref", remote, "HEAD"]);
@@ -63,6 +66,12 @@ export function syncGithub({ cwd = process.cwd(), remote = "origin" } = {}) {
   const tracking = `refs/remotes/${remote}/${branch}`;
   git(["fetch", "--no-tags", remote, `refs/heads/${branch}:${tracking}`]);
   const target = git(["rev-parse", tracking]);
+  const normalPush = optional(["config", "--local", "--get", "githubSync.normalPush"]) === "true";
+  const head = git(["rev-parse", "HEAD"]);
+  const aligned = optional(["merge-base", "--is-ancestor", target, head]) !== null;
+  if (normalPush && (optional(["symbolic-ref", "-q", "HEAD"]) !== `refs/heads/${branch}` || !aligned)) {
+    throw new Error("The working branch is not aligned with GitHub. Review or pull the remote changes before updating; no history was rewritten.");
+  }
   const previousUpload = optional(["rev-parse", "--verify", "refs/github-sync/last-upload"]);
   const comparisonBase = previousUpload ?? optional(["merge-base", "HEAD", target]);
   if (!comparisonBase) throw new Error("No shared working history. Do not push the saved clean tag as a working branch.");
@@ -84,7 +93,7 @@ export function syncGithub({ cwd = process.cwd(), remote = "origin" } = {}) {
     if (filename === ".replit") {
       // Sync operational settings, not a newly changed installation's bucket.
       const section = /^\[objectStorage\][\s\S]*?(?=^\[|(?![\s\S]))/m;
-      const existing = optional(["show", `${target}:.replit`])?.match(section)?.[0] ?? "";
+      const existing = optional(["show", `${target}:.replit`], { raw: true })?.match(section)?.[0] ?? "";
       const source = bytes.toString("utf8");
       bytes = Buffer.from(section.test(source)
         ? source.replace(section, existing)
@@ -102,7 +111,7 @@ export function syncGithub({ cwd = process.cwd(), remote = "origin" } = {}) {
     if (remoteBlob !== localBlob) {
       // A squashed documentation PR can have the same content as local HEAD
       // without sharing that commit. Working edits based on that content are safe.
-      const alreadyPresent = !previousUpload &&
+      const alreadyPresent = (!previousUpload || (normalPush && aligned)) &&
         remoteBlob === optional(["rev-parse", "--verify", `HEAD:${filename}`]);
       if (alreadyPresent) continue;
       throw new Error(`GitHub also changed ${filename}. Review that change first; this command will not overwrite it.`);
@@ -126,7 +135,36 @@ export function syncGithub({ cwd = process.cwd(), remote = "origin" } = {}) {
     const tree = indexGit(["write-tree"]);
     changed = split(git(["diff", "--name-only", "-z", target, tree]));
     if (changed.some(filename => !isShareableSource(filename))) throw new Error("Private-path guard failed. Upload stopped.");
-    if (changed.length) {
+    if (normalPush) {
+      // Never reintroduce private local history through the repaired normal branch.
+      const outgoing = split(git(["log", "-z", "--format=", "--name-only", "--diff-filter=AM", `${target}..HEAD`]))
+        .flatMap(part => part.split("\n")).filter(Boolean);
+      if (outgoing.some(filename => !isShareableSource(filename))) {
+        throw new Error("New local commits contain private paths. Review them before a normal push; nothing was uploaded.");
+      }
+      const pending = split(git(["diff", "--name-only", "-z", head, tree]));
+      if (pending.some(filename => !isShareableSource(filename))) {
+        throw new Error("The local index needs review before updating. No private paths were committed.");
+      }
+      for (const filename of pending) {
+        const bytes = content.get(filename);
+        if (bytes && !readFileSync(path.join(cwd, filename)).equals(bytes)) {
+          throw new Error(`Review installation-specific settings in ${filename} before committing them.`);
+        }
+      }
+      if (pending.length) {
+        const input = `${pending.join("\0")}\0`;
+        git(["add", "--intent-to-add", "--pathspec-from-file=-", "--pathspec-file-nul"], { input });
+        git(["-c", "user.name=Replit Agent", "-c", "user.email=agent@replit.com",
+          "commit", "--only", "-m", "Update application source and documentation",
+          "--pathspec-from-file=-", "--pathspec-file-nul"], { input });
+      }
+      commit = git(["rev-parse", "HEAD"]);
+      if (git(["rev-parse", `${commit}^{tree}`]) !== tree) {
+        throw new Error("The working branch changed during syncing. Review before retrying; nothing was pushed.");
+      }
+      if (commit !== target) git(["push", remote, `${commit}:refs/heads/${branch}`]);
+    } else if (changed.length) {
       commit = git([
         "-c", "user.name=Replit Agent", "-c", "user.email=agent@replit.com",
         "commit-tree", tree, "-p", target,
@@ -150,7 +188,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log(result.changed.length
       ? `GitHub updated: ${result.changed.length} source files on ${result.branch} (${result.commit.slice(0, 8)}).`
       : `GitHub is already up to date on ${result.branch}.`);
-    console.log("Local files/history, existing historical uploads, storage settings and saved tags were left unchanged.");
+    console.log("Local files, storage settings and saved tags were preserved; existing commits were not rewritten.");
   } catch (error) {
     const detail = error.stderr?.toString().trim() || error.message;
     console.error(`GitHub update stopped safely: ${detail.replace(/https?:\/\/[^\s/@]+:[^\s/@]+@/g, "https://[redacted]@")}`);
