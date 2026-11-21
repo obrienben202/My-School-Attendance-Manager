@@ -22,6 +22,10 @@ export function prepareImport(input) {
         record[field.key] = value == null ? null : field.references || field.key === "id" ? String(value) : field.type === "number" ? Number(value) : value;
       }
       if (definition.id === "AccountMappings") { record.audience = record.role === "learner" ? "learner" : "staff"; record.active = false; }
+      if (definition.id === "LearnerAssignments" && !record.id) {
+        if (!record.studentId) throw new Error("A learner assignment needs its legacy student identity.");
+        record.id = `assignment_${record.studentId}`;
+      }
       if (record.photoObjectPath || record.profileImageUrl) warnings.push("Legacy photo references require authorised private file transfer; bytes are not included.");
       return record;
     });

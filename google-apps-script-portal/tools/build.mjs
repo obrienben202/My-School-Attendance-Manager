@@ -58,15 +58,19 @@ export function buildSchema() {
           const sourceColumn = simple(call.arguments[0]);
           const type = ({ serial: "text", integer: "number", numeric: "number", real: "number", boolean: "boolean", jsonb: "json", date: "date", timestamp: "datetime" })[kind] || "text";
           const ref = chains.references?.[0]?.getText(sf).match(/=>\s*(\w+)\.(\w+)/);
-          const field = { key, label: label(key), type, integer: kind === "integer", sourceColumn, required: !!chains.notNull,
+          const field = { key, label: label(key), type, integer: kind === "integer", sourceColumn, required: !!chains.notNull || !!chains.primaryKey,
             readonly: key === "id" || ["createdAt", "updatedAt", "revision", "history", "submittedBy", "submittedAt", "gradeReleasedAt", "registerMarked", "photoObjectPath", "authorUserId", "updatedBy", "updatedById", "createdById", "createdBy", "markedBy", "requestedBy"].includes(key),
-            unique: !!chains.unique, autoTime: !!chains.defaultNow };
+            unique: !!chains.unique || !!chains.primaryKey, autoTime: !!chains.defaultNow };
           const defaultValue = simple(chains.default?.[0]);
           if (defaultValue !== undefined) field.defaultValue = type === "number" ? Number(defaultValue) : defaultValue;
           if (ref) field.referenceVariable = ref[1];
           fields.push(field);
         }
-        tables[id] = { id, sourceTable: tableName, fields };
+        // Sheets always persist an explicit ID first, even when SQL used a natural key.
+        const naturalKey = !fields.some(f => f.key === "id") ? fields.find(f => f.unique && f.required) : null;
+        if (!fields.some(f => f.key === "id")) fields.unshift({ key: "id", label: "ID", type: "text", readonly: true, required: true, unique: true });
+        fields.sort((a, b) => a.key === "id" ? -1 : b.key === "id" ? 1 : 0);
+        tables[id] = { id, sourceTable: tableName, fields, ...(naturalKey ? { legacyIdentityField: naturalKey.key } : {}) };
       }
       ts.forEachChild(node, visit);
     }

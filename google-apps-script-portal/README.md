@@ -83,6 +83,7 @@ For learner reviews, published template questions are shown exactly, including i
 ## Data integrity and recovery
 
 - IDs remain stable through sorting and import. The workbook's machine-readable headers are validated; do not rename/add columns inside managed tabs.
+- Every tab persists an explicit `id` as its first column. Legacy learner assignments used StudentId as their SQL primary key: their imported IDs are deterministically `assignment_<studentId>`, while StudentId remains unique and separately editable. Newly created assignments use generated stable IDs like other portal records.
 - Every editable record has a revision. Conflict responses preserve the draft and show the saved version. Choosing to adopt the newer baseline does not itself save.
 - Mutations carry a request ID. Retry the same unchanged submission with the same ID after a network/interrupted-save failure. Do not edit and resubmit an unresolved operation as if it were new.
 - An operation journal is durable before record writes. A retry recovers prepared operations idempotently and records success only after all changes and audit entries are written.

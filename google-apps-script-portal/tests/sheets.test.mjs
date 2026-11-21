@@ -7,6 +7,7 @@ import vm from "node:vm";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { renderFixtureHtml } from "../tools/render-fixture.mjs";
+import { prepareImport } from "../tools/prepare-import.mjs";
 
 function sheet(name, width = 26) {
   const grid = [], writes = [];
@@ -49,6 +50,65 @@ function bindBook(h) {
   h.context.SpreadsheetApp = { openById: () => book };
   return { tabs, book };
 }
+test("all tabs persist IDs first, including two learner assignments across fresh readers and edits", () => {
+  const h = createHarness(), token = h.login("synthetic-admin");
+  for (const definition of Object.values(h.schema)) assert.equal(definition.fields[0].key, "id", definition.id);
+  assert.equal(h.schema.LearnerAssignments.fields.find(f => f.key === "studentId").unique, true);
+  bindBook(h);
+  const store = new h.RealSheetStore();
+  for (const [entity, rows] of Object.entries(h.data)) for (const row of rows) store.put(entity, row);
+  h.context.SheetStore_ = h.RealSheetStore;
+  const first = h.data.LearnerAssignments[0];
+  const second = h.rpc("save", token, { entity: "LearnerAssignments", record: {
+    studentId: "s2", learnerUserId: h.data.AccountMappings.find(a => a.username === "synthetic-two").id, tutorUserId: first.tutorUserId,
+  } });
+  assert.equal(second.ok, true, JSON.stringify(second.error));
+  assert.notEqual(second.data.id, first.id);
+  for (const id of [first.id, second.data.id]) {
+    const record = h.rpc("get", token, { entity: "LearnerAssignments", id });
+    assert.equal(record.ok, true); assert.equal(record.data.id, id);
+  }
+  const edited = h.rpc("save", token, { entity: "LearnerAssignments", expectedRevision: 1, record: {
+    id: first.id, tutorUserId: h.data.AccountMappings.find(a => a.username === "synthetic-other").id,
+  } });
+  assert.equal(edited.ok, true, JSON.stringify(edited.error));
+  assert.equal(new h.RealSheetStore().rows("LearnerAssignments").find(a => a.id === first.id)._revision, 2);
+  assert.equal(new h.RealSheetStore().rows("LearnerAssignments").length, 2);
+});
+test("legacy natural-key assignments receive repeatable IDs and pass the import dry run", () => {
+  const h = createHarness();
+  h.put("Students", { id: "11", personCode: "SYN-11", forename: "Synthetic", surname: "Import" });
+  const input = { LearnerAssignments: [{ studentId: 11, learnerUserId: null, tutorUserId: null, updatedAt: "2026-11-21T12:00:00.000Z" }] };
+  const batch = prepareImport(input).batches[0], again = prepareImport(input).batches[0];
+  assert.equal(batch.tables.LearnerAssignments[0].id, "assignment_11");
+  assert.equal(again.tables.LearnerAssignments[0].id, batch.tables.LearnerAssignments[0].id);
+  assert.equal(h.context.importPlan_(new h.MemoryStore(), batch).issues.length, 0);
+});
+test("actual timetable form collection excludes readonly booleans and produces accepted create/edit payloads", () => {
+  const h = createHarness(), token = h.login("synthetic-admin");
+  const metadata = h.rpc("bootstrap", token).data.modules.find(m => m.id === "LessonSchedules");
+  const client = readFileSync("google-apps-script-portal/src/Client.html", "utf8");
+  const source = client.slice(client.indexOf("function buildForm("), client.indexOf("function conflictPanel(")).trim();
+  const dom = (_tag, attrs = {}) => ({ value: attrs?.value ?? "", ...attrs,
+    appendChild() {}, classList: { add() {}, remove() {} } });
+  const buildForm = vm.runInNewContext("(" + source + ")", { h: dom });
+  const form = buildForm(metadata.fields, null);
+  for (const [key, value] of Object.entries(h.data.LessonSchedules[0])) if (form.controls[key] && !form.controls[key].ro) form.controls[key].set(value);
+  const payload = form.collect();
+  assert.ok(payload);
+  assert.equal(form.controls.registerMarked.ro, true);
+  assert.equal(form.controls.registerMarked.el.disabled, true);
+  assert.equal(Object.hasOwn(payload, "registerMarked"), false);
+  const created = h.rpc("save", token, { entity: "LessonSchedules", record: payload });
+  assert.equal(created.ok, true, JSON.stringify(created.error));
+  const editor = buildForm(metadata.fields, created.data);
+  editor.controls.room.set("Synthetic room C");
+  const edit = editor.collect();
+  assert.equal(Object.hasOwn(edit, "registerMarked"), false);
+  const saved = h.rpc("save", token, { entity: "LessonSchedules", record: { ...edit, id: created.data.id }, expectedRevision: created.data._revision });
+  assert.equal(saved.ok, true, JSON.stringify(saved.error));
+  assert.equal(h.rpc("get", token, { entity: "LessonSchedules", id: saved.data.id }).data.room, "Synthetic room C");
+});
 test("actual Sheets adapter preserves stable IDs after sorting and batches contiguous updates", () => {
   const h = createHarness(), { tabs } = bindBook(h);
   let store = new h.RealSheetStore();

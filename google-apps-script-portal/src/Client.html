@@ -273,7 +273,7 @@
       if (f.type === 'boolean') {
         ctl = h('input', { id: id, type: 'checkbox', disabled: ro }); ctl.checked = !!v;
         grid.appendChild(h('div', { class: 'fld chk' }, ctl, h('label', { for: id, text: f.label })));
-        controls[f.key] = { f: f, get: function () { return ctl.checked; }, set: function (x) { ctl.checked = !!x; } };
+        controls[f.key] = { f: f, ro: ro, el: ctl, get: function () { return ctl.checked; }, set: function (x) { ctl.checked = !!x; } };
         return;
       }
       if (f.type === 'select') {
