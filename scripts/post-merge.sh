@@ -2,3 +2,4 @@
 set -euo pipefail
 pnpm install --frozen-lockfile
 pnpm --filter @workspace/db run migrate:development
+pnpm github:sync

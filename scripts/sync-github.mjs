@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT_FILES = new Set([
-  ".gitignore", ".npmrc", "README.md", "SECURITY.md", "package.json",
+  ".gitignore", ".npmrc", ".replit", "README.md", "SECURITY.md", "package.json",
   "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json", "tsconfig.base.json",
   "pyproject.toml", "uv.lock",
 ]);
@@ -50,6 +50,7 @@ function checkSource(filename, content) {
 export function syncGithub({ cwd = process.cwd(), remote = "origin" } = {}) {
   const git = (args, options = {}) => execFileSync("git", args, {
     cwd, encoding: "utf8", maxBuffer: 20 * 1024 * 1024,
+    timeout: 30_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
     stdio: ["pipe", "pipe", "pipe"], ...options,
   }).trimEnd();
   const optional = args => {
@@ -79,7 +80,16 @@ export function syncGithub({ cwd = process.cwd(), remote = "origin" } = {}) {
       throw error;
     }
     if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Refusing a non-regular source file: ${filename}`);
-    const bytes = readFileSync(full);
+    let bytes = readFileSync(full);
+    if (filename === ".replit") {
+      // Sync operational settings, not a newly changed installation's bucket.
+      const section = /^\[objectStorage\][\s\S]*?(?=^\[|(?![\s\S]))/m;
+      const existing = optional(["show", `${target}:.replit`])?.match(section)?.[0] ?? "";
+      const source = bytes.toString("utf8");
+      bytes = Buffer.from(section.test(source)
+        ? source.replace(section, existing)
+        : `${source}${existing ? `\n${existing}\n` : ""}`);
+    }
     checkSource(filename, bytes);
     content.set(filename, bytes);
   }
@@ -101,7 +111,7 @@ export function syncGithub({ cwd = process.cwd(), remote = "origin" } = {}) {
   const temporary = mkdtempSync(path.join(tmpdir(), "school-github-sync-"));
   let commit = target, changed = [];
   try {
-    const env = { ...process.env, GIT_INDEX_FILE: path.join(temporary, "index") };
+    const env = { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_INDEX_FILE: path.join(temporary, "index") };
     const indexGit = (args, options) => git(args, { env, ...options });
     indexGit(["read-tree", target]);
     const remoteFiles = split(git(["ls-tree", "-r", "--name-only", "-z", target]));
@@ -140,7 +150,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log(result.changed.length
       ? `GitHub updated: ${result.changed.length} source files on ${result.branch} (${result.commit.slice(0, 8)}).`
       : `GitHub is already up to date on ${result.branch}.`);
-    console.log("Local files/history, existing historical uploads, installation settings and saved tags were left unchanged.");
+    console.log("Local files/history, existing historical uploads, storage settings and saved tags were left unchanged.");
   } catch (error) {
     const detail = error.stderr?.toString().trim() || error.message;
     console.error(`GitHub update stopped safely: ${detail.replace(/https?:\/\/[^\s/@]+:[^\s/@]+@/g, "https://[redacted]@")}`);

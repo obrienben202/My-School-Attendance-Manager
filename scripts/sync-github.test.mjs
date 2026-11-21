@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -12,11 +12,11 @@ test("source selection excludes school data, browser sessions, secrets and gener
     "artifacts/app/.auth/state.json", "artifacts/app/storage-state.json",
     "artifacts/app/credentials.json", "artifacts/app/.env.production",
     "artifacts/app/dist/index.js", "artifacts/app/node_modules/dependency.js",
-    "artifacts/app/private.csv", "artifacts/app/session.har", ".replit",
+    "artifacts/app/private.csv", "artifacts/app/session.har",
     "artifacts/../../attached_assets/notes.ts",
   ]) assert.equal(isShareableSource(name), false, name);
   for (const name of [
-    "README.md", "package.json", "artifacts/app/src/page.tsx",
+    "README.md", "package.json", ".replit", "artifacts/app/src/page.tsx",
     "lib/db/migrations/0007_add_safeguarding_notes.sql", "staff-guide/images/attendance.svg",
     "scripts/sync-github.mjs",
   ]) assert.equal(isShareableSource(name), true, name);
@@ -37,12 +37,16 @@ test("divergent branches sync safely, repeat cleanly, and reject conflicting Git
     git(root, "init", "--bare", "--initial-branch=main", origin);
     git(local, "init", "--initial-branch=main");
     put(local, "package.json", '{"name":"synthetic-test"}\n');
+    put(local, ".replit", '[postMerge]\ntimeoutMs=20000\n[objectStorage]\ndefaultBucketID="synthetic-remote-bucket"\n');
     put(local, "artifacts/app/src/page.ts", "export const value = 1;\n");
     put(local, "attached_assets/existing-private.txt", "synthetic existing school upload\n");
     git(local, "add", ".");
     git(local, "add", "-f", "attached_assets/existing-private.txt");
     git(local, "commit", "-m", "Initial");
     git(local, "remote", "add", "origin", origin); git(local, "push", "-u", "origin", "main");
+    git(local, "tag", "github-ready");
+    git(local, "push", "origin", "refs/tags/github-ready");
+    const savedTag = git(origin, "rev-parse", "refs/tags/github-ready");
     git(root, "clone", origin, other);
     put(other, "README.md", "Remote documentation\n");
     git(other, "add", "."); git(other, "commit", "-m", "Remote-only docs"); git(other, "push");
@@ -54,16 +58,22 @@ test("divergent branches sync safely, repeat cleanly, and reject conflicting Git
     git(local, "commit", "-m", "Local source and private fixture");
     const localHead = git(local, "rev-parse", "HEAD");
     put(local, "README.md", "Remote documentation\nNew working instructions\n");
+    put(local, ".replit", '[postMerge]\ntimeoutMs=180000\n[objectStorage]\ndefaultBucketID="synthetic-new-local-bucket"\n');
     const result = syncGithub({ cwd: local });
-    assert.deepEqual(result.changed, ["README.md", "artifacts/app/src/page.ts"]);
+    assert.deepEqual(result.changed, [".replit", "README.md", "artifacts/app/src/page.ts"]);
     assert.equal(git(local, "rev-parse", "HEAD"), localHead);
     assert.equal(readFileSync(path.join(local, "attached_assets/new-private.txt"), "utf8"), "synthetic new school upload\n");
     const files = git(origin, "ls-tree", "-r", "--name-only", "main").split("\n");
     assert.ok(files.includes("attached_assets/existing-private.txt"), files.join(", "));
     assert.ok(!files.includes("attached_assets/new-private.txt"));
     assert.equal(git(origin, "show", "main:artifacts/app/src/page.ts"), "export const value = 2;");
+    const config = git(origin, "show", "main:.replit");
+    assert.match(config, /timeoutMs=180000/);
+    assert.match(config, /synthetic-remote-bucket/);
+    assert.doesNotMatch(config, /synthetic-new-local-bucket/);
     assert.throws(() => git(origin, "merge-base", "--is-ancestor", localHead, "main"));
     assert.deepEqual(syncGithub({ cwd: local }).changed, []);
+    assert.equal(git(origin, "rev-parse", "refs/tags/github-ready"), savedTag);
 
     // Uncommitted source is included, but untracked private uploads are not.
     put(local, "artifacts/app/src/new.ts", "export const example = true;\n");
@@ -83,5 +93,26 @@ test("divergent branches sync safely, repeat cleanly, and reject conflicting Git
     assert.equal(git(origin, "rev-parse", "main"), external);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("task-merge setup syncs GitHub after successful preparation and stops if preparation fails", () => {
+  const temp = mkdtempSync(path.join(os.tmpdir(), "github-hook-test-"));
+  const hook = path.resolve("scripts/post-merge.sh");
+  const calls = path.join(temp, "calls");
+  const fakePnpm = path.join(temp, "pnpm");
+  try {
+    writeFileSync(fakePnpm, '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALL_LOG"\nif [ "$*" = "--filter @workspace/db run migrate:development" ] && [ "${FAIL_MIGRATION:-0}" = 1 ]; then exit 1; fi\n');
+    chmodSync(fakePnpm, 0o755);
+    const env = { ...process.env, PATH: `${temp}:${process.env.PATH}`, CALL_LOG: calls };
+    execFileSync("bash", [hook], { env });
+    assert.deepEqual(readFileSync(calls, "utf8").trim().split("\n"), [
+      "install --frozen-lockfile", "--filter @workspace/db run migrate:development", "github:sync",
+    ]);
+    writeFileSync(calls, "");
+    assert.throws(() => execFileSync("bash", [hook], { env: { ...env, FAIL_MIGRATION: "1" } }));
+    assert.doesNotMatch(readFileSync(calls, "utf8"), /github:sync/);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
   }
 });
