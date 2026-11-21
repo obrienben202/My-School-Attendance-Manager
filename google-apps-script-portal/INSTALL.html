@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install guide - Attendance Learning Hub, Google edition</title>
+<style>
+:root{--brand:#458980;--brand-d:#356c65;--brand-l:#e3efed;--side:#1c2b33;--bg:#f4f7f6;--card:#fcfdfd;--ink:#1d2a30;--mute:#5d6f76;--line:#d9e3e2;--warn:#a5650f;--warn-l:#fbefd9;--bad:#b23b3b;--bad-l:#f8e5e3}
+*{box-sizing:border-box}body{margin:0;font:15px/1.6 "Segoe UI",system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:var(--side);color:#eef4f5;padding:28px 24px}.in,main{max-width:960px;margin:0 auto}
+.mark{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:8px;background:var(--brand);color:#fff;font-weight:700;font-size:12px;vertical-align:middle;margin-right:10px}
+h1{display:inline;font-size:22px;vertical-align:middle}header p{color:#a9bcc2;margin:10px 0 0}
+main{padding:24px}section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px 22px;margin-top:18px}
+h2{margin:0 0 8px;font-size:18px}.n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;margin-right:8px}
+code{font:13px ui-monospace,Consolas,monospace;background:var(--brand-l);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}th{background:var(--brand-l)}
+figure{margin:14px 0;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}figure svg{width:100%;height:auto;display:block}
+figcaption{font-size:12.5px;color:var(--mute);margin-top:6px}
+.status{background:var(--bad-l);border-left:4px solid var(--bad);padding:12px 16px;border-radius:6px;margin-top:18px}
+.warn{background:var(--warn-l);border-left:4px solid var(--warn);padding:10px 14px;border-radius:6px;margin:12px 0;font-size:14px}
+ol li{margin:4px 0}nav ol{columns:2}@media(max-width:640px){nav ol{columns:1}}
+@media print{header{background:none;color:var(--ink)}section{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header><div class="in"><span class="mark">AT</span><h1>Attendance Learning Hub: Google edition install guide</h1>
+<p>For the school owner of the Google Workspace account. Works offline. All pictures are illustrative diagrams drawn for this guide, not screenshots. All names and values in them are placeholders.</p></div></header>
+<main>
+<div class="status"><strong>Status: not deployed. No live records have been migrated. Not approved for cutover.</strong> This is a separate Google Apps Script application backed by private Google Sheets and Drive. It does not replace or read the running portal. Keep the existing portal running throughout testing.</div>
+<div class="warn">Staff sign in with their existing school username through the existing staff account source. Learners choose Learner and use the separately supplied learner source. There is no public sign-up.</div>
+
+<section><h2>Contents</h2><nav><ol>
+<li><a href="#p1">Create the Google project</a></li><li><a href="#p2">Add every exported file</a></li><li><a href="#p3">Show and set the manifest</a></li><li><a href="#p4">Private Script Properties</a></li>
+<li><a href="#p5">Initialise the test workbook</a></li><li><a href="#p6">Sync accounts</a></li><li><a href="#p7">Assign course and tutor access</a></li><li><a href="#p8">Private test deployment</a></li><li><a href="#p9">Acceptance before cutover</a></li></ol></nav>
+<p>Use a school-owned Google Workspace account, not a personal account. Obtain school approval for the requested Sheets, Drive and external-request scopes before authorising them.</p></section>
+
+<section id="p1"><h2><span class="n">1</span>Create the Google project</h2>
+<p>Open <code>script.google.com</code>, create a new project and name it <strong>Attendance Learning Hub - TEST</strong>.</p></section>
+
+<section id="p2"><h2><span class="n">2</span>Add every exported file</h2>
+<p>Extract the supplied ZIP (<code>attendance-google-apps-script.zip</code>). From its <code>apps-script</code> folder, add every <code>.gs</code> file as a Script file and every <code>.html</code> file as an HTML file, keeping the names without extensions. This includes the generated <code>Schema.gs</code> and the bundled <code>Bcrypt.gs</code>, not only the files from the repository's <code>src</code> folder.</p>
+<figure><svg viewBox="0 0 680 270" role="img" aria-labelledby="d1"><title id="d1">Illustrative diagram 1: Apps Script editor file list with the add file button and Schema and Bcrypt highlighted</title>
+<rect width="680" height="270" fill="#f4f7f6"/><rect x="0" y="0" width="680" height="40" fill="#1c2b33"/><text x="16" y="25" fill="#fff" font-size="13" font-weight="700">Attendance Learning Hub - TEST</text>
+<rect x="0" y="40" width="220" height="230" fill="#fcfdfd" stroke="#d9e3e2"/><text x="14" y="64" font-size="11" font-weight="700" fill="#5d6f76">FILES</text>
+<rect x="180" y="50" width="28" height="22" rx="5" fill="#458980"/><text x="194" y="66" fill="#fff" font-size="15" text-anchor="middle">+</text>
+<g font-size="12" font-family="monospace"><text x="20" y="90">appsscript.json</text><text x="20" y="108">Code.gs</text><text x="20" y="126">Auth.gs</text><text x="20" y="144">Records.gs ...</text>
+<rect x="14" y="152" width="190" height="20" rx="4" fill="#fbefd9"/><text x="20" y="166">Schema.gs</text><rect x="14" y="174" width="190" height="20" rx="4" fill="#fbefd9"/><text x="20" y="188">Bcrypt.gs</text>
+<text x="20" y="212">Index.html</text><text x="20" y="230">Client.html ...</text></g>
+<rect x="240" y="60" width="420" height="190" rx="6" fill="#fff" stroke="#d9e3e2"/><text x="256" y="86" font-size="12" fill="#5d6f76">ZIP: apps-script folder</text>
+<path d="M300 140 H220" stroke="#458980" stroke-width="2" marker-end="url(#ar)"/><defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#458980"/></marker></defs>
+<text x="310" y="136" font-size="12">Add each .gs as Script, each .html as HTML</text><text x="310" y="154" font-size="12">Name without extension: Schema, Bcrypt, Index</text>
+<g font-size="12" font-weight="700"><circle cx="230" cy="61" r="11" fill="#fbefd9"/><text x="230" y="65" text-anchor="middle">1</text><circle cx="222" cy="174" r="11" fill="#fbefd9"/><text x="222" y="178" text-anchor="middle">2</text></g>
+<text x="460" y="262" font-size="10" fill="#5d6f76">Illustrative diagram, not a screenshot.</text></svg>
+<figcaption>Diagram 1. 1 Add file. 2 Generated Schema and bundled Bcrypt must be present.</figcaption></figure></section>
+
+<section id="p3"><h2><span class="n">3</span>Show and set the manifest</h2>
+<p>In Project Settings, enable <strong>Show "appsscript.json" manifest file in editor</strong>. Replace its contents with the supplied <code>appsscript.json</code>. The timezone is Europe/London.</p></section>
+
+<section id="p4"><h2><span class="n">4</span>Private Script Properties</h2>
+<p>In Project Settings, open Script Properties. Start with <code>MODE</code> = <code>TEST</code>. Generate <code>SESSION_KEY</code> yourself: at least 32 cryptographically random characters from a trusted password manager or, for example, <code>openssl rand -base64 32</code>. Enter it only in Script Properties. Never put identifiers, password sources or secrets in HTML, instructions, chat, source control, workbooks or screenshots. No real key is provided.</p>
+<figure><svg viewBox="0 0 680 280" role="img" aria-labelledby="d2"><title id="d2">Illustrative diagram 2: Project Settings with the manifest checkbox and Script Properties containing MODE TEST and a hidden owner-generated SESSION_KEY</title>
+<rect width="680" height="280" fill="#f4f7f6"/><text x="20" y="30" font-size="15" font-weight="700">Project Settings</text>
+<rect x="20" y="44" width="18" height="18" rx="3" fill="#458980"/><path d="M24 53l4 4 7-8" stroke="#fff" stroke-width="2" fill="none"/><text x="48" y="58" font-size="13">Show "appsscript.json" manifest file in editor</text>
+<text x="20" y="100" font-size="13" font-weight="700">Script Properties</text>
+<rect x="20" y="110" width="640" height="130" rx="6" fill="#fff" stroke="#d9e3e2"/><g font-size="12" font-family="monospace">
+<text x="34" y="134" fill="#5d6f76">Property</text><text x="300" y="134" fill="#5d6f76">Value</text><line x1="20" y1="142" x2="660" y2="142" stroke="#d9e3e2"/>
+<text x="34" y="164">MODE</text><text x="300" y="164">TEST</text>
+<text x="34" y="190">SESSION_KEY</text><text x="300" y="190">[owner-generated, 32+ random chars]</text>
+<text x="34" y="216">STAFF_DIRECTORY_ID</text><text x="300" y="216">[private placeholder]</text></g>
+<g font-size="12" font-weight="700"><circle cx="14" cy="53" r="11" fill="#fbefd9"/><text x="14" y="57" text-anchor="middle">1</text><circle cx="14" cy="164" r="11" fill="#fbefd9"/><text x="14" y="168" text-anchor="middle">2</text><circle cx="14" cy="190" r="11" fill="#fbefd9"/><text x="14" y="194" text-anchor="middle">3</text></g>
+<text x="420" y="268" font-size="10" fill="#5d6f76">Illustrative diagram. Placeholders only.</text></svg>
+<figcaption>Diagram 2. 1 Show manifest. 2 MODE=TEST. 3 SESSION_KEY generated privately by the owner.</figcaption></figure>
+<table><tr><th>Property</th><th>Purpose</th></tr>
+<tr><td>MODE</td><td>Start with TEST; this package does not enable live cutover automatically</td></tr>
+<tr><td>SESSION_KEY</td><td>At least 32 cryptographically random characters, generated privately; never the synthetic test key</td></tr>
+<tr><td>STAFF_DIRECTORY_ID / STAFF_DIRECTORY_TAB</td><td>Existing authorised school staff account source</td></tr>
+<tr><td>STAFF_AUTH_URL</td><td>Existing approved school password verifier, ending /exec</td></tr>
+<tr><td>LEARNER_DIRECTORY_ID / LEARNER_DIRECTORY_TAB</td><td>The separately supplied learner-login workbook and tab</td></tr>
+<tr><td>LEARNER_AUTH_URL</td><td>Approved learner verifier if available; otherwise the learner source needs a compatible bcrypt PasswordHash column</td></tr>
+<tr><td>MASTER_WORKBOOK_ID</td><td>Written by initialisation; never point it at a live workbook</td></tr>
+<tr><td>INITIALIZED_WORKBOOK_ID</td><td>Safety marker written by initialisation; never change it to bypass a refusal</td></tr>
+<tr><td>UPLOAD_FOLDER_ID</td><td>Private test upload folder created by initialisation</td></tr>
+<tr><td>SESSION_MINUTES</td><td>Optional, 15 to 480, default 60</td></tr>
+<tr><td>MAX_TABLE_ROWS</td><td>Reviewed cap, default 10,000 (100 to 50,000); not a performance promise</td></tr>
+<tr><td>IMPORT_FILE_ID</td><td>Optional owner-only JSON batch for a dry run</td></tr>
+<tr><td>IMPORT_APPROVAL</td><td>Leave unset; APPROVED_TEST_COPY approves a private TEST copy only</td></tr></table>
+<div class="warn">A plaintext password column is not a compatible hash. Do not copy it into the master workbook or replace it automatically.</div></section>
+
+<section id="p5"><h2><span class="n">5</span>Initialise the test workbook</h2>
+<p>With MODE=TEST and SESSION_KEY set, select <code>initializePortal_</code> in the editor function menu and press Run. Review the scopes before approving. It creates a new private workbook and upload folder and records their IDs. It refuses an existing unmarked workbook and never overwrites school tabs. Then run <code>inspectPortal_</code>. Keep the workbook and folder owner-only; do not change permissions on existing login workbooks.</p></section>
+
+<section id="p6"><h2><span class="n">6</span>Sync accounts</h2>
+<p>Load only authorised synthetic test records, using the dry-run import process in README.md. Staff must exist in the staff directory; learners need an exact PersonCode match to a Students record. Run <code>syncAccounts_</code> from the editor to create verified account mappings. This is not public registration.</p>
+<figure><svg viewBox="0 0 680 230" role="img" aria-labelledby="d3"><title id="d3">Illustrative diagram 3: editor toolbar with function menu, Run button and execution log for initializePortal_ then syncAccounts_</title>
+<rect width="680" height="230" fill="#f4f7f6"/><rect x="0" y="0" width="680" height="46" fill="#fcfdfd" stroke="#d9e3e2"/>
+<rect x="16" y="10" width="64" height="26" rx="5" fill="#458980"/><text x="48" y="28" fill="#fff" font-size="12" text-anchor="middle" font-weight="600">Run</text>
+<rect x="92" y="10" width="200" height="26" rx="5" fill="#fff" stroke="#d9e3e2"/><text x="102" y="28" font-size="12" font-family="monospace">initializePortal_</text><text x="280" y="28" font-size="10">v</text>
+<rect x="16" y="64" width="648" height="146" rx="6" fill="#1c2b33"/><g font-size="12" font-family="monospace" fill="#d5e1e4">
+<text x="30" y="88">Execution log</text><text x="30" y="112">1. initializePortal_  - private workbook and folder created</text>
+<text x="30" y="134">2. inspectPortal_     - headers checked, owner-only</text><text x="30" y="156">3. syncAccounts_      - verified mappings created</text>
+<text x="30" y="188" fill="#8aa0a8">(placeholder output for illustration)</text></g>
+<g font-size="12" font-weight="700"><circle cx="48" cy="54" r="11" fill="#fbefd9"/><text x="48" y="58" text-anchor="middle">1</text><circle cx="300" cy="23" r="11" fill="#fbefd9"/><text x="300" y="27" text-anchor="middle">2</text></g>
+<text x="460" y="224" font-size="10" fill="#5d6f76">Illustrative diagram, not a screenshot.</text></svg>
+<figcaption>Diagram 3. 1 Run. 2 Choose the function, in order: initializePortal_, inspectPortal_, then syncAccounts_ after test records are loaded.</figcaption></figure></section>
+
+<section id="p7"><h2><span class="n">7</span>Assign course and tutor access explicitly</h2>
+<ul><li><strong>CourseAccess</strong>: verified username plus course ID.</li><li><strong>DepartmentCourses</strong>: verified department plus course ID.</li><li><strong>LearnerAssignments</strong>: student, account and tutor IDs.</li></ul>
+<p>A staff display name on a timetable never grants access. A learner needs <code>confirmedLearner=true</code> and a matching learner assignment to open termly reviews.</p></section>
+
+<section id="p8"><h2><span class="n">8</span>Create a private test deployment</h2>
+<p>Deploy, New deployment, type Web app. Execute as the school-owned deployment account. Prefer access restricted to the school domain where policy allows. Google's restriction supplements, not replaces, the application login and record checks. Share the web-app link with testers, never a spreadsheet link.</p>
+<figure><svg viewBox="0 0 680 250" role="img" aria-labelledby="d4"><title id="d4">Illustrative diagram 4: New deployment dialog with Web app type, Execute as school owner and domain-only access</title>
+<rect width="680" height="250" fill="#f4f7f6"/><rect x="120" y="14" width="440" height="222" rx="10" fill="#fcfdfd" stroke="#d9e3e2"/>
+<text x="140" y="44" font-size="15" font-weight="700">New deployment</text>
+<text x="140" y="74" font-size="11" fill="#5d6f76">Select type</text><rect x="140" y="80" width="400" height="26" rx="5" fill="#fff" stroke="#d9e3e2"/><text x="150" y="98" font-size="12">Web app</text>
+<text x="140" y="126" font-size="11" fill="#5d6f76">Execute as</text><rect x="140" y="132" width="400" height="26" rx="5" fill="#fff" stroke="#d9e3e2"/><text x="150" y="150" font-size="12">School-owned deployment account</text>
+<text x="140" y="178" font-size="11" fill="#5d6f76">Who has access</text><rect x="140" y="184" width="400" height="26" rx="5" fill="#fff" stroke="#d9e3e2"/><text x="150" y="202" font-size="12">Anyone within [school domain]</text>
+<g font-size="12" font-weight="700"><circle cx="104" cy="93" r="11" fill="#fbefd9"/><text x="104" y="97" text-anchor="middle">1</text><circle cx="104" cy="145" r="11" fill="#fbefd9"/><text x="104" y="149" text-anchor="middle">2</text><circle cx="104" cy="197" r="11" fill="#fbefd9"/><text x="104" y="201" text-anchor="middle">3</text></g>
+<text x="440" y="246" font-size="10" fill="#5d6f76">Illustrative diagram. Placeholder domain.</text></svg>
+<figcaption>Diagram 4. 1 Web app. 2 Execute as the school owner account. 3 Restrict access to the school domain where supported.</figcaption></figure></section>
+
+<section id="p9"><h2><span class="n">9</span>Acceptance before cutover</h2>
+<ol><li>Run ACCEPTANCE.md against the Google deployment and record actual results: dates across daylight-saving changes, role denial, two browsers editing the same register, and a simulated service failure. A local preview is not a pass.</li>
+<li>Only after separate approval: complete a security and capacity review, reconcile an approved transfer and agree a cutover time.</li>
+<li>Do not disable or delete the original portal or its data during testing. Never let both systems accept independent live writes without a reviewed reconciliation.</li></ol>
+<div class="status">Reminder: this guide installs a TEST copy only. Nothing is deployed and no live records are migrated by following it.</div></section>
+</main>
+</body>
+</html>

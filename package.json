@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
+    "google-portal:build": "node google-apps-script-portal/tools/build.mjs",
+    "google-portal:test": "node --test google-apps-script-portal/tests/*.test.mjs",
+    "google-portal:preview": "node google-apps-script-portal/tools/preview.mjs",
     "github:sync": "node scripts/sync-github.mjs",
     "github:sync:test": "node --test scripts/sync-github.test.mjs",
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",

@@ -10,7 +10,7 @@ const ROOT_FILES = new Set([
   "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json", "tsconfig.base.json",
   "pyproject.toml", "uv.lock",
 ]);
-const SOURCE_ROOTS = new Set(["artifacts", "lib", "scripts", "staff-guide"]);
+const SOURCE_ROOTS = new Set(["artifacts", "lib", "scripts", "staff-guide", "google-apps-script-portal"]);
 const PRIVATE_PARTS = new Set([
   ".agents", ".auth", ".git", ".local", "attached_assets", "screenshots",
   "node_modules", "dist", "generated-artifacts", "coverage",
@@ -18,13 +18,15 @@ const PRIVATE_PARTS = new Set([
 const SOURCE_EXTENSIONS = new Set([
   ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".json",
   ".yaml", ".yml", ".md", ".html", ".css", ".scss", ".svg", ".sh", ".sql",
-  ".toml", ".lock",
+  ".toml", ".lock", ".gs",
 ]);
 
 export function isShareableSource(filename) {
   const parts = filename.split("/");
   if (parts.some(p => p === ".." || PRIVATE_PARTS.has(p))) return false;
   if (filename === "staff-guide/src/original-index.html") return false;
+  if (/\/\.clasp(?:rc)?\.json$/.test(filename)) return false;
+  if (parts[0] === "google-apps-script-portal" && filename.endsWith(".json") && filename !== "google-apps-script-portal/src/appsscript.json") return false;
   if (parts.some(p => p.startsWith(".env"))) return false;
   if (/(?:storage.?state|auth.?state|credentials|service.?account)\.json$/i.test(filename)) return false;
   if (ROOT_FILES.has(filename)) return true;

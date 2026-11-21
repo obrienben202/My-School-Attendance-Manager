@@ -19,7 +19,9 @@ test("source selection excludes school data, browser sessions, secrets and gener
     "README.md", "package.json", ".replit", "artifacts/app/src/page.tsx",
     "lib/db/migrations/0007_add_safeguarding_notes.sql", "staff-guide/images/attendance.svg",
     "scripts/sync-github.mjs",
+    "google-apps-script-portal/src/Code.gs", "google-apps-script-portal/src/appsscript.json",
   ]) assert.equal(isShareableSource(name), true, name);
+  for (const name of ["google-apps-script-portal/.clasp.json", "google-apps-script-portal/school-export.json", "google-apps-script-portal/script-properties.json"]) assert.equal(isShareableSource(name), false);
 });
 
 test("divergent branches sync safely, repeat cleanly, and reject conflicting GitHub edits and credentials", () => {

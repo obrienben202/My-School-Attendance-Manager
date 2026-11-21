@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Attendance Learning Hub</title>
+  <?!= include_('Styles'); ?>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="app" aria-live="polite">
+    <div class="boot"><div class="mark">AT</div><div class="sk sk-line" style="width:160px"></div><p class="muted">Connecting to Google</p></div>
+  </div>
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+  <script>window.ALH_HELP_URL = <?!= JSON.stringify(serviceUrl) ?>; window.ALH_HELP_URL = window.ALH_HELP_URL ? window.ALH_HELP_URL + '?view=help' : '';</script>
+  <?!= include_('Client'); ?>
+</body>
+</html>

@@ -66,3 +66,5 @@ Thumbs.db
 **/storage-state*.json
 **/auth-state*.json
 /staff-guide/src/original-index.html
+/google-apps-script-portal/.clasp.json
+**/.clasprc.json

@@ -1,0 +1,703 @@
+<script>
+(function () {
+  'use strict';
+  var TOKEN_KEY = 'alh.token';
+  var STATUSES = ['Present', 'Absent', 'Late', 'Authorised', 'Not Marked'];
+  var S = { token: null, user: null, modules: [], notices: [], drafts: {} };
+  var app = document.getElementById('app');
+  var skipLink = document.querySelector('.skip');
+  if (skipLink) skipLink.addEventListener('click', function (event) { event.preventDefault(); var main = document.getElementById('main'); if (main) { main.setAttribute('tabindex', '-1'); main.focus(); main.scrollIntoView(); } });
+
+  /* ---------- safe DOM ---------- */
+  function h(tag, attrs) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v == null || v === false) return;
+      if (k === 'text') n.textContent = String(v);
+      else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), v);
+      else if (k === 'class') n.className = v;
+      else n.setAttribute(k, v === true ? '' : String(v));
+    });
+    // Keep SPA links inside the HtmlService iframe despite the document's _top base.
+    if (tag === 'a' && attrs && typeof attrs.href === 'string' && attrs.href.indexOf('#/') === 0) n.addEventListener('click', function (event) { event.preventDefault(); window.location.hash = attrs.href; });
+    for (var i = 2; i < arguments.length; i++) add(n, arguments[i]);
+    return n;
+  }
+  function add(n, c) {
+    if (c == null || c === false) return;
+    if (Array.isArray(c)) return c.forEach(function (x) { add(n, x); });
+    n.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c)));
+  }
+  function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function icon(kind) {
+    var s = document.createElementNS(SVGNS, 'svg');
+    s.setAttribute('width', '56'); s.setAttribute('height', '56'); s.setAttribute('viewBox', '0 0 56 56'); s.setAttribute('aria-hidden', 'true');
+    var shapes = {
+      empty: [['rect', { x: 10, y: 12, width: 36, height: 32, rx: 4, fill: '#e3efed', stroke: '#458980', 'stroke-width': 2 }], ['path', { d: 'M17 24h22M17 31h14', stroke: '#458980', 'stroke-width': 2, 'stroke-linecap': 'round' }]],
+      error: [['circle', { cx: 28, cy: 28, r: 18, fill: '#f8e5e3', stroke: '#b23b3b', 'stroke-width': 2 }], ['path', { d: 'M28 19v11M28 36v1', stroke: '#b23b3b', 'stroke-width': 3, 'stroke-linecap': 'round' }]],
+      offline: [['rect', { x: 9, y: 14, width: 38, height: 26, rx: 4, fill: '#e3efed', stroke: '#458980', 'stroke-width': 2 }], ['path', { d: 'M14 46h28M20 22l16 12M36 22L20 34', stroke: '#458980', 'stroke-width': 2, 'stroke-linecap': 'round' }]]
+    };
+    (shapes[kind] || shapes.empty).forEach(function (d) {
+      var e = document.createElementNS(SVGNS, d[0]); Object.keys(d[1]).forEach(function (k) { e.setAttribute(k, d[1][k]); }); if (d[0] === 'path') e.setAttribute('fill', 'none'); s.appendChild(e);
+    });
+    return s;
+  }
+  function stateBox(kind, title, body, action) {
+    return h('div', { class: 'state', role: kind === 'error' ? 'alert' : null }, icon(kind), h('h3', { text: title }), body ? h('p', { text: body }) : null, action || null);
+  }
+  function skeleton(rows) { var w = h('div', { class: 'card-b', 'aria-busy': 'true' }, h('span', { class: 'sr', text: 'Loading' })); for (var i = 0; i < (rows || 6); i++) w.appendChild(h('div', { class: 'sk sk-row' })); return w; }
+  function toast(msg, bad) { var t = h('div', { class: 'toast' + (bad ? ' bad' : ''), text: msg }); document.getElementById('toasts').appendChild(t); setTimeout(function () { t.remove(); }, 4200); }
+  function uid() { return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  function fmt(v, f) {
+    if (v == null || v === '') return '';
+    if (f && f.type === 'boolean') return v ? 'Yes' : 'No';
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
+  }
+  function busy(btn, on, label) { btn.disabled = on; btn.classList.toggle('busy', on); if (label) btn.textContent = label; }
+
+  /* ---------- RPC ---------- */
+  var hasGoogle = typeof google !== 'undefined' && google.script && google.script.run;
+  function rpc(action, payload, requestId) {
+    return new Promise(function (resolve, reject) {
+      if (!hasGoogle) return reject({ code: 'OFFLINE', message: 'Google connection unavailable.' });
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (res && res.ok) return resolve(res.data);
+          var err = (res && res.error) || { code: 'UNKNOWN', message: 'Unexpected response from the server.' };
+          if (err.code === 'AUTH' && action !== 'login') { expire(err.message); }
+          reject(err);
+        })
+        .withFailureHandler(function (e) { reject({ code: 'NETWORK', message: (e && e.message) || 'The request did not reach the server.' }); })
+        .portalRpc({ action: action, token: S.token, payload: payload || {}, requestId: requestId || uid() });
+    });
+  }
+  function errText(e) {
+    var map = { FORBIDDEN: 'You do not have access to this.', NOT_FOUND: 'That record could not be found. It may have been archived.', BUSY: 'The spreadsheet is busy. Wait a moment and try again.', CAPACITY: 'The workspace has reached a storage limit. Contact your administrator.', CONFIG: 'The portal is not fully configured. Contact your administrator.', INCOMPLETE_OPERATION: 'The last operation did not finish. Retry to complete it safely.' };
+    return (e && e.message) || map[e && e.code] || 'Something went wrong.';
+  }
+  function wipe() { S.token = null; S.user = null; S.modules = []; S.notices = []; S.drafts = {}; try { sessionStorage.removeItem(TOKEN_KEY); } catch (x) {} }
+  function expire(msg) { wipe(); renderLogin(msg || 'Your session has expired. Sign in again.'); }
+
+  /* ---------- login ---------- */
+  function renderLogin(message) {
+    var aud = 'staff';
+    var msgBox = h('div', { class: 'msg', role: 'alert', hidden: !message, text: message || '' });
+    var u = h('input', { id: 'lu', autocomplete: 'username', required: true });
+    var p = h('input', { id: 'lp', type: 'password', autocomplete: 'current-password', required: true });
+    var b = h('button', { class: 'btn pri', type: 'submit', text: 'Sign in' });
+    var sub = h('p', { text: 'Staff workspace for registers, learners and reviews.' });
+    function setAud(a) { aud = a; tS.setAttribute('aria-pressed', a === 'staff'); tL.setAttribute('aria-pressed', a === 'learner'); sub.textContent = a === 'staff' ? 'Staff workspace for registers, learners and reviews.' : 'Your private attendance record and ILP reviews.'; u.placeholder = a === 'staff' ? 'Staff username' : 'Learner username'; }
+    var tS = h('button', { type: 'button', 'aria-pressed': 'true', text: 'Staff', onclick: function () { setAud('staff'); } });
+    var tL = h('button', { type: 'button', 'aria-pressed': 'false', text: 'Learner', onclick: function () { setAud('learner'); } });
+    var form = h('form', { onsubmit: function (ev) {
+      ev.preventDefault(); msgBox.hidden = true;
+      if (!u.value.trim() || !p.value) { msgBox.textContent = 'Enter your username and password.'; msgBox.hidden = false; return; }
+      busy(b, true, 'Signing in');
+      rpc('login', { username: u.value.trim(), password: p.value, audience: aud }).then(function (d) {
+        p.value = '';
+        S.token = d.token; try { sessionStorage.setItem(TOKEN_KEY, d.token); } catch (x) {}
+        boot();
+      }).catch(function (e) {
+        p.value = ''; busy(b, false, 'Sign in');
+        msgBox.textContent = e.code === 'AUTH' || e.code === 'VALIDATION' ? 'Those details were not recognised for ' + (aud === 'staff' ? 'staff' : 'learner') + ' sign-in.' : errText(e);
+        msgBox.hidden = false; p.focus();
+      });
+    } },
+      h('div', { class: 'aud', role: 'group', 'aria-label': 'Sign in as' }, tS, tL),
+      h('label', { for: 'lu', text: 'Username' }), u,
+      h('label', { for: 'lp', text: 'Password' }), p, msgBox, b,
+      h('p', { class: 'note', text: 'Accounts are issued by the school. If you cannot sign in, ask your tutor or the data office.' }));
+    clear(app).appendChild(h('main', { class: 'login', id: 'main' }, h('div', { class: 'login-card' }, h('div', { class: 'mark lg', text: 'AT' }), h('h1', { text: 'Attendance Learning Hub' }), sub, form)));
+    setAud('staff'); u.focus();
+  }
+
+  function renderOffline() {
+    clear(app).appendChild(h('main', { class: 'login', id: 'main' }, h('div', { class: 'login-card', style: 'text-align:center' },
+      h('div', { class: 'mark lg', style: 'margin:0 auto', text: 'AT' }), h('h1', { text: 'Google connection unavailable' }),
+      h('p', { text: 'This portal only runs inside its Google Apps Script deployment. No records are shown here, and nothing can be saved.' }),
+      h('button', { class: 'btn pri', style: 'margin-top:18px', text: 'Try again', onclick: function () { location.reload(); } }))));
+  }
+
+  /* ---------- boot ---------- */
+  function boot() {
+    clear(app).appendChild(h('div', { class: 'boot' }, h('div', { class: 'mark' , text: 'AT' }), h('div', { class: 'sk sk-line', style: 'width:180px' }), h('p', { class: 'muted', text: 'Loading your workspace' })));
+    rpc('bootstrap').then(function (d) {
+      S.user = d.user || {}; S.modules = d.modules || []; S.notices = d.notices || [];
+      if (!location.hash || location.hash === '#') location.hash = '#/home';
+      route();
+    }).catch(function (e) {
+      if (e.code === 'AUTH') return;
+      clear(app).appendChild(stateBox('error', 'Could not load your workspace', errText(e), h('div', { class: 'actions', style: 'justify-content:center' }, h('button', { class: 'btn pri', text: 'Retry', onclick: boot }), h('button', { class: 'btn', text: 'Sign out', onclick: signOut }))));
+    });
+  }
+  function signOut() {
+    var t = S.token; wipe();
+    if (t) { S.token = t; rpc('logout').catch(function () {}).then(function () { S.token = null; }); }
+    S.token = null; location.hash = ''; renderLogin('You have signed out.');
+  }
+  function isLearner() { return S.user && (S.user.role === 'learner' || (S.user.studentId && !S.user.department && S.user.role !== 'admin' && S.user.role !== 'staff' && S.user.role !== 'hod' && S.user.role !== 'office')); }
+  function mod(id) { for (var i = 0; i < S.modules.length; i++) if (S.modules[i].id === id) return S.modules[i]; return null; }
+  function isReview(m) { return !!m && m.id === 'TermlyReviews'; }
+  var FILE_ENTITIES = ['Students', 'StudentEnrolments', 'ILPs', 'TermlyReviews', 'ConciergeApplications', 'SafeguardingNotes'];
+
+  /* ---------- shell ---------- */
+  var mainEl, titleEl, sideEl, scrimEl;
+  function navItems() {
+    var items = [{ href: '#/home', label: isLearner() ? 'My summary' : 'Dashboard', section: '' }];
+    if (!isLearner()) items.push({ href: '#/register', label: 'Take register', section: 'Attendance' });
+    S.modules.forEach(function (m) { items.push({ href: '#/m/' + encodeURIComponent(m.id), label: m.label, section: m.section || 'Workspace' }); });
+    items.push({ href: '#/profile', label: 'My details', section: isLearner() ? '' : 'Account' });
+    if (!isLearner() && S.user.role !== 'staff') items.push({ href: '#/reports', label: 'Reports', section: 'Reporting' });
+    return items;
+  }
+  function shell(title) {
+    var items = navItems(), cur = location.hash;
+    function active(i) { return cur === i.href || cur.indexOf(i.href + '/') === 0 ? 'page' : null; }
+    var helpUrl = window.ALH_HELP_URL;
+    var helpLink = helpUrl ? h('a', { class: 'btn sm', href: helpUrl, target: '_blank', rel: 'noopener', text: 'Help' }) : null;
+    var u = S.user;
+    if (isLearner()) {
+      var tabs = h('nav', { class: 'ltabs', 'aria-label': 'My portal' }, items.map(function (i) { return h('a', { href: i.href, 'aria-current': active(i), text: i.label }); }));
+      mainEl = h('main', { class: 'content', id: 'main', tabindex: '-1' });
+      titleEl = h('h1', { class: 'sr', text: title });
+      clear(app).appendChild(h('div', null, h('header', { class: 'lhead' }, h('div', { class: 'mark', text: 'AT' }), tabs,
+        h('span', { class: 'muted', style: 'font-size:12px', text: u.displayName || u.username }), helpLink,
+        h('button', { class: 'btn sm', text: 'Sign out', onclick: signOut })), titleEl, mainEl));
+      return mainEl;
+    }
+    var groups = {}, order = [];
+    items.forEach(function (i) { if (!groups[i.section]) { groups[i.section] = []; order.push(i.section); } groups[i.section].push(i); });
+    var nav = h('nav', { class: 'nav', 'aria-label': 'Main navigation' }, order.map(function (sec) {
+      return [sec ? h('h2', { text: sec }) : null, groups[sec].map(function (i) { return h('a', { href: i.href, 'aria-current': active(i), text: i.label, onclick: closeMenu }); })];
+    }));
+    sideEl = h('aside', { class: 'side' }, h('div', { class: 'brand' }, h('div', { class: 'mark', text: 'AT' }), h('span', null, h('strong', { text: 'Attendance' }), h('span', { text: 'Learning hub' }))), nav,
+      h('div', { class: 'side-foot' }, h('button', { class: 'btn ghost sm', style: 'color:var(--side-fg)', text: 'Sign out', onclick: signOut })));
+    scrimEl = h('div', { class: 'scrim', onclick: closeMenu });
+    titleEl = h('h1', { text: title });
+    mainEl = h('main', { class: 'content', id: 'main', tabindex: '-1' });
+    clear(app).appendChild(h('div', { class: 'shell' }, sideEl, scrimEl, h('div', { class: 'main' },
+      h('header', { class: 'top' }, h('button', { class: 'btn sm menu-btn', 'aria-label': 'Open navigation menu', text: 'Menu', onclick: function () { sideEl.classList.add('open'); scrimEl.classList.add('open'); nav.querySelector('a').focus(); } }), titleEl,
+        h('div', { class: 'who' }, h('b', { text: u.displayName || u.username }), (u.role || '') + (u.department ? ' / ' + u.department : '')), helpLink,
+        h('button', { class: 'btn sm', text: 'Sign out', onclick: signOut })), mainEl)));
+    return mainEl;
+  }
+  function closeMenu() { if (sideEl) sideEl.classList.remove('open'); if (scrimEl) scrimEl.classList.remove('open'); }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+
+  /* ---------- router ---------- */
+  function route() {
+    if (!S.token || !S.user) return;
+    var parts = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
+    var p0 = parts[0] || 'home';
+    if (p0 === 'home') return viewHome();
+    if (p0 === 'register' && !isLearner()) return viewRegister(parts[1], parts[2]);
+    if (p0 === 'reports' && !isLearner()) return viewReports();
+    if (p0 === 'profile') return viewProfile();
+    if (p0 === 'm' && mod(parts[1])) {
+      var m = mod(parts[1]);
+      if (!parts[2]) return viewList(m);
+      return viewRecord(m, parts[2] === 'new' ? null : parts[2]);
+    }
+    var c = shell('Not found');
+    c.appendChild(h('div', { class: 'card' }, stateBox('empty', 'This page is not available', 'It may not exist or your account may not have access.', h('a', { class: 'btn pri', href: '#/home', text: 'Back to home' }))));
+  }
+  window.addEventListener('hashchange', function () { closeMenu(); route(); });
+
+  /* ---------- home ---------- */
+  function viewHome() {
+    var c = shell(isLearner() ? 'My summary' : 'Attendance dashboard');
+    var countsCard = h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: isLearner() ? 'My attendance at a glance' : 'Today in figures' })), skeleton(2));
+    c.appendChild(h('div', { class: 'stack' }, h('div', null, h('div', { class: 'muted', style: 'font-size:12px', text: 'Signed in as' }), h('div', { style: 'font-size:18px;font-weight:700', text: S.user.displayName || S.user.username })), countsCard,
+      S.modules.length ? h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Your areas' })), h('div', { class: 'card-b modgrid' },
+        (isLearner() ? [] : [h('a', { class: 'modlink', href: '#/register', text: 'Take register' }, h('small', { text: 'Open a lesson occurrence and mark learners' }))]).concat(
+          S.modules.map(function (m) { return h('a', { class: 'modlink', href: '#/m/' + encodeURIComponent(m.id), text: m.label }, h('small', { text: m.section || '' })); })))) : null));
+    function load() {
+      countsCard.replaceChild(skeleton(2), countsCard.lastChild);
+      rpc('dashboard').then(function (d) {
+        var body = h('div', { class: 'card-b' });
+        var counts = d.counts || [];
+        body.appendChild(counts.length ? h('div', { class: 'counts' }, counts.map(function (x) { return h('div', { class: 'card count' }, h('div', { class: 'v', text: x.value == null ? '0' : x.value }), h('div', { class: 'l', text: x.label })); })) : h('p', { class: 'muted', text: 'No figures recorded yet.' }));
+        var notices = (d.notices || []).concat(S.notices || []);
+        notices.filter(function (n, i) { return notices.indexOf(n) === i; }).forEach(function (n) { body.appendChild(h('div', { class: 'notice', text: n })); });
+        countsCard.replaceChild(body, countsCard.lastChild);
+      }).catch(function (e) { if (e.code !== 'AUTH') countsCard.replaceChild(stateBox('error', 'Figures could not load', errText(e), h('button', { class: 'btn', text: 'Retry', onclick: load })), countsCard.lastChild); });
+    }
+    load();
+  }
+
+  /* ---------- list ---------- */
+  var listState = {};
+  function viewList(m) {
+    var c = shell(m.label);
+    var st = listState[m.id] || (listState[m.id] = { search: '', page: 1, limit: 25 });
+    var cols = (m.fields || []).filter(function (f) { return f.type !== 'json' && f.type !== 'textarea'; }).slice(0, 6);
+    var search = h('input', { class: 'search', type: 'search', placeholder: 'Search ' + m.label.toLowerCase(), 'aria-label': 'Search ' + m.label, value: st.search });
+    var timer;
+    search.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(function () { st.search = search.value.trim(); st.page = 1; load(); }, 350); });
+    if (m.id === 'StaffComments' && !isLearner()) c.appendChild(h('div', { style: 'margin-bottom:16px' }, commentComposer(function () { load(); })));
+    var body = h('div'), pager = h('div', { class: 'pager' });
+    c.appendChild(h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: m.label }), h('div', { class: 'toolbar' }, search,
+      m.canCreate ? h('a', { class: 'btn pri', href: '#/m/' + encodeURIComponent(m.id) + '/new', text: 'New record' }) : null)), body, pager));
+    function load() {
+      clear(body).appendChild(skeleton(6)); clear(pager);
+      rpc('list', { entity: m.id, search: st.search, page: st.page, limit: st.limit }).then(function (d) {
+        var rows = d.rows || [], total = d.total || 0;
+        clear(body);
+        if (!rows.length) { body.appendChild(stateBox('empty', st.search ? 'No matches' : 'Nothing here yet', st.search ? 'No records match "' + st.search + '".' : (m.canCreate ? 'Create the first record to get started.' : 'Records will appear here once they are added.'))); return; }
+        var tb = h('tbody');
+        rows.forEach(function (r) {
+          var go = function () { location.hash = '#/m/' + encodeURIComponent(m.id) + '/' + encodeURIComponent(r.id); };
+          tb.appendChild(h('tr', { class: 'click', tabindex: '0', onclick: go, onkeydown: function (e) { if (e.key === 'Enter') go(); } },
+            h('td', { class: 'mono', text: r.id }), cols.map(function (f) { var v = fmt(r[f.key], f); return h('td', { title: v }, /status/i.test(f.key) && v ? h('span', { class: 'pill ' + v.replace(/\s/g, ''), text: v }) : v); })));
+        });
+        body.appendChild(h('div', { class: 'tablewrap' }, h('table', null, h('thead', null, h('tr', null, h('th', { text: 'ID' }), cols.map(function (f) { return h('th', { text: f.label }); }))), tb)));
+        var pages = Math.max(1, Math.ceil(total / st.limit));
+        var prev = h('button', { class: 'btn sm', text: 'Previous', disabled: st.page <= 1, onclick: function () { st.page--; load(); } });
+        var next = h('button', { class: 'btn sm', text: 'Next', disabled: st.page >= pages, onclick: function () { st.page++; load(); } });
+        add(pager, [h('span', { style: 'flex:1', text: total + ' record' + (total === 1 ? '' : 's') + ' / page ' + st.page + ' of ' + pages }), prev, next]);
+      }).catch(function (e) { if (e.code !== 'AUTH') clear(body).appendChild(stateBox('error', 'Could not load records', errText(e), h('button', { class: 'btn', text: 'Retry', onclick: load }))); });
+    }
+    load();
+  }
+
+  /* ---------- typed form ---------- */
+  function buildForm(fields, record, opts) {
+    opts = opts || {};
+    var controls = {};
+    var grid = h('div', { class: 'form' });
+    fields.forEach(function (f) {
+      var id = 'f_' + f.key, v = record ? record[f.key] : f.defaultValue, ro = f.readonly || opts.readonly || /^(id|_revision)$/.test(f.key), ctl;
+      if (f.type === 'boolean') {
+        ctl = h('input', { id: id, type: 'checkbox', disabled: ro }); ctl.checked = !!v;
+        grid.appendChild(h('div', { class: 'fld chk' }, ctl, h('label', { for: id, text: f.label })));
+        controls[f.key] = { f: f, get: function () { return ctl.checked; }, set: function (x) { ctl.checked = !!x; } };
+        return;
+      }
+      if (f.type === 'select') {
+        ctl = h('select', { id: id, disabled: ro, required: f.required }, h('option', { value: '', text: f.required ? 'Choose' : 'None' }), (f.options || []).map(function (o) { var ov = typeof o === 'object' ? o.value : o; return h('option', { value: ov, text: typeof o === 'object' ? (o.label || o.value) : o }); }));
+        ctl.value = v == null ? '' : String(v);
+      } else if (f.type === 'textarea' || f.type === 'json') {
+        ctl = h('textarea', { id: id, readonly: ro, class: f.type === 'json' ? 'json' : null, spellcheck: f.type === 'json' ? 'false' : null });
+        ctl.value = f.type === 'json' ? (v == null ? '' : JSON.stringify(v, null, 2)) : (v == null ? '' : String(v));
+      } else {
+        var t = { number: 'number', date: 'date', datetime: 'datetime-local' }[f.type] || 'text';
+        ctl = h('input', { id: id, type: t, readonly: ro, step: t === 'number' ? 'any' : null });
+        var sv = v == null ? '' : String(v);
+        if (t === 'datetime-local' && sv) sv = sv.replace('Z', '').slice(0, 16);
+        if (t === 'datetime-local') ctl.title = 'Time in UTC';
+        if (t === 'date' && sv) sv = sv.slice(0, 10);
+        ctl.value = sv;
+      }
+      var err = h('div', { class: 'err', role: 'alert' });
+      var isRel = /Id$/.test(f.key) && f.key !== 'id';
+      var wrap = h('div', { class: 'fld' + (f.type === 'textarea' || f.type === 'json' ? ' wide' : '') },
+        h('label', { for: id }, f.label, f.required ? h('span', { class: 'req', text: ' *' }) : null),
+        ctl, isRel ? h('div', { class: 'hint', text: 'Linked record ID' }) : null, f.type === 'json' ? h('div', { class: 'hint', text: 'JSON value. Leave blank for none.' }) : null, err);
+      grid.appendChild(wrap);
+      controls[f.key] = { f: f, ro: ro, el: ctl, err: err, wrap: wrap,
+        set: function (x) { ctl.value = x == null ? '' : (f.type === 'json' ? JSON.stringify(x, null, 2) : String(x)); },
+        get: function () {
+          var s = ctl.value;
+          if (s === '') return null;
+          if (f.type === 'number') return Number(s);
+          if (f.type === 'json') return JSON.parse(s);
+          if (f.type === 'datetime') return s.slice(0, 16) + ':00.000Z';
+          return s;
+        } };
+    });
+    function collect() {
+      var out = {}, ok = true;
+      Object.keys(controls).forEach(function (k) {
+        var c = controls[k]; if (c.ro && !opts.includeReadonly) return;
+        if (c.err) { c.err.textContent = ''; c.wrap.classList.remove('bad'); }
+        try {
+          var v = c.get();
+          if (c.f.type === 'number' && v !== null && isNaN(v)) throw new Error('Enter a number.');
+          if (c.f.required && (v === null || v === '')) throw new Error(c.f.label + ' is required.');
+          out[k] = v;
+        } catch (e) {
+          ok = false; if (c.err) { c.err.textContent = c.f.type === 'json' && e instanceof SyntaxError ? 'Invalid JSON: ' + e.message : e.message; c.wrap.classList.add('bad'); }
+        }
+      });
+      return ok ? out : null;
+    }
+    return { el: grid, collect: collect, controls: controls };
+  }
+
+  function conflictPanel(current, draft, onAdopt, onReload) {
+    return h('div', { class: 'alert warn', role: 'alert' },
+      h('strong', { text: 'Someone else saved this record first.' }), ' Your changes are still here and have not been saved. Compare below, then choose how to continue.',
+      h('div', { class: 'conflict' }, h('div', null, h('div', { class: 'mono', text: 'Saved version (revision ' + (current && current._revision) + ')' }), h('pre', { text: JSON.stringify(current, null, 2) })),
+        h('div', null, h('div', { class: 'mono', text: 'Your unsaved draft' }), h('pre', { text: JSON.stringify(draft, null, 2) }))),
+      h('div', { class: 'actions' }, h('button', { class: 'btn pri', text: 'Keep my draft on latest revision', onclick: onAdopt }), h('button', { class: 'btn', text: 'Discard my draft and load saved version', onclick: onReload })));
+  }
+
+  /* ---------- record ---------- */
+  function viewRecord(m, id) {
+    var c = shell(id ? m.label + ' record' : 'New ' + m.label.toLowerCase());
+    var back = h('div', { class: 'crumb' }, h('a', { href: '#/m/' + encodeURIComponent(m.id), text: m.label }), ' / ', id || 'New');
+    var holder = h('div');
+    c.appendChild(h('div', null, back, holder));
+    if (!id) return renderRecord(m, null, holder);
+    holder.appendChild(h('div', { class: 'card' }, skeleton(5)));
+    rpc('get', { entity: m.id, id: id }).then(function (r) { renderRecord(m, r, holder); })
+      .catch(function (e) { if (e.code !== 'AUTH') clear(holder).appendChild(h('div', { class: 'card' }, stateBox('error', e.code === 'NOT_FOUND' ? 'Record not found' : 'Could not open record', errText(e), h('a', { class: 'btn', href: '#/m/' + encodeURIComponent(m.id), text: 'Back to list' })))); });
+  }
+
+  function renderRecord(m, rec, holder) {
+    if (isLearner() && isReview(m) && rec) return renderLearnerReview(m, rec, holder);
+    var key = m.id + ':' + (rec ? rec.id : 'new');
+    var draft = S.drafts[key] || (S.drafts[key] = { requestId: uid(), expectedRevision: rec ? rec._revision : undefined });
+    var editable = rec ? m.canEdit : m.canCreate;
+    var form = buildForm(m.fields || [], rec, { readonly: !editable });
+    if (draft.values) Object.keys(draft.values).forEach(function (k) { if (form.controls[k]) form.controls[k].set(draft.values[k]); });
+    var msg = h('div'), status = h('span', { class: 'savestate', 'aria-live': 'polite', text: rec ? 'Revision ' + rec._revision : 'Not yet saved' });
+    var saveBtn = h('button', { class: 'btn pri', type: 'submit', text: rec ? 'Save changes' : 'Create record' });
+    var formEl = h('form', { novalidate: true, onsubmit: function (ev) {
+      ev.preventDefault(); clear(msg);
+      var vals = form.collect(); if (!vals) { msg.appendChild(h('div', { class: 'alert bad', text: 'Check the highlighted fields.' })); return; }
+      draft.values = vals;
+      var payload = { entity: m.id, record: rec ? Object.assign({ id: rec.id }, vals) : vals };
+      if (rec) payload.expectedRevision = draft.expectedRevision;
+      busy(saveBtn, true, 'Saving');
+      rpc('save', payload, draft.requestId).then(function (saved) {
+        delete S.drafts[key]; toast('Saved ' + m.label.toLowerCase());
+        if (!rec) location.hash = '#/m/' + encodeURIComponent(m.id) + '/' + encodeURIComponent(saved.id);
+        else { clear(holder); renderRecord(m, saved, holder); }
+      }).catch(function (e) {
+        busy(saveBtn, false, rec ? 'Save changes' : 'Create record');
+        if (e.code === 'AUTH') return;
+        if (e.code === 'CONFLICT') {
+          var cur = e.details && e.details.current;
+          msg.appendChild(conflictPanel(cur, vals, function () {
+            draft.expectedRevision = cur && cur._revision; draft.requestId = uid(); clear(msg);
+            status.textContent = 'Draft now based on revision ' + draft.expectedRevision + '. Review, then save again.';
+            msg.appendChild(h('div', { class: 'alert info', text: 'Your draft is kept. Nothing has been saved yet: press Save changes to apply it over revision ' + draft.expectedRevision + '.' }));
+          }, function () { delete S.drafts[key]; clear(holder); renderRecord(m, cur, holder); }));
+          return;
+        }
+        var details = e.details && typeof e.details === 'object' && !Array.isArray(e.details) ? e.details : null;
+        if (e.code === 'VALIDATION' && details) Object.keys(details).forEach(function (k) { var ct = form.controls[k]; if (ct && ct.err) { ct.err.textContent = String(details[k]); ct.wrap.classList.add('bad'); } });
+        msg.appendChild(h('div', { class: 'alert bad', role: 'alert' }, errText(e), e.code === 'BUSY' || e.code === 'NETWORK' || e.code === 'INCOMPLETE_OPERATION' ? ' Press save again to retry the same submission.' : ''));
+      });
+    } }, form.el, msg, h('div', { class: 'actions' }, editable ? saveBtn : h('span', { class: 'muted', text: 'Read only for your account.' }), status,
+      rec && m.canDelete ? h('button', { class: 'btn dan', type: 'button', style: 'margin-left:auto', text: 'Archive', onclick: function () { archive(m, rec, this); } }) : null));
+    var side = [];
+    if (rec && FILE_ENTITIES.indexOf(m.id) >= 0) side.push(filesPanel(m, rec, !!m.canEdit));
+    if (rec && isReview(m) && !isLearner()) side.push(commentsPanel(rec));
+    clear(holder).appendChild(h('div', { class: side.length ? 'split' : '' },
+      h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: rec ? 'Record ' + rec.id : 'New ' + m.label.toLowerCase() })), h('div', { class: 'card-b' }, formEl)),
+      side.length ? h('div', { class: 'stack' }, side) : null));
+  }
+
+  function archive(m, rec, btn) {
+    if (!window.confirm('Archive this ' + m.label.toLowerCase() + ' record? It will be hidden from lists but kept in the archive.')) return;
+    busy(btn, true, 'Archiving');
+    rpc('remove', { entity: m.id, id: rec.id, expectedRevision: rec._revision }).then(function () { toast('Record archived'); location.hash = '#/m/' + encodeURIComponent(m.id); })
+      .catch(function (e) { busy(btn, false, 'Archive'); if (e.code !== 'AUTH') toast(e.code === 'CONFLICT' ? 'This record changed since you opened it. Reload before archiving.' : errText(e), true); });
+  }
+
+  /* ---------- files ---------- */
+  function filesPanel(m, rec, canUpload) {
+    var list = h('ul', { class: 'filelist' }), msg = h('div');
+    function load() {
+      clear(list).appendChild(h('li', null, h('div', { class: 'sk sk-line', style: 'width:100%' })));
+      rpc('files', { entity: m.id, id: rec.id }).then(function (files) {
+        clear(list); files = files || [];
+        if (!files.length) list.appendChild(h('li', { class: 'muted', text: 'No files attached.' }));
+        files.forEach(function (f) {
+          var b = h('button', { class: 'btn sm', text: 'Download', 'aria-label': 'Download ' + f.name, onclick: function () { download(f, b); } });
+          list.appendChild(h('li', null, h('span', { title: f.name, text: f.name }), h('small', { class: 'muted', text: f.size ? Math.round(f.size / 1024) + ' KB' : '' }), b));
+        });
+      }).catch(function (e) { if (e.code !== 'AUTH') { clear(list).appendChild(h('li', { class: 'muted', text: e.code === 'FORBIDDEN' ? 'Files are not available for this record.' : errText(e) })); } });
+    }
+    var input = h('input', { type: 'file', accept: 'application/pdf,image/jpeg,image/png', class: 'sr', id: 'up_' + rec.id });
+    var upBtn = h('label', { class: 'btn sm', for: 'up_' + rec.id, tabindex: '0', text: 'Upload file', onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } } });
+    input.addEventListener('change', function () {
+      clear(msg); var f = input.files[0]; if (!f) return;
+      if (['application/pdf', 'image/jpeg', 'image/png'].indexOf(f.type) < 0) { msg.appendChild(h('div', { class: 'alert bad', text: 'Only PDF, JPEG or PNG files can be uploaded.' })); input.value = ''; return; }
+      if (f.size > 2 * 1024 * 1024) { msg.appendChild(h('div', { class: 'alert bad', text: 'Files must be 2 MB or smaller.' })); input.value = ''; return; }
+      var rd = new FileReader(); upBtn.textContent = 'Uploading';
+      rd.onload = function () {
+        var payload = { entity: m.id, id: rec.id, name: f.name, mimeType: f.type, base64: String(rd.result).split(',')[1] };
+        rpc('upload', payload).then(function () { payload.base64 = null; payload = null; toast('File uploaded'); load(); })
+          .catch(function (e) { payload = null; if (e.code !== 'AUTH') msg.appendChild(h('div', { class: 'alert bad', text: errText(e) })); })
+          .then(function () { input.value = ''; upBtn.textContent = 'Upload file'; });
+      };
+      rd.readAsDataURL(f);
+    });
+    load();
+    var fileNotice = m.id === 'TermlyReviews' ? 'Files here are shared with this review’s learner. Do not attach private staff-only notes.' : ['Students', 'StudentEnrolments'].indexOf(m.id) >= 0 ? 'Learner photos are visible to authorised teachers and the learner. PDFs here remain administrator/office only.' : 'Access follows this record’s permissions.';
+    return h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: m.id === 'TermlyReviews' ? 'Files shared with learner' : 'Files' }), canUpload ? [input, upBtn] : null), h('div', { class: 'card-b' }, list, msg, h('p', { class: 'muted', style: 'font-size:12px;margin:8px 0 0', text: fileNotice }), canUpload ? h('p', { class: 'muted', style: 'font-size:12px;margin:8px 0 0', text: 'PDF, JPEG or PNG, up to 2 MB.' }) : null));
+  }
+  function download(f, btn) {
+    busy(btn, true, 'Preparing');
+    rpc('download', { id: f.id }).then(function (d) {
+      var bin = atob(d.base64), arr = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      saveBlob(new Blob([arr], { type: d.mimeType }), d.name || f.name);
+    }).catch(function (e) { if (e.code !== 'AUTH') toast(errText(e), true); }).then(function () { busy(btn, false, 'Download'); });
+  }
+  function saveBlob(blob, name) { var url = URL.createObjectURL(blob), a = h('a', { href: url, download: name }); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000); }
+
+  /* ---------- shared comments ---------- */
+  function commentsPanel(rec) {
+    var ta = h('textarea', { id: 'cm', rows: '3', placeholder: 'Shared comment visible to the learner' });
+    var b = h('button', { class: 'btn pri sm', text: 'Add comment' }), msg = h('div');
+    var existing = Array.isArray(rec.comments) ? rec.comments : (Array.isArray(rec.staffComments) ? rec.staffComments : []);
+    var list = h('div', null, existing.length ? existing.map(function (x) { return h('div', { class: 'comment', text: typeof x === 'object' ? (x.author ? x.author + ': ' : '') + (x.comment || x.text || '') : x }); }) : h('p', { class: 'muted', text: 'No shared comments yet.' }));
+    b.addEventListener('click', function () {
+      var v = ta.value.trim(); clear(msg); if (!v) { msg.appendChild(h('div', { class: 'alert bad', text: 'Write a comment first.' })); return; }
+      busy(b, true, 'Adding');
+      rpc('addStaffComment', { reviewId: rec.id, comment: v }).then(function () {
+        ta.value = ''; toast('Comment added'); if (list.querySelector('.muted')) clear(list); list.appendChild(h('div', { class: 'comment', text: (S.user.displayName || 'You') + ': ' + v }));
+      }).catch(function (e) { if (e.code !== 'AUTH') msg.appendChild(h('div', { class: 'alert bad', text: errText(e) })); }).then(function () { busy(b, false, 'Add comment'); });
+    });
+    return h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Shared staff comments' })), h('div', { class: 'card-b' }, list, h('div', { class: 'fld', style: 'margin-top:10px' }, h('label', { for: 'cm', text: 'New comment' }), ta), msg, h('div', { class: 'actions' }, b)));
+  }
+
+  /* ---------- learner review ---------- */
+  function commentComposer(onDone) {
+    var st = { search: '', page: 1, limit: 10 }, picked = null;
+    var q = h('input', { class: 'search', type: 'search', placeholder: 'Search learner or review', 'aria-label': 'Search review headers' });
+    var list = h('div', { role: 'listbox', 'aria-label': 'Review headers' }), pager = h('div', { class: 'pager' });
+    var sel = h('div', { class: 'muted', style: 'font-size:13px', text: 'No review selected.' });
+    var ta = h('textarea', { id: 'scc', rows: '3', placeholder: 'Shared comment, visible to the learner and staff' });
+    var b = h('button', { class: 'btn pri sm', text: 'Add comment' }), msg = h('div'), timer;
+    q.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(function () { st.search = q.value.trim(); st.page = 1; load(); }, 350); });
+    function load() {
+      clear(list).appendChild(skeleton(3)); clear(pager);
+      rpc('reviewHeaders', { search: st.search, page: st.page, limit: st.limit }).then(function (d) {
+        clear(list); var rows = d.rows || [], pages = Math.max(1, Math.ceil((d.total || 0) / st.limit));
+        if (!rows.length) { list.appendChild(h('p', { class: 'muted', text: 'No reviews match.' })); return; }
+        rows.forEach(function (r) {
+          var label = (r.displayName || r.studentId || 'Learner') + ' / ' + (r.title || 'Review');
+          list.appendChild(h('div', { class: 'reg-row', style: 'grid-template-columns:1fr auto;cursor:pointer', role: 'option', tabindex: '0', 'aria-selected': picked && picked.id === r.id,
+            onclick: function () { pick(r, label); }, onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(r, label); } } },
+            h('div', null, h('strong', { text: label }), h('div', { class: 'mono muted', text: 'Learner ID ' + (r.studentId || '-') + ' / Review ID ' + r.id })), h('span', { class: 'btn sm', text: 'Select' })));
+        });
+        add(pager, [h('span', { style: 'flex:1', text: 'Page ' + st.page + ' of ' + pages }), h('button', { class: 'btn sm', text: 'Previous', disabled: st.page <= 1, onclick: function () { st.page--; load(); } }), h('button', { class: 'btn sm', text: 'Next', disabled: st.page >= pages, onclick: function () { st.page++; load(); } })]);
+      }).catch(function (e) { if (e.code !== 'AUTH') clear(list).appendChild(h('div', { class: 'alert bad', text: errText(e) })); });
+    }
+    function pick(r, label) { picked = r; sel.textContent = 'Commenting on: ' + label; sel.className = ''; ta.focus(); }
+    b.addEventListener('click', function () {
+      clear(msg); var v = ta.value.trim();
+      if (!picked) { msg.appendChild(h('div', { class: 'alert bad', text: 'Select a review first.' })); return; }
+      if (!v) { msg.appendChild(h('div', { class: 'alert bad', text: 'Write a comment first.' })); return; }
+      busy(b, true, 'Adding');
+      rpc('addStaffComment', { reviewId: picked.id, comment: v }).then(function () { ta.value = ''; toast('Comment added'); if (onDone) onDone(); })
+        .catch(function (e) { if (e.code !== 'AUTH') msg.appendChild(h('div', { class: 'alert bad', text: errText(e) })); }).then(function () { busy(b, false, 'Add comment'); });
+    });
+    load();
+    return h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Add a shared comment' }), q),
+      h('div', { class: 'card-b' }, h('p', { class: 'muted', style: 'margin-top:0;font-size:12.5px', text: 'Choose a review header. Private learner answers are not shown here.' }), list, pager, sel,
+        h('div', { class: 'fld', style: 'margin-top:10px' }, h('label', { for: 'scc', text: 'Comment' }), ta), msg, h('div', { class: 'actions' }, b)));
+  }
+
+  function viewProfile() {
+    var c = shell('My details'), box = h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'My details' })), skeleton(4));
+    c.appendChild(box);
+    rpc('bootstrap').then(function (d) {
+      var u = d.user || {}, p = u.profile || {}; S.user = u;
+      function row(l, v) { return h('div', null, h('div', { class: 'muted', style: 'font-size:11px;text-transform:uppercase;letter-spacing:.06em', text: l }), h('div', { class: v ? '' : 'muted', text: v || 'Not recorded' })); }
+      box.replaceChild(h('div', { class: 'card-b form' }, row('Name', u.displayName), row('Username', u.username), row('Role', u.role), row('Department', u.department),
+        isLearner() ? row('Learner ID', u.studentId) : null, row('Email', p.email), row('Phone', p.phone), row('Job title', p.jobTitle)), box.lastChild);
+    }).catch(function (e) { if (e.code !== 'AUTH') box.replaceChild(stateBox('error', 'Details could not load', errText(e), h('button', { class: 'btn', text: 'Retry', onclick: viewProfile })), box.lastChild); });
+  }
+
+  var TARGET_CATS = ['academic', 'personal', 'future'];
+  function renderLearnerReview(m, rec, holder) {
+    var key = 'review:' + rec.id;
+    var base = rec.work && typeof rec.work === 'object' ? rec.work : {};
+    var draft = S.drafts[key] || (S.drafts[key] = { requestId: uid(), expectedRevision: rec._revision, work: JSON.parse(JSON.stringify(base)) });
+    var work = draft.work;
+    if (!work.answers || typeof work.answers !== 'object' || Array.isArray(work.answers)) work.answers = {};
+    if (!Array.isArray(work.targets)) work.targets = [];
+    work.targets = work.targets.filter(function (t) { return t && typeof t === 'object'; });
+    var submitted = /submit|reviewed|complete|closed/i.test(String(rec.status || '')) || !!rec.submittedAt;
+    var tc = (rec.template && rec.template.content) || {};
+    var para = function (t, cls) { return t ? h('p', { class: cls || '', style: 'white-space:pre-wrap;margin:6px 0', text: t }) : null; };
+    var area = h('div', { class: 'stack' }, para(tc.welcome), para(tc.instructions, 'muted'));
+    var qn = 0;
+    (tc.sections || []).forEach(function (sec) {
+      var box = h('fieldset', { style: 'border:1px solid var(--line);border-radius:8px;padding:12px 14px' }, h('legend', { style: 'font-weight:700;padding:0 6px', text: sec.title || 'Section' }), para(sec.instructions, 'muted'));
+      (sec.questions || []).forEach(function (q) {
+        var id = 'q' + (qn++), t = h('textarea', { id: id, readonly: submitted, required: !!q.required });
+        var v = work.answers[q.id]; t.value = v == null ? '' : String(v);
+        t.addEventListener('input', function () { work.answers[q.id] = t.value; });
+        box.appendChild(h('div', { class: 'fld', style: 'margin-top:8px' }, h('label', { for: id, style: 'white-space:pre-wrap' }, q.prompt || q.id, q.required ? h('span', { class: 'req', text: ' *' }) : null), t));
+      });
+      area.appendChild(box);
+    });
+    if (!(tc.sections || []).length) area.appendChild(h('div', { class: 'alert info', text: 'This review has no questions in its template. You can still write a summary and targets.' }));
+    var sum = h('textarea', { id: 'w_summary', readonly: submitted }); sum.value = work.summary == null ? '' : String(work.summary);
+    sum.addEventListener('input', function () { work.summary = sum.value; });
+    area.appendChild(h('div', { class: 'fld' }, h('label', { for: 'w_summary', text: 'My summary' }), sum));
+    var tgtBox = h('div', { class: 'stack' });
+    function drawTargets() {
+      clear(tgtBox);
+      if (!work.targets.length) tgtBox.appendChild(h('p', { class: 'muted', text: 'No targets yet.' }));
+      work.targets.forEach(function (t, i) {
+        var p = 't' + i + '_';
+        var cat = h('select', { id: p + 'c', disabled: submitted }, TARGET_CATS.map(function (c) { return h('option', { value: c, text: c.charAt(0).toUpperCase() + c.slice(1) }); }));
+        cat.value = TARGET_CATS.indexOf(t.category) >= 0 ? t.category : 'academic'; t.category = cat.value;
+        cat.addEventListener('change', function () { t.category = cat.value; });
+        function tx(k, l) { var e = h('textarea', { id: p + k, readonly: submitted, rows: '2' }); e.value = t[k] == null ? '' : String(t[k]); e.addEventListener('input', function () { t[k] = e.value; }); return h('div', { class: 'fld' + (k === 'description' ? ' wide' : '') }, h('label', { for: p + k, text: l }), e); }
+        var done = h('input', { type: 'checkbox', id: p + 'd', disabled: submitted }); done.checked = !!t.completed; done.addEventListener('change', function () { t.completed = done.checked; });
+        tgtBox.appendChild(h('div', { class: 'card', style: 'padding:12px' }, h('div', { class: 'form' },
+          h('div', { class: 'fld' }, h('label', { for: p + 'c', text: 'Category' }), cat), h('div', { class: 'fld chk', style: 'align-self:end' }, done, h('label', { for: p + 'd', text: 'Completed' })),
+          tx('description', 'Target'), tx('steps', 'Steps I will take'), tx('progress', 'Progress so far')),
+          submitted ? null : h('div', { class: 'actions' }, h('button', { class: 'btn dan sm', type: 'button', text: 'Remove target', onclick: function () { if (window.confirm('Remove this target?')) { work.targets.splice(i, 1); drawTargets(); } } }))));
+      });
+      if (!submitted) tgtBox.appendChild(h('div', null, h('button', { class: 'btn sm', type: 'button', text: 'Add target', onclick: function () { work.targets.push({ category: 'academic', description: '', steps: '', progress: '', completed: false }); drawTargets(); var f = tgtBox.querySelectorAll('textarea'); if (f.length) f[f.length - 3].focus(); } })));
+    }
+    drawTargets();
+    area.appendChild(h('div', null, h('h3', { style: 'font-size:14px;margin:4px 0', text: 'My targets' }), tc.targetExamples ? para(typeof tc.targetExamples === 'string' ? tc.targetExamples : 'Examples: ' + [].concat(tc.targetExamples).map(function (x) { return typeof x === 'object' ? (x.description || JSON.stringify(x)) : x; }).join('; '), 'muted') : null, tgtBox));
+    work.priorTargetUpdates = work.priorTargetUpdates || {};
+    (rec.priorTargets || []).forEach(function (target, i) {
+      var update = work.priorTargetUpdates[target.key] || { progress: '', completed: !!target.completed };
+      var progress = h('textarea', { id: 'prior-progress-' + i, readonly: submitted });
+      progress.value = update.progress || '';
+      var complete = h('input', { type: 'checkbox', disabled: submitted }); complete.checked = !!update.completed;
+      function changed() { work.priorTargetUpdates[target.key] = { progress: progress.value, completed: complete.checked }; }
+      progress.addEventListener('input', changed); complete.addEventListener('change', changed);
+      area.appendChild(h('section', { class: 'card' }, h('div', { class: 'card-b' },
+        h('h3', { text: 'Earlier ' + target.category + ' target' }), h('p', { text: target.description }),
+        h('label', { for: 'prior-progress-' + i, text: 'Progress this term' }), progress,
+        h('label', null, complete, ' Completed'))));
+    });
+    if (rec.teacherComment) area.appendChild(h('section', { class: 'alert info' }, h('h3', { text: 'Teacher feedback' }), h('p', { text: rec.teacherComment })));
+    area.appendChild(para(tc.endGuidance, 'muted'));
+    var msg = h('div'), st = h('span', { class: 'savestate', 'aria-live': 'polite', text: submitted ? 'Submitted' : 'Draft' });
+    var saveB = h('button', { class: 'btn', text: 'Save draft' }), subB = h('button', { class: 'btn pri', text: 'Submit to tutor' });
+    function send(submit, btn, label) {
+      clear(msg);
+      if (submit) {
+        var missing = []; (tc.sections || []).forEach(function (sec) { (sec.questions || []).forEach(function (q) { if (q.required && !String(work.answers[q.id] || '').trim()) missing.push(q.prompt || q.id); }); });
+        if (missing.length) { msg.appendChild(h('div', { class: 'alert bad', text: 'Answer every required question before submitting (' + missing.length + ' remaining).' })); return; }
+        if (!window.confirm('Submit this review? You will not be able to change it afterwards.')) return;
+      }
+      busy(btn, true, submit ? 'Submitting' : 'Saving');
+      rpc('saveLearnerReview', { id: rec.id, expectedRevision: draft.expectedRevision, work: work, submit: submit }, draft.requestId).then(function (saved) {
+        delete S.drafts[key]; toast(submit ? 'Review submitted' : 'Draft saved'); if (!saved.template) saved.template = rec.template; clear(holder); renderLearnerReview(m, saved, holder);
+      }).catch(function (e) {
+        busy(btn, false, label); if (e.code === 'AUTH') return;
+        if (e.code === 'CONFLICT') { var cur = e.details && e.details.current;
+          msg.appendChild(conflictPanel(cur && cur.work, work, function () { draft.expectedRevision = cur && cur._revision; draft.requestId = uid(); clear(msg); msg.appendChild(h('div', { class: 'alert info', text: 'Your answers are kept. Save again to apply them.' })); }, function () { delete S.drafts[key]; if (cur && !cur.template) cur.template = rec.template; clear(holder); renderLearnerReview(m, cur, holder); })); return; }
+        msg.appendChild(h('div', { class: 'alert bad', text: errText(e) }));
+      });
+    }
+    saveB.addEventListener('click', function () { send(false, saveB, 'Save draft'); });
+    subB.addEventListener('click', function () { send(true, subB, 'Submit to tutor'); });
+    var info = (m.fields || []).filter(function (f) { return f.key !== 'work' && f.key !== 'template' && !/comment/i.test(f.key) && f.type !== 'json'; }).map(function (f) { return h('div', null, h('div', { class: 'muted', style: 'font-size:11px;text-transform:uppercase;letter-spacing:.06em', text: f.label }), h('div', { text: fmt(rec[f.key], f) || '-' })); });
+    var comments = Array.isArray(rec.comments) ? rec.comments : [];
+    var side = [h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Details' })), h('div', { class: 'card-b', style: 'display:grid;gap:10px' }, info)),
+      h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Comments from staff' })), h('div', { class: 'card-b' }, comments.length ? comments.map(function (x) { return h('div', { class: 'comment', text: typeof x === 'object' ? (x.author ? x.author + ': ' : '') + (x.comment || x.text || '') : x }); }) : h('p', { class: 'muted', text: 'No comments yet.' })))];
+    side.push(filesPanel(m, rec, false));
+    clear(holder).appendChild(h('div', { class: 'split' },
+      h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: tc.title || rec.title || 'My review' }), st), h('div', { class: 'card-b' }, area, msg, submitted ? h('p', { class: 'muted', text: 'This review has been submitted and is now read only.' }) : h('div', { class: 'actions' }, saveB, subB))),
+      h('div', { class: 'stack' }, side)));
+  }
+
+
+  /* ---------- register ---------- */
+  function today() { var p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()), v = {}; p.forEach(function (part) { v[part.type] = part.value; }); return v.year + '-' + v.month + '-' + v.day; }
+  function viewRegister(scheduleId, date) {
+    var c = shell('Take register');
+    var sch = h('input', { id: 'rs', required: true, value: scheduleId || '', placeholder: 'e.g. SCH-0142' });
+    var dt = h('input', { id: 'rd', type: 'date', required: true, value: date || today() });
+    var openB = h('button', { class: 'btn pri', type: 'submit', text: 'Open register' });
+    var out = h('div');
+    c.appendChild(h('div', { class: 'stack' }, h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Lesson occurrence' })),
+      h('form', { class: 'card-b', onsubmit: function (e) { e.preventDefault(); if (!sch.value.trim()) { sch.focus(); return; } location.hash = '#/register/' + encodeURIComponent(sch.value.trim()) + '/' + dt.value; } },
+        h('div', { class: 'form' }, h('div', { class: 'fld' }, h('label', { for: 'rs', text: 'Schedule ID (linked timetable slot)' }), sch), h('div', { class: 'fld' }, h('label', { for: 'rd', text: 'Date' }), dt)), h('div', { class: 'actions' }, openB))), out));
+    if (!scheduleId) { out.appendChild(h('div', { class: 'card' }, stateBox('empty', 'Choose a lesson', 'Enter the schedule ID from your timetable and the lesson date to open its register.'))); return; }
+    out.appendChild(h('div', { class: 'card' }, skeleton(8)));
+    rpc('register', { scheduleId: scheduleId, date: date }).then(function (d) { renderRegister(out, scheduleId, date, d); })
+      .catch(function (e) { if (e.code !== 'AUTH') clear(out).appendChild(h('div', { class: 'card' }, stateBox('error', 'Register could not open', errText(e), h('button', { class: 'btn', text: 'Retry', onclick: function () { viewRegister(scheduleId, date); } })))); });
+  }
+  function renderRegister(out, scheduleId, date, d) {
+    var key = 'reg:' + scheduleId + ':' + date;
+    var students = d.students || [], existing = {};
+    (d.marks || []).forEach(function (mk) { existing[mk.studentId] = mk; });
+    var draft = S.drafts[key] || (S.drafts[key] = { requestId: uid(), expectedRevision: (d.register && d.register._revision) || 0, marks: {} });
+    students.forEach(function (s) { var sid = s.studentId || s.id; if (!draft.marks[sid]) draft.marks[sid] = { studentId: sid, status: (existing[sid] && existing[sid].status) || 'Not Marked', notes: (existing[sid] && existing[sid].notes) || '' }; });
+    var tally = h('div', { class: 'tally' });
+    function upd() { var n = {}; STATUSES.forEach(function (s) { n[s] = 0; }); Object.keys(draft.marks).forEach(function (k) { n[draft.marks[k].status]++; }); clear(tally); STATUSES.forEach(function (s) { tally.appendChild(h('span', { class: 'pill ' + s.replace(/\s/g, ''), text: s + ' ' + n[s] })); }); }
+    var list = h('div', { role: 'list' });
+    students.forEach(function (s) {
+      var sid = s.studentId || s.id, mk = draft.marks[sid];
+      var seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Status for ' + (s.displayName || s.name || sid) });
+      STATUSES.forEach(function (stt) {
+        var b = h('button', { type: 'button', class: stt.replace(/\s/g, ''), 'aria-pressed': mk.status === stt, text: stt === 'Not Marked' ? 'N/M' : stt, title: stt, onclick: function () { mk.status = stt; Array.prototype.forEach.call(seg.children, function (x) { x.setAttribute('aria-pressed', x === b); }); upd(); } });
+        seg.appendChild(b);
+      });
+      var notes = h('input', { value: mk.notes || '', placeholder: 'Note', 'aria-label': 'Note for ' + (s.displayName || s.name || sid) });
+      notes.addEventListener('input', function () { mk.notes = notes.value; });
+      list.appendChild(h('div', { class: 'reg-row', role: 'listitem' }, h('div', null, h('strong', { text: s.displayName || s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || sid }), h('div', { class: 'mono muted', text: 'Learner ID ' + sid })), seg, notes));
+    });
+    var ro = d.canSubmit === false;
+    if (ro) Array.prototype.forEach.call(list.querySelectorAll('button,input'), function (x) { x.disabled = true; });
+    var msg = h('div'), sub = h('button', { class: 'btn pri', text: 'Submit register' });
+    var allP = h('button', { class: 'btn sm', text: 'Mark unmarked as Present', onclick: function () { Object.keys(draft.marks).forEach(function (k) { if (draft.marks[k].status === 'Not Marked') draft.marks[k].status = 'Present'; }); renderRegister(out, scheduleId, date, d); } });
+    sub.addEventListener('click', function () {
+      clear(msg); busy(sub, true, 'Submitting');
+      var marks = students.map(function (s) { var m = draft.marks[s.studentId || s.id]; return { studentId: m.studentId, status: m.status, notes: m.notes || '' }; });
+      rpc('submitRegister', { scheduleId: scheduleId, date: date, expectedRevision: draft.expectedRevision, marks: marks }, draft.requestId).then(function (r) {
+        delete S.drafts[key]; toast('Register saved: ' + r.marksSaved + ' marks');
+        d.register = r.register; d.marks = marks; renderRegister(out, scheduleId, date, d);
+      }).catch(function (e) {
+        busy(sub, false, 'Submit register'); if (e.code === 'AUTH') return;
+        if (e.code === 'CONFLICT') { var cur = e.details && e.details.current;
+          msg.appendChild(conflictPanel(cur, marks, function () { draft.expectedRevision = (cur && (cur._revision != null ? cur._revision : cur.register && cur.register._revision)) || 0; draft.requestId = uid(); clear(msg); msg.appendChild(h('div', { class: 'alert info', text: 'Your marks are kept. Submit again to apply them.' })); },
+            function () { delete S.drafts[key]; viewRegister(scheduleId, date); })); return; }
+        msg.appendChild(h('div', { class: 'alert bad', text: errText(e) }));
+      });
+    });
+    upd();
+    var rg = d.register || {};
+    clear(out).appendChild(h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: (rg.title || rg.courseName || 'Schedule ' + scheduleId) + ' / ' + date }), h('span', { class: 'savestate', text: rg._revision ? 'Revision ' + rg._revision : 'Not yet taken' }), ro ? h('span', { class: 'pill', text: 'View only' }) : allP),
+      h('div', { class: 'card-b', style: 'padding-bottom:0' }, tally),
+      students.length ? list : stateBox('empty', 'No enrolled learners', 'This lesson has no learners enrolled on this date.'),
+      h('div', { class: 'card-b' }, msg, ro ? h('p', { class: 'muted', text: 'Your role can view this register but cannot submit marks.' }) : (students.length ? h('div', { class: 'actions' }, sub) : null))));
+  }
+
+  /* ---------- reports ---------- */
+  function viewReports() {
+    var c = shell('Reports');
+    var kind = h('select', { id: 'rk' }, ['attendance', 'assessment', 'enrolments'].filter(function (k) { return k !== 'assessment' || !!mod('AssessmentResults'); }).map(function (k) { return h('option', { value: k, text: k.charAt(0).toUpperCase() + k.slice(1) }); }));
+    var run = h('button', { class: 'btn pri', text: 'Run report' }), out = h('div');
+    c.appendChild(h('div', { class: 'stack' }, h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: 'Report' })), h('div', { class: 'card-b' }, h('div', { class: 'toolbar' }, h('div', { class: 'fld' }, h('label', { for: 'rk', text: 'Report type' }), kind), h('div', { style: 'align-self:flex-end' }, run)))), out));
+    out.appendChild(h('div', { class: 'card' }, stateBox('empty', 'Choose a report', 'Results stay within your authorised scope.')));
+    run.addEventListener('click', function () {
+      busy(run, true, 'Running'); clear(out).appendChild(h('div', { class: 'card' }, skeleton(6)));
+      var k = kind.value;
+      rpc('report', { kind: k }).then(function (d) {
+        var cols = d.columns || [], rows = d.rows || [];
+        var cell = function (r, col, i) { return Array.isArray(r) ? r[i] : r[col.key || col]; };
+        var csvB = h('button', { class: 'btn sm', text: 'Export CSV', disabled: !rows.length, onclick: function () { saveBlob(new Blob([toCsv(cols, rows, cell)], { type: 'text/csv' }), k + '-report-' + today() + '.csv'); } });
+        clear(out).appendChild(h('section', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', { text: rows.length + ' rows' }), csvB),
+          rows.length ? h('div', { class: 'tablewrap', style: 'max-height:65vh' }, h('table', null, h('thead', null, h('tr', null, cols.map(function (col) { return h('th', { text: col.label || col.key || col }); }))),
+            h('tbody', null, rows.map(function (r) { return h('tr', null, cols.map(function (col, i) { return h('td', { text: fmt(cell(r, col, i)) }); })); })))) : stateBox('empty', 'No data for this report', null)));
+      }).catch(function (e) { if (e.code !== 'AUTH') clear(out).appendChild(h('div', { class: 'card' }, stateBox('error', 'Report could not run', errText(e)))); }).then(function () { busy(run, false, 'Run report'); });
+    });
+  }
+  function csvCell(v) {
+    var s = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\r\n]/.test(s) || s !== s.trim() ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function toCsv(cols, rows, cell) {
+    var lines = [cols.map(function (c) { return csvCell(c.label || c.key || c); }).join(',')];
+    rows.forEach(function (r) { lines.push(cols.map(function (c, i) { return csvCell(cell(r, c, i)); }).join(',')); });
+    return '\ufeff' + lines.join('\r\n');
+  }
+
+  /* ---------- start ---------- */
+  if (!hasGoogle) return renderOffline();
+  try { S.token = sessionStorage.getItem(TOKEN_KEY); } catch (x) {}
+  if (S.token) boot(); else renderLogin();
+})();
+</script>

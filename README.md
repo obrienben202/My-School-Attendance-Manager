@@ -24,6 +24,10 @@ My School Attendance Manager brings together registers, course information, time
 
 The application uses a React frontend, an Express API and PostgreSQL. School-managed services provide directory information, password verification and Google Sheets synchronisation.
 
+### Separate Google Apps Script edition
+
+An independent Sheets-backed export lives in [`google-apps-script-portal`](google-apps-script-portal/README.md). Build it with `pnpm google-portal:build` and run its synthetic checks with `pnpm google-portal:test`. The package includes a private-workbook initializer, staff/learner access, recovery, migration rehearsal tools and illustrated help. It has not been deployed or connected to live school records; Google acceptance and capacity review are required before any cutover. The current portal is unchanged.
+
 > **School-specific application:** this is not a public signup service or a ready-to-run demo with shared credentials. A working installation requires an authorised school directory, the school's authentication service and a configured database.
 
 ## Features
