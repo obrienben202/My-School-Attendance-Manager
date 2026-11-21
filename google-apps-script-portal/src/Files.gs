@@ -38,7 +38,7 @@ function upload_(store, actor, request) {
   if (!(p.mimeType === "image/png" ? /\.png$/i : p.mimeType === "image/jpeg" ? /\.jpe?g$/i : /\.pdf$/i).test(name)) failure_("VALIDATION", "File extension must match its type.");
   var file = privateFolder_().createFile(Utilities.newBlob(bytes, p.mimeType, name));
   if (file.getSharingAccess() !== DriveApp.Access.PRIVATE || otherFileUsers_(file)) { file.setTrashed(true); failure_("CONFIG", "School policy did not create a private file. The failed upload was removed; sharing settings were not changed."); }
-  var metadata = fileMetadata_(file, actor, p.entity, p.id, digest_(p.base64));
+  var metadata = fileMetadata_(file, actor, p.entity, p.id, digest_(Utilities.base64Encode(bytes)));
   try { return commit_(store, actor, request, [{ entity: "UploadMetadata", record: metadata }], safeFile_(metadata)); }
   catch (err) {
     // A prepared journal must keep its file for recovery; only an unjournalled orphan is removed.

@@ -131,6 +131,8 @@ test("file bytes are validated, private, permission checked and never served by 
   const uploadedPhoto = h.rpc("upload", admin, photo);
   assert.equal(uploadedPhoto.ok, true);
   assert.equal(h.rpc("download", one, { id: uploadedPhoto.data.id }).data.base64, photo.base64);
+  const alternateEncoding = h.rpc("upload", admin, { ...photo, base64: photo.base64.replace(/=+$/, "") });
+  assert.equal(h.rpc("download", one, { id: alternateEncoding.data.id }).data.base64, photo.base64);
   assert.equal(h.rpc("upload", admin, { ...request, base64: Buffer.from("<script>bad</script>").toString("base64") }).error.code, "VALIDATION");
 });
 test("formula-like cells round trip without being executable; private table access and rate overload fail closed", () => {

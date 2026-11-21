@@ -122,9 +122,9 @@ export function build() {
       ...s.fields.map(f => `| ${f.key} | ${f.type} | ${f.required ? "yes" : "no"} | ${f.references || ""} |`), "");
   }
   writeFileSync(join(out, "DATA-DICTIONARY.md"), dictionary.join("\n"));
-  for (const file of ["README.md", "ACCEPTANCE.md", "PARITY.md", "CAPACITY.md", "CONTRACT.md", "INSTALL.html"]) copyFileSync(join(project, file), join(out, file));
+  for (const file of ["README.md", "ACCEPTANCE.md", "PARITY.md", "CAPACITY.md", "CONTRACT.md", "VERIFICATION.md", "INSTALL.html"]) copyFileSync(join(project, file), join(out, file));
   const zip = join(out, "attendance-google-apps-script.zip");
-  execFileSync("python3", ["-m", "zipfile", "-c", zip, "apps-script", "BCRYPT-LICENSE", "README.md", "ACCEPTANCE.md", "PARITY.md", "CAPACITY.md", "INSTALL.html", "DATA-DICTIONARY.md", "workbook-schema.json"], { cwd: out });
+  execFileSync("python3", ["-m", "zipfile", "-c", zip, "apps-script", "BCRYPT-LICENSE", "README.md", "ACCEPTANCE.md", "PARITY.md", "CAPACITY.md", "VERIFICATION.md", "INSTALL.html", "DATA-DICTIONARY.md", "workbook-schema.json"], { cwd: out });
   console.log(`Built ${Object.keys(schema).length} workbook definitions and export package at generated-artifacts/google-portal/`);
   return out;
 }
