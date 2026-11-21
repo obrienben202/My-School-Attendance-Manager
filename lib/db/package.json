@@ -10,7 +10,8 @@
   "scripts": {
     "push": "drizzle-kit push --strict --verbose --config ./drizzle.config.ts",
     "migrate:development": "bash ./scripts/migrate-development.sh",
-    "test:migration": "node ./scripts/test-additive-attendance-migration.mjs"
+    "test:migration": "node ./scripts/test-additive-attendance-migration.mjs",
+    "test:migration:ilp-groups": "node ./scripts/test-ilp-group-revision-migration.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

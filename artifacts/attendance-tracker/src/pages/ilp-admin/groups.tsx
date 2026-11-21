@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListIlpGroups, getListIlpGroupsQueryKey, useCreateIlpGroup, useUpdateIlpGroup, useDeleteIlpGroup,
   type IlpGroup as Group, type IlpGroupFilter as FilterDef,
+  type IlpGroupConflict,
 } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Link } from "wouter";
@@ -20,6 +21,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IlpAdminNav } from "./_nav";
+import { GroupConflict, readGroupConflict } from "./group-conflict";
 import { PlusCircle, MoreHorizontal, Pencil, Trash2, X, Plus, Layers } from "lucide-react";
 
 const FILTER_FIELDS = ["Year Group"] as const;
@@ -43,6 +45,7 @@ export default function IlpGroups() {
   const deleteGroup = useDeleteIlpGroup();
   const busy = createGroup.isPending || updateGroup.isPending || deleteGroup.isPending;
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<IlpGroupConflict | null>(null);
   const termly = useTermlyAdmin();
   const forms = termlyForms(termly.data?.templates ?? []);
   const [showCreate, setShowCreate] = useState(false);
@@ -50,8 +53,8 @@ export default function IlpGroups() {
   const [showDelete, setShowDelete] = useState<Group | null>(null);
   const [form, setForm] = useState({ name: "", filters: [emptyFilter()] });
 
-  const openCreate = () => { setSaveError(null); setForm({ name: "", filters: [emptyFilter()] }); setShowCreate(true); };
-  const openEdit = (g: Group) => { setSaveError(null); setForm({ name: g.name, filters: [...g.filters] }); setShowEdit(g); };
+  const openCreate = () => { setSaveError(null); setConflict(null); setForm({ name: "", filters: [emptyFilter()] }); setShowCreate(true); };
+  const openEdit = (g: Group) => { setSaveError(null); setConflict(null); setForm({ name: g.name, filters: [...g.filters] }); setShowEdit(g); };
 
   const setFilter = (idx: number, patch: Partial<FilterDef>) => {
     setForm((prev) => ({ ...prev, filters: prev.filters.map((f, i) => i === idx ? { ...f, ...patch } : f) }));
@@ -71,23 +74,31 @@ export default function IlpGroups() {
   };
 
   const doEdit = async () => {
-    if (!showEdit) return;
+    if (!showEdit || conflict) return;
     setSaveError(null);
     try {
-      await updateGroup.mutateAsync({ id: showEdit.id, data: form });
+      await updateGroup.mutateAsync({ id: showEdit.id, data: { ...form, revision: showEdit.revision } });
       await refresh();
       setShowEdit(null);
-    } catch (error) { setSaveError(errorMessage(error)); }
+    } catch (error) {
+      const stale = readGroupConflict(error);
+      if (stale) { setConflict(stale); void refresh(); }
+      else setSaveError(errorMessage(error));
+    }
   };
 
   const doDelete = async () => {
-    if (!showDelete || showDelete.defaultYear !== null) return;
+    if (!showDelete || showDelete.defaultYear !== null || conflict) return;
     setSaveError(null);
     try {
-      await deleteGroup.mutateAsync({ id: showDelete.id });
+      await deleteGroup.mutateAsync({ id: showDelete.id, params: { revision: showDelete.revision } });
       await refresh();
       setShowDelete(null);
-    } catch (error) { setSaveError(errorMessage(error)); }
+    } catch (error) {
+      const stale = readGroupConflict(error);
+      if (stale) { setConflict(stale); void refresh(); }
+      else setSaveError(errorMessage(error));
+    }
   };
 
   const renderFilters = () => (
@@ -204,7 +215,7 @@ export default function IlpGroups() {
                         <DropdownMenuItem
                           disabled={g.defaultYear !== null}
                           className={g.defaultYear !== null ? "opacity-40 cursor-not-allowed" : "text-red-600"}
-                          onClick={() => { setSaveError(null); setShowDelete(g); }}
+                          onClick={() => { setSaveError(null); setConflict(null); setShowDelete(g); }}
                         >
                           <Trash2 size={13} className="mr-2" />
                           {g.defaultYear !== null ? "Cannot delete (default)" : "Delete"}
@@ -241,17 +252,23 @@ export default function IlpGroups() {
         <Dialog open={!!showEdit} onOpenChange={() => { if (!busy) setShowEdit(null); }}>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Edit Group</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-2">
+            <fieldset disabled={busy} className="space-y-4 py-2">
               <div>
                 <label className="text-xs font-semibold text-gray-600 block mb-1">Group Name *</label>
                 <Input maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
               {renderFilters()}
               {saveError && <p role="alert" className="text-sm text-red-700">{saveError}</p>}
-            </div>
+            </fieldset>
+            {conflict && <GroupConflict conflict={conflict}
+              onReload={() => { if (conflict.current) openEdit(conflict.current); }}
+              onReconcile={() => {
+                if (conflict.current) { setShowEdit(conflict.current); setConflict(null); }
+              }}
+            />}
             <DialogFooter>
               <Button disabled={busy} variant="outline" onClick={() => setShowEdit(null)}>Cancel</Button>
-              <Button onClick={doEdit} disabled={busy || !form.name.trim()} className="bg-teal-700 hover:bg-teal-800">{busy ? "Saving…" : "Save"}</Button>
+              <Button onClick={doEdit} disabled={busy || !!conflict || !form.name.trim()} className="bg-teal-700 hover:bg-teal-800">{busy ? "Saving…" : "Save"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -262,9 +279,12 @@ export default function IlpGroups() {
             <DialogHeader><DialogTitle>Delete Group?</DialogTitle></DialogHeader>
             <p className="text-sm text-gray-600">Delete <strong>{showDelete?.name}</strong>? This cannot be undone. Termly forms and learner reviews will not be deleted or changed.</p>
             {saveError && <p role="alert" className="text-sm text-red-700">{saveError}</p>}
+            {conflict && <GroupConflict conflict={conflict} deleting onReload={() => {
+              if (conflict.current) { setShowDelete(conflict.current); setConflict(null); }
+            }} />}
             <DialogFooter>
               <Button disabled={busy} variant="outline" onClick={() => setShowDelete(null)}>Cancel</Button>
-              <Button disabled={busy} variant="destructive" onClick={doDelete}>{busy ? "Deleting…" : "Delete"}</Button>
+              <Button disabled={busy || !!conflict} variant="destructive" onClick={doDelete}>{busy ? "Deleting…" : "Delete"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -2011,12 +2011,12 @@ paths:
         schema: { type: integer, minimum: 1 }
     put:
       operationId: updateIlpGroup
-      summary: Replace group name and filters; retain original creator (administrator only)
+      summary: Replace group name and filters at the expected revision (administrator only)
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/IlpGroupInput" }
+            schema: { $ref: "#/components/schemas/IlpGroupUpdate" }
       responses:
         "200":
           description: Updated
@@ -2026,17 +2026,40 @@ paths:
         "400": { description: Unsupported or invalid filters }
         "401": { description: Authentication required }
         "403": { description: Administrator required }
-        "404": { description: Group not found }
+        "404":
+          description: Group was deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IlpGroupConflict" }
+        "409":
+          description: Group has changed since the editor opened
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IlpGroupConflict" }
     delete:
       operationId: deleteIlpGroup
       summary: Delete custom group only; defaults are protected, forms and reviews are not linked
+      parameters:
+        - in: query
+          name: revision
+          required: true
+          description: Revision from the group the administrator reviewed
+          schema: { type: integer, minimum: 0, maximum: 2147483646 }
       responses:
         "204": { description: Deleted }
         "400": { description: Invalid group identifier }
         "401": { description: Authentication required }
         "403": { description: Administrator required }
-        "404": { description: Group not found }
-        "409": { description: Year 7–11 default groups cannot be deleted }
+        "404":
+          description: Group was deleted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IlpGroupConflict" }
+        "409":
+          description: Stale revision or protected Year 7–11 default group
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IlpGroupConflict" }
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -2072,11 +2095,33 @@ components:
           type: array
           maxItems: 20
           items: { $ref: "#/components/schemas/IlpGroupFilter" }
+    IlpGroupUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, filters, revision]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        filters:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/IlpGroupFilter" }
+        revision: { type: integer, minimum: 0, maximum: 2147483646 }
+    IlpGroupConflict:
+      type: object
+      required: [error, code, current]
+      properties:
+        error: { type: string }
+        code: { type: string, enum: [GROUP_REVISION_CONFLICT, GROUP_NOT_FOUND, GROUP_PROTECTED] }
+        current:
+          oneOf:
+            - $ref: "#/components/schemas/IlpGroup"
+            - type: "null"
     IlpGroup:
       type: object
-      required: [id, name, filters, learnerCount, defaultYear, createdBy, createdAt]
+      required: [id, name, filters, revision, learnerCount, defaultYear, createdBy, createdAt]
       properties:
         id: { type: integer }
+        revision: { type: integer, minimum: 0 }
         name: { type: string }
         filters:
           type: array

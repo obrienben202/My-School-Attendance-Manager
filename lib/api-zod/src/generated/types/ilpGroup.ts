@@ -9,6 +9,8 @@ import type { IlpGroupFilter } from './ilpGroupFilter';
 
 export interface IlpGroup {
   id: number;
+  /** @minimum 0 */
+  revision: number;
   name: string;
   filters: IlpGroupFilter[];
   /** @minimum 0 */

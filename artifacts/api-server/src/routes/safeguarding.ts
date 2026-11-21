@@ -11,6 +11,12 @@ import { validateSafeguardingNoteInput } from "../lib/safeguarding-note-validati
 
 const router = Router();
 
+// These responses contain protected, mutable session-scoped information.
+router.use("/safeguarding/notes", (_req, res, next) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  next();
+});
+
 function requireSafeguardingAccess(req: Request, res: Response): boolean {
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Authentication required" });

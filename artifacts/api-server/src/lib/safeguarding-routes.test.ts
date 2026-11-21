@@ -144,9 +144,11 @@ test("safeguarding notes are role-protected and persisted with the signed-in aut
       for (const role of ["admin", "hod", "staff"] as const) {
         const listedBefore = await request(role, "GET", "/safeguarding/notes");
         assert.equal(listedBefore.status, 200, `${role} can list notes`);
+        assert.equal(listedBefore.headers.get("cache-control"), "private, no-store");
 
         const created = await request(role, "POST", "/safeguarding/notes", body);
         assert.equal(created.status, 201, `${role} can create notes`);
+        assert.equal(created.headers.get("cache-control"), "private, no-store");
         const createdNote = await created.json() as { id: number; author: string };
         const expectedAuthor = `${role === "hod" ? "Head" : role[0].toUpperCase() + role.slice(1)} Tester`;
         assert.equal(createdNote.author, expectedAuthor);

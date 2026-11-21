@@ -13,6 +13,7 @@
     "test:e2e:slots": "node e2e/course-slots-save.mjs",
     "test:e2e:slots:roles": "node e2e/course-slots-role.mjs",
     "test:e2e:hod": "node e2e/register-hod-session.mjs",
+    "test:e2e:my-timetable": "node e2e/my-timetable.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

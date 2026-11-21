@@ -37,8 +37,34 @@ export interface IlpGroupInput {
   filters: IlpGroupFilter[];
 }
 
+export interface IlpGroupUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /** @maxItems 20 */
+  filters: IlpGroupFilter[];
+  /**
+     * @minimum 0
+     * @maximum 2147483646
+     */
+  revision: number;
+}
+
+export type IlpGroupConflictCode = typeof IlpGroupConflictCode[keyof typeof IlpGroupConflictCode];
+
+
+export const IlpGroupConflictCode = {
+  GROUP_REVISION_CONFLICT: 'GROUP_REVISION_CONFLICT',
+  GROUP_NOT_FOUND: 'GROUP_NOT_FOUND',
+  GROUP_PROTECTED: 'GROUP_PROTECTED',
+} as const;
+
 export interface IlpGroup {
   id: number;
+  /** @minimum 0 */
+  revision: number;
   name: string;
   filters: IlpGroupFilter[];
   /** @minimum 0 */
@@ -47,6 +73,12 @@ export interface IlpGroup {
   defaultYear: number | null;
   createdBy: string;
   createdAt: string;
+}
+
+export interface IlpGroupConflict {
+  error: string;
+  code: IlpGroupConflictCode;
+  current: IlpGroup | null;
 }
 
 export type TermlyIlpTemplateContentTargetExamples = {
@@ -1577,5 +1609,14 @@ export type Logout200 = {
 
 export type GetTermlyIlpReviewParams = {
 supportReason?: string;
+};
+
+export type DeleteIlpGroupParams = {
+/**
+ * Revision from the group the administrator reviewed
+ * @minimum 0
+ * @maximum 2147483646
+ */
+revision: number;
 };
 

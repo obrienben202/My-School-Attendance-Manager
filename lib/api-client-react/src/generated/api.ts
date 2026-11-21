@@ -43,6 +43,7 @@ import type {
   ConciergeEnrolmentPhotoInput,
   Course,
   DashboardSummary,
+  DeleteIlpGroupParams,
   Eprogression,
   EprogressionInput,
   EprogressionUpdate,
@@ -53,7 +54,9 @@ import type {
   HealthStatus,
   Ilp,
   IlpGroup,
+  IlpGroupConflict,
   IlpGroupInput,
+  IlpGroupUpdate,
   IlpInput,
   IlpUpdate,
   ListAssessmentResultsParams,
@@ -6055,10 +6058,10 @@ export const getUpdateIlpGroupUrl = (id: number,) => {
 }
 
 /**
- * @summary Replace group name and filters; retain original creator (administrator only)
+ * @summary Replace group name and filters at the expected revision (administrator only)
  */
 export const updateIlpGroup = async (id: number,
-    ilpGroupInput: IlpGroupInput, options?: RequestInit): Promise<IlpGroup> => {
+    ilpGroupUpdate: IlpGroupUpdate, options?: RequestInit): Promise<IlpGroup> => {
 
   return customFetch<IlpGroup>(getUpdateIlpGroupUrl(id),
   {
@@ -6066,16 +6069,16 @@ export const updateIlpGroup = async (id: number,
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(
-      ilpGroupInput,)
+      ilpGroupUpdate,)
   }
 );}
 
 
 
 
-export const getUpdateIlpGroupMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupInput>}, TContext> => {
+export const getUpdateIlpGroupMutationOptions = <TError = ErrorType<void | IlpGroupConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupUpdate>}, TContext> => {
 
 const mutationKey = ['updateIlpGroup'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -6087,7 +6090,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIlpGroup>>, {id: number;data: BodyType<IlpGroupInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIlpGroup>>, {id: number;data: BodyType<IlpGroupUpdate>}> = (props) => {
           const {id,data} = props ?? {};
 
           return  updateIlpGroup(id,data,requestOptions)
@@ -6101,37 +6104,46 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type UpdateIlpGroupMutationResult = NonNullable<Awaited<ReturnType<typeof updateIlpGroup>>>
-    export type UpdateIlpGroupMutationBody = BodyType<IlpGroupInput>
-    export type UpdateIlpGroupMutationError = ErrorType<void>
+    export type UpdateIlpGroupMutationBody = BodyType<IlpGroupUpdate>
+    export type UpdateIlpGroupMutationError = ErrorType<void | IlpGroupConflict>
 
     /**
- * @summary Replace group name and filters; retain original creator (administrator only)
+ * @summary Replace group name and filters at the expected revision (administrator only)
  */
-export const useUpdateIlpGroup = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useUpdateIlpGroup = <TError = ErrorType<void | IlpGroupConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIlpGroup>>, TError,{id: number;data: BodyType<IlpGroupUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateIlpGroup>>,
         TError,
-        {id: number;data: BodyType<IlpGroupInput>},
+        {id: number;data: BodyType<IlpGroupUpdate>},
         TContext
       > => {
       return useMutation(getUpdateIlpGroupMutationOptions(options));
     }
 
-export const getDeleteIlpGroupUrl = (id: number,) => {
+export const getDeleteIlpGroupUrl = (id: number,
+    params: DeleteIlpGroupParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/termly-ilps/groups/${id}`
+  return stringifiedParams.length > 0 ? `/api/termly-ilps/groups/${id}?${stringifiedParams}` : `/api/termly-ilps/groups/${id}`
 }
 
 /**
  * @summary Delete custom group only; defaults are protected, forms and reviews are not linked
  */
-export const deleteIlpGroup = async (id: number, options?: RequestInit): Promise<void> => {
+export const deleteIlpGroup = async (id: number,
+    params: DeleteIlpGroupParams, options?: RequestInit): Promise<void> => {
 
-  return customFetch<void>(getDeleteIlpGroupUrl(id),
+  return customFetch<void>(getDeleteIlpGroupUrl(id,params),
   {
     ...options,
     method: 'DELETE'
@@ -6143,9 +6155,9 @@ export const deleteIlpGroup = async (id: number, options?: RequestInit): Promise
 
 
 
-export const getDeleteIlpGroupMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number}, TContext> => {
+export const getDeleteIlpGroupMutationOptions = <TError = ErrorType<void | IlpGroupConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number;params: DeleteIlpGroupParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number;params: DeleteIlpGroupParams}, TContext> => {
 
 const mutationKey = ['deleteIlpGroup'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -6157,10 +6169,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteIlpGroup>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteIlpGroup>>, {id: number;params: DeleteIlpGroupParams}> = (props) => {
+          const {id,params} = props ?? {};
 
-          return  deleteIlpGroup(id,requestOptions)
+          return  deleteIlpGroup(id,params,requestOptions)
         }
 
 
@@ -6172,17 +6184,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteIlpGroupMutationResult = NonNullable<Awaited<ReturnType<typeof deleteIlpGroup>>>
 
-    export type DeleteIlpGroupMutationError = ErrorType<void>
+    export type DeleteIlpGroupMutationError = ErrorType<void | IlpGroupConflict>
 
     /**
  * @summary Delete custom group only; defaults are protected, forms and reviews are not linked
  */
-export const useDeleteIlpGroup = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useDeleteIlpGroup = <TError = ErrorType<void | IlpGroupConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIlpGroup>>, TError,{id: number;params: DeleteIlpGroupParams}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteIlpGroup>>,
         TError,
-        {id: number},
+        {id: number;params: DeleteIlpGroupParams},
         TContext
       > => {
       return useMutation(getDeleteIlpGroupMutationOptions(options));

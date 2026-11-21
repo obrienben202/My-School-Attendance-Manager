@@ -2020,6 +2020,8 @@ export const ActOnTermlyIlpReviewResponse = zod.object({
 /**
  * @summary List shared roster-backed groups (school staff only)
  */
+export const listIlpGroupsResponseRevisionMin = 0;
+
 export const listIlpGroupsResponseFiltersItemValueRegExp = new RegExp('^(Year )?(7|8|9|10|11)$');
 export const listIlpGroupsResponseLearnerCountMin = 0;
 
@@ -2027,6 +2029,7 @@ export const listIlpGroupsResponseLearnerCountMin = 0;
 
 export const ListIlpGroupsResponseItem = zod.object({
   "id": zod.number(),
+  "revision": zod.number().min(listIlpGroupsResponseRevisionMin),
   "name": zod.string(),
   "filters": zod.array(zod.object({
   "field": zod.enum(['Year Group']),
@@ -2062,7 +2065,7 @@ export const CreateIlpGroupBody = zod.object({
 
 
 /**
- * @summary Replace group name and filters; retain original creator (administrator only)
+ * @summary Replace group name and filters at the expected revision (administrator only)
  */
 
 
@@ -2076,6 +2079,9 @@ export const updateIlpGroupBodyNameMax = 120;
 export const updateIlpGroupBodyFiltersItemValueRegExp = new RegExp('^(Year )?(7|8|9|10|11)$');
 export const updateIlpGroupBodyFiltersMax = 20;
 
+export const updateIlpGroupBodyRevisionMin = 0;
+export const updateIlpGroupBodyRevisionMax = 2147483646;
+
 
 
 export const UpdateIlpGroupBody = zod.object({
@@ -2084,8 +2090,11 @@ export const UpdateIlpGroupBody = zod.object({
   "field": zod.enum(['Year Group']),
   "operator": zod.enum(['equals', 'is not']),
   "value": zod.string().regex(updateIlpGroupBodyFiltersItemValueRegExp)
-})).max(updateIlpGroupBodyFiltersMax)
+})).max(updateIlpGroupBodyFiltersMax),
+  "revision": zod.number().min(updateIlpGroupBodyRevisionMin).max(updateIlpGroupBodyRevisionMax)
 })
+
+export const updateIlpGroupResponseRevisionMin = 0;
 
 export const updateIlpGroupResponseFiltersItemValueRegExp = new RegExp('^(Year )?(7|8|9|10|11)$');
 export const updateIlpGroupResponseLearnerCountMin = 0;
@@ -2094,6 +2103,7 @@ export const updateIlpGroupResponseLearnerCountMin = 0;
 
 export const UpdateIlpGroupResponse = zod.object({
   "id": zod.number(),
+  "revision": zod.number().min(updateIlpGroupResponseRevisionMin),
   "name": zod.string(),
   "filters": zod.array(zod.object({
   "field": zod.enum(['Year Group']),
@@ -2115,6 +2125,15 @@ export const UpdateIlpGroupResponse = zod.object({
 
 export const DeleteIlpGroupParams = zod.object({
   "id": zod.coerce.number().min(1)
+})
+
+export const deleteIlpGroupQueryRevisionMin = 0;
+export const deleteIlpGroupQueryRevisionMax = 2147483646;
+
+
+
+export const DeleteIlpGroupQueryParams = zod.object({
+  "revision": zod.coerce.number().min(deleteIlpGroupQueryRevisionMin).max(deleteIlpGroupQueryRevisionMax).describe('Revision from the group the administrator reviewed')
 })
 
 

@@ -8,6 +8,7 @@ export const ilpGroupsTable = pgTable("ilp_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   filters: jsonb("filters").$type<IlpGroupFilter[]>().notNull(),
+  revision: integer("revision").notNull().default(0),
   defaultYear: integer("default_year"),
   createdById: varchar("created_by_id").references(() => usersTable.id, { onDelete: "set null" }),
   createdBy: text("created_by").notNull(),
@@ -16,6 +17,6 @@ export const ilpGroupsTable = pgTable("ilp_groups", {
   uniqueIndex("ilp_groups_default_year").on(t.defaultYear),
   check("ilp_groups_default_year_range", sql`${t.defaultYear} IS NULL OR ${t.defaultYear} BETWEEN 7 AND 11`),
 ]);
-export const insertIlpGroupSchema = createInsertSchema(ilpGroupsTable).omit({ id: true, createdAt: true });
+export const insertIlpGroupSchema = createInsertSchema(ilpGroupsTable).omit({ id: true, createdAt: true, revision: true });
 export type IlpGroup = typeof ilpGroupsTable.$inferSelect;
 export type InsertIlpGroup = typeof ilpGroupsTable.$inferInsert;

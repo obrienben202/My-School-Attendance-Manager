@@ -20,7 +20,7 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
   assert.ok(!process.env.REPLIT_DEPLOYMENT);
   const token = randomUUID().replaceAll("-", "");
   const prefix = `ilp-fixture-${token}`;
-  const fixtureNames = ["admin", "learner1", "learner2", "unlinked", "tutor", "other", "office", "hod"] as const;
+  const fixtureNames = ["admin", "admin2", "learner1", "learner2", "unlinked", "tutor", "other", "office", "hod"] as const;
   const passwords = new Map(fixtureNames.map(name => [`${prefix}-${name}`, randomUUID()]));
   const nativeFetch = globalThis.fetch;
   globalThis.fetch = (async (input, init) => {
@@ -50,7 +50,7 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
   }
   try {
     const csv = "username,password,role,fullname\n" + fixtureNames.map(name => {
-      const role = name.startsWith("learner") || name === "unlinked" ? "student" : name === "tutor" || name === "other" ? "staff" : name;
+      const role = name.startsWith("admin") ? "admin" : name.startsWith("learner") || name === "unlinked" ? "student" : name === "tutor" || name === "other" ? "staff" : name;
       return `${prefix}-${name},${passwords.get(`${prefix}-${name}`)},${role},Synthetic ILP fixture`;
     }).join("\n");
     assert.equal((await syncUsersFromDirectory(csv)).invalid, 0);
@@ -62,9 +62,10 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
       assert.equal(login.status, 200);
       cookies.set(name, login.response.headers.get("set-cookie")!.split(";")[0]);
       const me = await request("/auth/user", cookies.get(name)!);
-      assert.equal(me.data.user.role, name.startsWith("learner") || name === "unlinked" ? "learner" : name === "tutor" || name === "other" ? "staff" : name);
+      assert.equal(me.data.user.role, name.startsWith("admin") ? "admin" : name.startsWith("learner") || name === "unlinked" ? "learner" : name === "tutor" || name === "other" ? "staff" : name);
     }
     const admin = cookies.get("admin")!;
+    const admin2 = cookies.get("admin2")!;
     const learner = cookies.get("learner1")!;
     const second = cookies.get("learner2")!;
     const tutor = cookies.get("tutor")!;
@@ -77,7 +78,7 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
     assert.equal(defaults.response.headers.get("cache-control"), "private, no-store");
     assert.deepEqual(defaults.data.filter((g: any) => g.defaultYear !== null).map((g: any) => g.defaultYear).sort((a: number, b: number) => a - b), [7, 8, 9, 10, 11]);
     const originalDefault = defaults.data.find((g: any) => g.defaultYear === 7);
-    assert.equal((await request(`${groupsPath}/${originalDefault.id}`, admin, "DELETE")).status, 409);
+    assert.equal((await request(`${groupsPath}/${originalDefault.id}?revision=${originalDefault.revision}`, admin, "DELETE")).status, 409);
     const groupInput = { name: `${prefix}-group`, filters: [{ field: "Year Group", operator: "equals", value: "Year 7" }] };
     for (const role of ["tutor", "hod", "office"]) {
       const cookie = cookies.get(role)!;
@@ -92,9 +93,11 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
       assert.match(rejected.data.error, /not supported/);
     }
     assert.equal((await request(groupsPath, admin, "POST", { ...groupInput, createdBy: "Forged" })).status, 400);
+    assert.equal((await request(groupsPath, admin, "POST", { ...groupInput, revision: 100 })).status, 400);
     assert.equal((await request(groupsPath, admin, "POST", { ...groupInput, name: " " })).status, 400);
     const created = await request(groupsPath, admin, "POST", groupInput);
     assert.equal(created.status, 201);
+    assert.equal(created.data.revision, 0);
     groupIds.push(created.data.id);
     assert.equal(created.data.createdBy, "Synthetic ILP fixture");
     assert.ok(Number.isFinite(Date.parse(created.data.createdAt)));
@@ -104,20 +107,71 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
     assert.equal(storedGroup.createdById, uid("admin"));
     assert.equal((await request(groupsPath, other)).data.find((g: any) => g.id === created.data.id).name, groupInput.name);
     const renamed = { ...groupInput, name: `${prefix}-renamed`, filters: [{ field: "Year Group", operator: "is not", value: "8" }] };
-    const edited = await request(`${groupsPath}/${created.data.id}`, admin, "PUT", renamed);
+    const groupPath = `${groupsPath}/${created.data.id}`;
+    const secondSnapshot = (await request(groupsPath, admin2)).data.find((g: any) => g.id === created.data.id);
+    for (const revision of [undefined, null, -1, 0.5, "0", 2147483647]) {
+      assert.equal((await request(groupPath, admin, "PUT", { ...renamed, revision })).status, 400);
+    }
+    for (const query of ["", "?revision=", "?revision=-1", "?revision=0.5", "?revision=abc", "?revision=2147483647", "?revision=0&revision=0"]) {
+      assert.equal((await request(groupPath + query, admin, "DELETE")).status, 400);
+    }
+    const edited = await request(groupPath, admin, "PUT", { ...renamed, revision: created.data.revision });
     assert.equal(edited.status, 200);
+    assert.equal(edited.data.revision, 1);
     assert.equal(edited.data.createdAt, created.data.createdAt);
     assert.equal(edited.data.createdBy, created.data.createdBy);
     const reloaded = (await request(groupsPath, cookies.get("hod")!)).data.find((g: any) => g.id === created.data.id);
     assert.deepEqual(reloaded.filters, renamed.filters);
     assert.equal(reloaded.name, renamed.name);
+    const staleUpdate = await request(groupPath, admin2, "PUT", { ...groupInput, revision: secondSnapshot.revision });
+    assert.equal(staleUpdate.status, 409);
+    assert.equal(staleUpdate.data.code, "GROUP_REVISION_CONFLICT");
+    assert.deepEqual(staleUpdate.data.current, edited.data);
+    const staleDelete = await request(`${groupPath}?revision=${secondSnapshot.revision}`, admin2, "DELETE");
+    assert.equal(staleDelete.status, 409);
+    assert.deepEqual(staleDelete.data.current, edited.data);
+    assert.deepEqual((await request(groupsPath, admin2)).data.find((g: any) => g.id === created.data.id), edited.data);
+    // Both requests race with the same revision: only one may win.
+    const races = await Promise.all([
+      request(groupPath, admin, "PUT", { ...renamed, name: `${prefix}-race-a`, revision: 1 }),
+      request(groupPath, admin2, "PUT", { ...groupInput, name: `${prefix}-race-b`, revision: 1 }),
+    ]);
+    assert.deepEqual(races.map(r => r.status).sort(), [200, 409]);
+    const winner = races.find(r => r.status === 200)!;
+    assert.equal(winner.data.revision, 2);
+    assert.deepEqual(races.find(r => r.status === 409)!.data.current, winner.data);
+    // Explicit reconciliation uses the reviewed latest revision, not a force-save.
+    const reconciled = await request(groupPath, admin2, "PUT", { ...renamed, revision: winner.data.revision });
+    assert.equal(reconciled.status, 200);
+    assert.equal(reconciled.data.revision, 3);
+    assert.equal((await request(groupPath, admin, "PUT", { ...renamed, revision: winner.data.revision })).status, 409);
+    // Update versus delete must also compare the revision atomically.
+    const raceGroup = await request(groupsPath, admin, "POST", groupInput);
+    groupIds.push(raceGroup.data.id);
+    const racePath = `${groupsPath}/${raceGroup.data.id}`;
+    const updateDelete = await Promise.all([
+      request(racePath, admin, "PUT", { ...renamed, revision: 0 }),
+      request(`${racePath}?revision=0`, admin2, "DELETE"),
+    ]);
+    if (updateDelete[0].status === 200) {
+      assert.equal(updateDelete[1].status, 409);
+      assert.equal(updateDelete[1].data.current.revision, 1);
+      assert.equal((await request(`${racePath}?revision=1`, admin2, "DELETE")).status, 204);
+    } else {
+      assert.equal(updateDelete[0].status, 404);
+      assert.equal(updateDelete[1].status, 204);
+    }
+    const deletedUpdate = await request(racePath, admin, "PUT", { ...renamed, revision: 0 });
+    assert.equal(deletedUpdate.status, 404);
+    assert.equal(deletedUpdate.data.code, "GROUP_NOT_FOUND");
+    assert.equal(deletedUpdate.data.current, null);
     // Temporarily edit and always restore a default; initialization must not
     // overwrite administrator changes on subsequent reads.
     try {
-      assert.equal((await request(`${groupsPath}/${originalDefault.id}`, admin, "PUT", renamed)).status, 200);
+      assert.equal((await request(`${groupsPath}/${originalDefault.id}`, admin, "PUT", { ...renamed, revision: originalDefault.revision })).status, 200);
       assert.equal((await request(groupsPath, admin)).data.find((g: any) => g.id === originalDefault.id).name, renamed.name);
     } finally {
-      await db.update(ilpGroupsTable).set({ name: originalDefault.name, filters: originalDefault.filters }).where(eq(ilpGroupsTable.id, originalDefault.id));
+      await db.update(ilpGroupsTable).set({ name: originalDefault.name, filters: originalDefault.filters, revision: sql`${ilpGroupsTable.revision} + 1` }).where(eq(ilpGroupsTable.id, originalDefault.id));
     }
     for (let i = 1; i <= 2; i++) {
       const [student] = await db.insert(studentsTable).values({ personCode: `${prefix}-person-${i}`, forename: "Synthetic", surname: `Fixture ${i}`, yearGroup: `Year ${i + 6}`, confirmedLearner: true }).returning();
@@ -135,9 +189,11 @@ test("termly ILP HTTP integration: verified login, ownership, lifecycle, reconci
     }
     // Displayed forms are not saved group dependencies, even when published.
     const beforeTemplates = await db.select({ id: ilpTemplatesTable.id }).from(ilpTemplatesTable).where(inArray(ilpTemplatesTable.id, templateIds));
-    assert.equal((await request(`${groupsPath}/${created.data.id}`, admin, "DELETE")).status, 204);
+    assert.equal((await request(`${groupsPath}/${created.data.id}?revision=${reconciled.data.revision}`, admin, "DELETE")).status, 204);
     assert.equal((await request(groupsPath, other)).data.some((g: any) => g.id === created.data.id), false);
-    assert.equal((await request(`${groupsPath}/${created.data.id}`, admin, "DELETE")).status, 404);
+    const deletedAgain = await request(`${groupsPath}/${created.data.id}?revision=${reconciled.data.revision}`, admin, "DELETE");
+    assert.equal(deletedAgain.status, 404);
+    assert.equal(deletedAgain.data.current, null);
     assert.deepEqual(await db.select({ id: ilpTemplatesTable.id }).from(ilpTemplatesTable).where(inArray(ilpTemplatesTable.id, templateIds)), beforeTemplates);
     const publication = { academicYear: year, term: 1, templateId: templateIds[0], startDate: "2020-01-01", endDate: "2020-12-31", deadline: "2020-04-01" };
     const preview = await request("/termly-ilps/admin", admin, "POST", { action: "preview_term", ...publication });

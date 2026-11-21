@@ -6,7 +6,8 @@ import {
   useListSafeguardingNotes,
   useListStudents,
 } from "@workspace/api-client-react";
-import { useAuth } from "@workspace/replit-auth-web";
+import { useAuth, type AuthUser } from "@workspace/replit-auth-web";
+import { safeguardingNotesOptions } from "./query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -88,20 +89,40 @@ function errorMessage(error: unknown, fallback: string) {
 type NavView = "inbox" | "archived" | "search" | "add-record" | "add-note";
 
 export default function SafeguardingTutor() {
-  const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const canAccessSafeguarding = user?.role === "admin" || user?.role === "staff" || user?.role === "hod";
+
+  if (authLoading) {
+    return <div className="p-8 text-sm text-gray-500">Checking safeguarding access…</div>;
+  }
+
+  if (!user || !canAccessSafeguarding) {
+    return (
+      <div className="p-8 max-w-xl">
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+          <Lock size={18} className="mt-0.5 shrink-0" />
+          <div>
+            <h1 className="font-semibold">Safeguarding access required</h1>
+            <p className="mt-1 text-sm">Your account is not authorised to read or create protected safeguarding notes.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Remount only on an auth boundary, never on a notes refresh. This clears
+  // dialogs and drafts on sign-out/role changes without disturbing open work.
+  return <SafeguardingWorkspace key={JSON.stringify([user.id, user.role])} user={user} />;
+}
+
+function SafeguardingWorkspace({ user }: { user: AuthUser }) {
+  const queryClient = useQueryClient();
   const { data: students = [] } = useListStudents();
   const {
     data: savedNotes = [],
     isLoading: notesLoading,
     error: notesError,
-  } = useListSafeguardingNotes({
-    query: {
-      enabled: canAccessSafeguarding,
-      queryKey: getListSafeguardingNotesQueryKey(),
-    },
-  });
+  } = useListSafeguardingNotes(safeguardingNotesOptions(user.id, user.role));
   const createNote = useCreateSafeguardingNote();
   const [messages, setMessages] = useState<SafeguardingMessage[]>(SAMPLE_MESSAGES);
   const [navView, setNavView] = useState<NavView>("inbox");
@@ -283,24 +304,6 @@ export default function SafeguardingTutor() {
     { view: "add-record", icon: <FileText size={14} />, label: "Add Record" },
     { view: "add-note", icon: <StickyNote size={14} />, label: "Add Note / Risk" },
   ];
-
-  if (authLoading) {
-    return <div className="p-8 text-sm text-gray-500">Checking safeguarding access…</div>;
-  }
-
-  if (!canAccessSafeguarding) {
-    return (
-      <div className="p-8 max-w-xl">
-        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-          <Lock size={18} className="mt-0.5 shrink-0" />
-          <div>
-            <h1 className="font-semibold">Safeguarding access required</h1>
-            <p className="mt-1 text-sm">Your account is not authorised to read or create protected safeguarding notes.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="-mx-6 -mt-6 min-h-screen bg-slate-50 flex flex-col">
